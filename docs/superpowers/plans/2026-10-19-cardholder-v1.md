@@ -6,7 +6,7 @@
 
 **Architecture:** A deep, platform-free core in `src/` (crypto, storage, card store, backup format, policies, reminder planning) behind small interfaces (`SqlDb`, `BlobStore`, `KeyVault`, `IapModule`) so it's fully unit-tested in Jest with real AES/PBKDF2 (Node `crypto`) and real SQLite (`better-sqlite3`). Thin native adapters (expo-sqlite, expo-file-system, expo-secure-store, expo-iap, image picker, share) plug into those interfaces at runtime. UI is `expo-router` screens under `app/` that talk to one `AppProvider` context.
 
-**Tech Stack:** Expo (latest stable SDK at scaffold time, new architecture), TypeScript, expo-router, expo-sqlite, react-native-quick-crypto, expo-secure-store, expo-file-system, react-native-image-crop-picker (library + crop, no camera), expo-image-manipulator, expo-share-intent, expo-font (Public Sans, OCR-B), react-native-svg, expo-notifications, expo-brightness, expo-keep-awake, expo-screen-orientation, react-native-gesture-handler, react-native-reanimated, react-native-draggable-flatlist, @react-native-community/datetimepicker, react-native-share, expo-document-picker, expo-iap. Tests: Jest (jest-expo), @testing-library/react-native, better-sqlite3, Maestro.
+**Tech Stack:** Expo (latest stable SDK at scaffold time, new architecture), TypeScript, expo-router, expo-sqlite, react-native-quick-crypto, expo-secure-store, expo-file-system, react-native-image-crop-picker (library + crop, no camera), expo-image-manipulator, expo-share-intent, expo-font (Public Sans), react-native-svg, expo-notifications, expo-brightness, expo-keep-awake, expo-screen-orientation, react-native-gesture-handler, react-native-reanimated, react-native-draggable-flatlist, @react-native-community/datetimepicker, react-native-share, expo-document-picker, expo-iap. Tests: Jest (jest-expo), @testing-library/react-native, better-sqlite3, Maestro.
 
 **Spec:** `docs/design.md` — read it before starting any task.
 
@@ -36,7 +36,7 @@
 - Relative imports only (no path aliases). Tests live in `__tests__/` next to the code; shared test helpers live in `test/`.
 - `android.allowBackup: false` in `app.json`.
 - **No camera.** Images come only from the photo library or Share to CardHolder; `android.permission.CAMERA` is listed in `android.blockedPermissions`.
-- **Visual design** (see `docs/design.md` → Visual design): palette tokens in `src/ui/theme.ts`; Public Sans for all text through `src/ui/Text.tsx` (from Task 11 on, import `Text` from there, never from `react-native`); OCR-B only for card numbers; type scale 14 / 16 / 18 (body) / 21 / 24 / 36; true `#000000` in the counter view.
+- **Visual design** (see `docs/design.md` → Visual design): palette tokens in `src/ui/theme.ts`; Public Sans for all text through `src/ui/Text.tsx` (from Task 11 on, import `Text` from there, never from `react-native`); card numbers use tabular figures; type scale 14 / 16 / 18 (body) / 21 / 24 / 36; true `#000000` in the counter view.
 - Card photos use the ISO ID-1 corner radius (3.7% of their rendered width). Buttons use radius 8. Text fields have a bottom hairline only. No boxes, borders or shadows around card tiles or settings groups.
 - Motion: only the counter-view card flip, and it is skipped when the system Reduce Motion setting is on.
 
@@ -113,7 +113,7 @@ test/
 app/+native-intent.tsx              keeps share-extension deep links away from expo-router
 e2e/add-and-open-card.yaml
 assets/e2e/sample-card.jpg
-assets/fonts/                       PublicSans-Regular/SemiBold/Bold.ttf, OCRB.otf + licences
+assets/fonts/                       PublicSans-Regular/SemiBold/Bold.ttf + licence
 docs/design.md, docs/privacy-policy.md
 ```
 
@@ -3239,7 +3239,7 @@ git commit -m "feat: plan and schedule expiry reminders"
   - `useApp(): { services: Services; cards: Card[]; unlocked: boolean; refresh(): Promise<void>; openImportOnReady: boolean; clearOpenImport(): void }` — `cards` is the sorted list; `refresh()` reloads cards + unlock flag and re-syncs reminders. Call it after every mutation.
   - `BootScreen` (loading / orphaned / error)
   - `interface Theme { bg; surface; text; muted; accent; onAccent; selection; danger; border; rosette; bannerBg; bannerText }` (all `string`), `useTheme(): Theme`, `TYPE` (type scale)
-  - `FONT = { regular, semibold, bold, number }` (font family names), `familyFor(weight): string`, `Text` (drop-in for React Native's `Text` that applies Public Sans at the right weight), `FONTS` (the `useFonts` map, in `src/ui/fonts.ts`)
+  - `FONT = { regular, semibold, bold }` (font family names), `familyFor(weight): string`, `Text` (drop-in for React Native's `Text` that applies Public Sans at the right weight), `FONTS` (the `useFonts` map, in `src/ui/fonts.ts`)
   - `Button({ label, onPress, variant?: 'primary' | 'secondary' | 'danger', disabled?, testID?, accessibilityHint? })`
 
 - [ ] **Step 1: Install native storage, orientation and gesture packages**
@@ -3258,13 +3258,12 @@ Add to the `plugins` array in `app.json`:
       ["expo-screen-orientation", { "initialOrientation": "PORTRAIT_UP" }]
 ```
 
-Bundle the two typefaces (they ship inside the app, so nothing is fetched at runtime). Treat the downloads as untrusted: unzip each into its own empty folder in a scratch directory and copy only the font and licence files:
+Bundle the typeface (it ships inside the app, so nothing is fetched at runtime). Treat the downloads as untrusted: unzip it into its own empty folder in a scratch directory and copy only the font and licence files:
 
 - **Public Sans** (SIL Open Font License): download the latest release zip from https://github.com/uswds/public-sans/releases and copy `fonts/ttf/PublicSans-Regular.ttf`, `PublicSans-SemiBold.ttf`, `PublicSans-Bold.ttf` and the licence file into `assets/fonts/` (licence as `assets/fonts/PublicSans-LICENSE.md`).
-- **OCR-B**: download the `ocr-b-outline` package from https://ctan.org/pkg/ocr-b-outline, copy its regular OpenType file (e.g. `ocrb10.otf`) to `assets/fonts/OCRB.otf`, and its README/licence to `assets/fonts/OCRB-LICENSE.txt`. Read the licence first: it must allow redistribution inside an app. If it doesn't, stop and ask before substituting another OCR-B.
 
 Run: `ls assets/fonts`
-Expected: `OCRB-LICENSE.txt  OCRB.otf  PublicSans-Bold.ttf  PublicSans-LICENSE.md  PublicSans-Regular.ttf  PublicSans-SemiBold.ttf`
+Expected: `PublicSans-Bold.ttf  PublicSans-LICENSE.md  PublicSans-Regular.ttf  PublicSans-SemiBold.ttf`
 
 - [ ] **Step 2: Write the failing boot tests**
 
@@ -3521,7 +3520,6 @@ export const FONT = {
   regular: 'PublicSans-Regular',
   semibold: 'PublicSans-SemiBold',
   bold: 'PublicSans-Bold',
-  number: 'OCRB', // card numbers only — the face they are printed in on IDs
 } as const;
 
 // Custom fonts ship one file per weight; map the requested weight to the right file.
@@ -3550,7 +3548,6 @@ export const FONTS = {
   [FONT.regular]: require('../../assets/fonts/PublicSans-Regular.ttf'),
   [FONT.semibold]: require('../../assets/fonts/PublicSans-SemiBold.ttf'),
   [FONT.bold]: require('../../assets/fonts/PublicSans-Bold.ttf'),
-  [FONT.number]: require('../../assets/fonts/OCRB.otf'),
 };
 ```
 
@@ -4487,7 +4484,7 @@ import { CategoryChips } from '../../src/ui/CategoryChips';
 import { ExpiryField } from '../../src/ui/ExpiryField';
 import { Field, useInputStyle } from '../../src/ui/Field';
 import { ImageField } from '../../src/ui/ImageField';
-import { FONT, Text } from '../../src/ui/Text';
+import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 
 export default function EditCard() {
@@ -4612,7 +4609,7 @@ export default function EditCard() {
             autoCorrect={false}
             autoCapitalize="characters"
             accessibilityLabel={strings.edit.number}
-            style={[inputStyle, { fontFamily: FONT.number }]}
+            style={[inputStyle, { fontVariant: ['tabular-nums'] }]}
           />
         </Field>
         <Field label={strings.edit.notes}>
@@ -5429,7 +5426,7 @@ import { Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-n
 import { Card } from '../cards/types';
 import { useCardImage } from '../hooks/useCardImage';
 import { strings } from '../strings';
-import { FONT, Text } from './Text';
+import { Text } from './Text';
 import { useTheme } from './theme';
 
 // ISO/IEC 7810 ID-1: 3.18 mm corner radius on an 85.6 mm wide card.
@@ -5501,7 +5498,7 @@ const styles = StyleSheet.create({
   tile: { gap: 4, marginBottom: 20 },
   image: { aspectRatio: 1.586, overflow: 'hidden', borderWidth: 3 },
   name: { fontSize: 21, fontWeight: '600', marginTop: 6 },
-  number: { fontSize: 16, fontFamily: FONT.number, letterSpacing: 1 },
+  number: { fontSize: 16, fontVariant: ['tabular-nums'] },
   meta: { fontSize: 16 },
 });
 ```
@@ -5514,7 +5511,7 @@ import { Card } from '../cards/types';
 import { useCardImage } from '../hooks/useCardImage';
 import { strings } from '../strings';
 import { cardRadius } from './CardTile';
-import { FONT, Text } from './Text';
+import { Text } from './Text';
 import { useTheme } from './theme';
 
 const THUMB_WIDTH = 64;
@@ -5559,7 +5556,7 @@ const styles = StyleSheet.create({
   thumb: { width: THUMB_WIDTH, aspectRatio: 1.586, borderRadius: cardRadius(THUMB_WIDTH), overflow: 'hidden' },
   text: { flex: 1, gap: 2 },
   name: { fontSize: 18, fontWeight: '600' },
-  number: { fontSize: 14, fontFamily: FONT.number, letterSpacing: 1 },
+  number: { fontSize: 14, fontVariant: ['tabular-nums'] },
   meta: { fontSize: 14 },
 });
 ```
@@ -5804,7 +5801,7 @@ Expected: `tsc` exits 0; all suites PASS.
 Rebuild with `npx expo run:ios`. With the cards from earlier tasks:
 0. Empty state first (delete all cards or use a fresh simulator): the guilloche rosette sits above "Add your first card" in fine pale lines; in dark mode the lines are muted blue-grey.
 1. The banner "Back up your cards" shows at the top (never exported). **Not now** hides it; it stays hidden after relaunching the app.
-2. Pinned cards show as full-width card photos with real card corners and no frame, name below, card number in OCR-B when there is one; long-press one and drag it (it gets a violet outline) to reorder, then relaunch — the order is kept.
+2. Pinned cards show as full-width card photos with real card corners and no frame, name below, card number below it (tabular figures) when there is one; long-press one and drag it (it gets a violet outline) to reorder, then relaunch — the order is kept.
 3. Open a card, tap **Unpin**, close → it moves to "All cards", in alphabetical order.
 4. Type part of a name or card number into search → a flat "Results" list; pick a category chip → it narrows further; "No cards match." when nothing does.
 5. Turn on VoiceOver (Accessibility Inspector or Settings → Accessibility on device) on a pinned tile: swipe up/down offers "Move up"/"Move down", and both work.

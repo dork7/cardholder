@@ -84,7 +84,7 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
 ## Visual design
 
-Agreed 2026-10-19. The visual language is **security printing**, the vernacular of the documents the app holds: guilloche rosettes, intaglio ink, the ISO ID-1 card shape, OCR-B numerals.
+Agreed 2026-10-19. The visual language is **security printing**, the vernacular of the documents the app holds: guilloche rosettes, intaglio ink, the ISO ID-1 card shape.
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
@@ -95,12 +95,12 @@ Agreed 2026-10-19. The visual language is **security printing**, the vernacular 
 | Stamp red | `#B3261E` | `#FF8A80` | destructive actions, "can't be recovered" |
 | Counter black | `#000000` | `#000000` | counter view only |
 
-- **Type:** Public Sans (OFL, bundled) for all text; weights 400 body, 600 card names, 700 titles. Scale 14 / 16 / **18 body** / 21 / 24 / 36. **OCR-B** only for card numbers.
+- **Type:** Public Sans (OFL, bundled) for all text; weights 400 body, 600 card names, 700 titles. Scale 14 / 16 / **18 body** / 21 / 24 / 36. Card numbers use Public Sans with tabular figures.
 - **Shape:** card photos are the card — no box, border or shadow around tiles — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Buttons radius 8; text fields a bottom hairline only; settings are hairline-separated groups, not cards.
 - **One bold element:** a guilloche rosette (SVG), shown only on the empty state and the app-switcher cover.
 - **One motion:** a 3D card flip in the counter view when the user flips; instant when Reduce Motion is on. No other animation.
 - Content left-aligned; only the empty state centres its single call to action.
-- Avoid: stock iOS blue, uniform rounded card kits, all-caps labels, monospace anywhere except card numbers.
+- Avoid: stock iOS blue, uniform rounded card kits, all-caps labels, monospace faces.
 
 ## Stack
 
@@ -117,7 +117,7 @@ Agreed 2026-10-19. The visual language is **security printing**, the vernacular 
 - `@react-native-community/datetimepicker` (expiry date)
 - `react-native-share` (share card front + back; share export file), `expo-document-picker` (import)
 - `expo-iap` (unlock)
-- `expo-font` (bundled Public Sans + OCR-B), `react-native-svg` (rosette)
+- `expo-font` (bundled Public Sans), `react-native-svg` (rosette)
 
 ## Quality & release
 
