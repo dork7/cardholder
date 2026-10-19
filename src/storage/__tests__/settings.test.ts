@@ -1,0 +1,45 @@
+import { memoryDb } from '../../../test/memoryDb';
+import { createSettings } from '../settings';
+import { migrate } from '../sqlDb';
+
+async function setup() {
+  const db = memoryDb();
+  await migrate(db);
+  return { db, settings: createSettings(db) };
+}
+
+test('migrate creates tables and is idempotent', async () => {
+  const db = memoryDb();
+  await migrate(db);
+  await migrate(db);
+  const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
+  expect(version?.user_version).toBe(1);
+  const tables = await db.getAllAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
+    [],
+  );
+  expect(tables.map((t) => t.name)).toEqual(['cards', 'settings']);
+});
+
+test('missing setting is null', async () => {
+  const { settings } = await setup();
+  expect(await settings.get('lastExportAt')).toBeNull();
+  expect(await settings.getNumber('lastExportAt')).toBeNull();
+});
+
+test('set, overwrite and remove', async () => {
+  const { settings } = await setup();
+  await settings.set('unlocked', '1');
+  await settings.set('unlocked', '0');
+  expect(await settings.get('unlocked')).toBe('0');
+  await settings.remove('unlocked');
+  expect(await settings.get('unlocked')).toBeNull();
+});
+
+test('getNumber parses numbers and ignores junk', async () => {
+  const { settings } = await setup();
+  await settings.set('lastExportAt', '1700000000000');
+  expect(await settings.getNumber('lastExportAt')).toBe(1_700_000_000_000);
+  await settings.set('lastExportAt', 'not a number');
+  expect(await settings.getNumber('lastExportAt')).toBeNull();
+});
