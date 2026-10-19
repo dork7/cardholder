@@ -225,8 +225,8 @@ export function createCardStore({
       try {
         for (const { card, images } of entries) {
           if (!existingBefore.has(card.id)) {
-            await writeImages(card.id, images);
             newBlobIds.push(card.id);
+            await writeImages(card.id, images);
           }
         }
 
@@ -248,18 +248,18 @@ export function createCardStore({
             ]);
           }
         });
-
-        for (const { card, images } of entries) {
-          if (existingBefore.has(card.id)) await writeImages(card.id, images);
-        }
-
-        if (replace) {
-          const kept = new Set(entries.map((e) => e.card.id));
-          for (const id of previousIds) if (!kept.has(id)) await removeImages(id);
-        }
       } catch (e) {
         for (const id of newBlobIds) await removeImages(id);
         throw e;
+      }
+
+      for (const { card, images } of entries) {
+        if (existingBefore.has(card.id)) await writeImages(card.id, images);
+      }
+
+      if (replace) {
+        const kept = new Set(entries.map((e) => e.card.id));
+        for (const id of previousIds) if (!kept.has(id)) await removeImages(id);
       }
     },
   };

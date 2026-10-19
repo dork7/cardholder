@@ -1,6 +1,41 @@
+import { createMemoryBlobStore } from '../../../test/memoryBlobStore';
+import { memoryDb } from '../../../test/memoryDb';
 import { fields, frontImage, image, images, importEntry, makeStore } from '../../../test/fixtures';
+import { createAead, generateKey } from '../../crypto/aead';
 import { base64, utf8 } from '../../crypto/bytes';
-import { CardNotFoundError } from '../cardStore';
+import { createCardStore, CardNotFoundError } from '../cardStore';
+import { migrate } from '../../storage/sqlDb';
+import { BlobStore } from '../../storage/blobStore';
+
+async function makeStoreWithBlobPut(
+  failPut: (name: string, priorPutNames: readonly string[]) => boolean,
+): Promise<{ store: ReturnType<typeof createCardStore>; blobs: ReturnType<typeof createMemoryBlobStore> }> {
+  const db = memoryDb();
+  await migrate(db);
+  const inner = createMemoryBlobStore();
+  const priorPutNames: string[] = [];
+  const blobs: BlobStore & { raw: Map<string, Uint8Array> } = {
+    raw: inner.raw,
+    async put(name, bytes) {
+      if (failPut(name, priorPutNames)) throw new Error('put failed');
+      priorPutNames.push(name);
+      return inner.put(name, bytes);
+    },
+    get: (name) => inner.get(name),
+    remove: (name) => inner.remove(name),
+    list: () => inner.list(),
+  };
+  let clock = 1_000_000;
+  let nextId = 0;
+  const store = createCardStore({
+    db,
+    blobs,
+    aead: createAead(generateKey()),
+    now: () => (clock += 1_000),
+    newId: () => `card${++nextId}`,
+  });
+  return { store, blobs: inner };
+}
 
 const text = (b64: string | null) => (b64 === null ? null : utf8.decode(base64.decode(b64)));
 const INSERT =
@@ -189,5 +224,28 @@ describe('insertMany', () => {
     expect(text(await store.loadImage(keep.id, 'front'))).toBe('JPEG:keep');
     expect(text(await store.loadImage(keep.id, 'back'))).toBe('JPEG:keep-back');
     expect([...blobs.raw.keys()].sort()).toEqual(keepBlobKeys);
+  });
+
+  test('cleans up partial blobs when a new id\'s image write fails before commit', async () => {
+    const { store, blobs } = await makeStoreWithBlobPut((name) => name === 'dup.thumb');
+    const keep = await store.create(fields({ name: 'Keep me' }), images('keep', true));
+    const keepBlobKeys = [...blobs.raw.keys()].sort();
+    await expect(store.insertMany([importEntry('dup')], { replace: false })).rejects.toThrow('put failed');
+    expect((await store.list()).map((c) => c.name)).toEqual(['Keep me']);
+    expect([...blobs.raw.keys()].sort()).toEqual(keepBlobKeys);
+  });
+
+  test('does not delete committed new blobs when a post-commit existing-id write fails', async () => {
+    const { store, blobs } = await makeStoreWithBlobPut(
+      (name, prior) => name.endsWith('.front') && prior.some((p) => p.startsWith('imp1.')),
+    );
+    const keep = await store.create(fields({ name: 'Keep me' }), images('keep', true));
+    await expect(
+      store.insertMany([importEntry('imp1'), importEntry(keep.id, { name: 'Imported' })], { replace: true }),
+    ).rejects.toThrow('put failed');
+    expect(await store.get('imp1')).not.toBeNull();
+    expect(text(await store.loadImage('imp1', 'front'))).toBe('JPEG:imp1');
+    expect(text(await store.loadImage(keep.id, 'front'))).toBe('JPEG:keep');
+    expect(blobs.raw.has('imp1.front')).toBe(true);
   });
 });
