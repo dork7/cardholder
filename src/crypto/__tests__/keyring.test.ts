@@ -80,3 +80,13 @@ test('startFresh wipes cards, settings and blobs and installs a new key', async 
   expect((await openKeyring(vault, settings)).status).toBe('ready');
   expect(utf8.decode(aead.open(aead.seal(utf8.encode('ok'))))).toBe('ok');
 });
+
+test('no key-check and an unusable vault key replaces the key', async () => {
+  const { settings } = await setup();
+  const vault = createMemoryVault(new Uint8Array(5));
+  const result = await openKeyring(vault, settings);
+  expect(result.status).toBe('ready');
+  expect(vault.key).toHaveLength(32);
+  expect(await settings.get('keyCheck')).not.toBeNull();
+  expect((await openKeyring(vault, settings)).status).toBe('ready');
+});

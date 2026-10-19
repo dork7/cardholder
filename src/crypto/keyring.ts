@@ -11,6 +11,7 @@ export interface KeyVault {
 
 export type KeyringResult = { status: 'ready'; aead: Aead } | { status: 'orphaned' };
 
+const AES_256_KEY_LENGTH = 32;
 const KEY_CHECK_PLAINTEXT = 'cardholder-key-check-v1';
 
 export async function openKeyring(vault: KeyVault, settings: Settings): Promise<KeyringResult> {
@@ -18,7 +19,8 @@ export async function openKeyring(vault: KeyVault, settings: Settings): Promise<
   let key = await vault.get();
 
   if (check === null) {
-    if (!key) {
+    // No card data can exist without a key-check, so an unusable vault key is safe to replace.
+    if (!key || key.length !== AES_256_KEY_LENGTH) {
       key = generateKey();
       await vault.set(key);
     }
