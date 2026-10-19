@@ -102,8 +102,10 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
   const c = entry.card;
   const imgs = entry.images;
 
-  if (typeof c.id !== 'string' || !ID_PATTERN.test(c.id) || seen.has(c.id)) invalid();
-  seen.add(c.id);
+  if (typeof c.id !== 'string' || !ID_PATTERN.test(c.id)) invalid();
+  const idFold = c.id.toLowerCase();
+  if (seen.has(idFold)) invalid();
+  seen.add(idFold);
 
   const fields = validateCardFields(c);
   if (!fields.ok) invalid();

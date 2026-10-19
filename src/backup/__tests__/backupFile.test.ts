@@ -34,8 +34,8 @@ test('salt is random: same input, different files', async () => {
 });
 
 test('composed and decomposed passphrases are the same passphrase', async () => {
-  const bytes = await encodeBackup(backupSnapshot(), 'café latte', FAST);
-  expect(await decodeBackup(bytes, 'café latte')).toEqual(backupSnapshot());
+  const bytes = await encodeBackup(backupSnapshot(), 'caf\u00e9 latte', FAST);
+  expect(await decodeBackup(bytes, 'cafe\u0301 latte')).toEqual(backupSnapshot());
 });
 
 test('wrong passphrase', async () => {
@@ -88,6 +88,13 @@ describe('parseSnapshot', () => {
   test('rejects duplicate ids', async () => {
     const raw = rawSnapshot();
     raw.cards[1].card.id = raw.cards[0].card.id;
+    expect(await parseCode(raw)).toBe('invalid-contents');
+  });
+
+  test('rejects ids that collide when case-folded', async () => {
+    const raw = rawSnapshot();
+    raw.cards[0].card.id = 'ABC';
+    raw.cards[1].card.id = 'abc';
     expect(await parseCode(raw)).toBe('invalid-contents');
   });
 
