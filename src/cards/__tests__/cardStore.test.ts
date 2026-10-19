@@ -162,8 +162,9 @@ describe('insertMany', () => {
   });
 
   test('a failed replace leaves existing cards untouched', async () => {
-    const { store } = await makeStore();
+    const { store, blobs } = await makeStore();
     const keep = await store.create(fields({ name: 'Keep me' }), images('keep', true));
+    const keepBlobKeys = [...blobs.raw.keys()].sort();
     // Duplicate ids make the second INSERT fail inside the transaction.
     await expect(
       store.insertMany([importEntry('dup'), importEntry('dup')], { replace: true }),
@@ -171,5 +172,22 @@ describe('insertMany', () => {
     expect((await store.list()).map((c) => c.name)).toEqual(['Keep me']);
     expect(text(await store.loadImage(keep.id, 'front'))).toBe('JPEG:keep');
     expect(text(await store.loadImage(keep.id, 'back'))).toBe('JPEG:keep-back');
+    expect([...blobs.raw.keys()].sort()).toEqual(keepBlobKeys);
+  });
+
+  test('a failed replace does not overwrite an existing id\'s images before commit', async () => {
+    const { store, blobs } = await makeStore();
+    const keep = await store.create(fields({ name: 'Keep me' }), images('keep', true));
+    const keepBlobKeys = [...blobs.raw.keys()].sort();
+    await expect(
+      store.insertMany(
+        [importEntry(keep.id, { name: 'Imported overwrite' }, true), importEntry('dup'), importEntry('dup')],
+        { replace: true },
+      ),
+    ).rejects.toThrow();
+    expect((await store.list()).map((c) => c.name)).toEqual(['Keep me']);
+    expect(text(await store.loadImage(keep.id, 'front'))).toBe('JPEG:keep');
+    expect(text(await store.loadImage(keep.id, 'back'))).toBe('JPEG:keep-back');
+    expect([...blobs.raw.keys()].sort()).toEqual(keepBlobKeys);
   });
 });

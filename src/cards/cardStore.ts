@@ -218,31 +218,48 @@ export function createCardStore({
     },
 
     async insertMany(entries, { replace }) {
-      const previousIds = replace ? await ids() : [];
-      for (const { card, images } of entries) await writeImages(card.id, images);
+      const existingBefore = new Set(await ids());
+      const previousIds = replace ? [...existingBefore] : [];
+      const newBlobIds: string[] = [];
 
-      let position = replace ? 0 : await nextPinnedPosition();
-      const pinnedInOrder = entries.filter((e) => e.card.pinned).sort((a, b) => a.card.position - b.card.position);
-      const positions = new Map(pinnedInOrder.map((e) => [e.card.id, position++] as const));
-
-      await db.withTransactionAsync(async () => {
-        if (replace) await db.runAsync('DELETE FROM cards', []);
-        for (const { card } of entries) {
-          const stored: Card = { ...card, position: positions.get(card.id) ?? 0 };
-          await db.runAsync(INSERT_SQL, [
-            stored.id,
-            stored.pinned ? 1 : 0,
-            stored.position,
-            seal(stored),
-            stored.createdAt,
-            stored.updatedAt,
-          ]);
+      try {
+        for (const { card, images } of entries) {
+          if (!existingBefore.has(card.id)) {
+            await writeImages(card.id, images);
+            newBlobIds.push(card.id);
+          }
         }
-      });
 
-      if (replace) {
-        const kept = new Set(entries.map((e) => e.card.id));
-        for (const id of previousIds) if (!kept.has(id)) await removeImages(id);
+        let position = replace ? 0 : await nextPinnedPosition();
+        const pinnedInOrder = entries.filter((e) => e.card.pinned).sort((a, b) => a.card.position - b.card.position);
+        const positions = new Map(pinnedInOrder.map((e) => [e.card.id, position++] as const));
+
+        await db.withTransactionAsync(async () => {
+          if (replace) await db.runAsync('DELETE FROM cards', []);
+          for (const { card } of entries) {
+            const stored: Card = { ...card, position: positions.get(card.id) ?? 0 };
+            await db.runAsync(INSERT_SQL, [
+              stored.id,
+              stored.pinned ? 1 : 0,
+              stored.position,
+              seal(stored),
+              stored.createdAt,
+              stored.updatedAt,
+            ]);
+          }
+        });
+
+        for (const { card, images } of entries) {
+          if (existingBefore.has(card.id)) await writeImages(card.id, images);
+        }
+
+        if (replace) {
+          const kept = new Set(entries.map((e) => e.card.id));
+          for (const id of previousIds) if (!kept.has(id)) await removeImages(id);
+        }
+      } catch (e) {
+        for (const id of newBlobIds) await removeImages(id);
+        throw e;
       }
     },
   };
