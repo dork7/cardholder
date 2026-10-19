@@ -1,3 +1,4 @@
+import { SqlDb } from '../sqlDb';
 import { memoryDb } from '../../../test/memoryDb';
 import { createSettings } from '../settings';
 import { migrate } from '../sqlDb';
@@ -42,4 +43,33 @@ test('getNumber parses numbers and ignores junk', async () => {
   expect(await settings.getNumber('lastExportAt')).toBe(1_700_000_000_000);
   await settings.set('lastExportAt', 'not a number');
   expect(await settings.getNumber('lastExportAt')).toBeNull();
+});
+
+test('a failed migration rolls back its schema change and leaves user_version unchanged', async () => {
+  const real = memoryDb();
+  let failNextVersionBump = true;
+  const flaky: SqlDb = {
+    ...real,
+    async execAsync(sql) {
+      if (failNextVersionBump && sql === 'PRAGMA user_version = 1') {
+        failNextVersionBump = false;
+        throw new Error('simulated crash');
+      }
+      return real.execAsync(sql);
+    },
+  };
+
+  await expect(migrate(flaky)).rejects.toThrow('simulated crash');
+
+  const version = await real.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
+  expect(version?.user_version).toBe(0);
+  const tables = await real.getAllAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
+    [],
+  );
+  expect(tables.map((t) => t.name)).toEqual([]);
+
+  await migrate(flaky);
+  const after = await real.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
+  expect(after?.user_version).toBe(1);
 });
