@@ -1,3 +1,4 @@
+import { BackupSnapshot } from '../src/backup/backupFile';
 import { createAead, generateKey } from '../src/crypto/aead';
 import { base64, utf8 } from '../src/crypto/bytes';
 import { createCardStore, ImportEntry } from '../src/cards/cardStore';
@@ -46,6 +47,17 @@ export function importEntry(id: string, overrides: Partial<Card> = {}, withBack 
   return {
     card: makeCard({ id, ...overrides, hasBack: withBack, backAspect: withBack ? 1.586 : null }),
     images: images(id, withBack),
+  };
+}
+
+export function backupSnapshot(): BackupSnapshot {
+  return {
+    formatVersion: 1,
+    exportedAt: 1_700_000_000_000,
+    cards: [
+      importEntry('card1', { name: 'Emirates ID', category: 'id', expiresOn: '2027-03-01', number: '784' }),
+      importEntry('card2', { name: 'Gym', pinned: false, position: 0, notes: 'Locker 12' }, true),
+    ],
   };
 }
 
