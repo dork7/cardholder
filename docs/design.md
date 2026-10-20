@@ -44,7 +44,7 @@ Tap a card → **counter view**:
 - Full-screen.
 - Brightness to maximum; restored on exit and when the app is backgrounded.
 - Screen kept awake.
-- Tap (or swipe) flips front/back when a back exists.
+- Front and back shown together, one above the other, when a back exists.
 - Pinch to zoom.
 - Landscape when the image is wider than tall, so the card fills the screen.
 
@@ -98,7 +98,7 @@ Agreed 2026-10-19. The visual language is **security printing**, the vernacular 
 - **Type:** Public Sans (OFL, bundled) for all text; weights 400 body, 600 card names, 700 titles. Scale 14 / 16 / **18 body** / 21 / 24 / 36. Card numbers use Public Sans with tabular figures.
 - **Shape:** card photos are the card — no box, border or shadow around tiles — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Buttons radius 8; text fields a bottom hairline only; settings are hairline-separated groups, not cards.
 - **One bold element:** a guilloche rosette (SVG), shown only on the empty state and the app-switcher cover.
-- **Two motions:** a 3D card flip in the counter view when the user flips, and the home screen's wallet-style card stack (swipe down sends the front card to the back, swipe up brings the previous one back, tapping a peeking card brings it straight to the front). Both are instant when Reduce Motion is on. No other animation.
+- **Two motions:** a 3D card flip in the counter view when the user flips, and the home screen's wallet-style card stack (cards behind fan out to the right; swipe left sends the front card to the back, swipe right brings the previous one back, tapping a peeking card brings it straight to the front). Both are instant when Reduce Motion is on. No other animation.
 - Content left-aligned; only the empty state centres its single call to action.
 - Avoid: stock iOS blue, uniform rounded card kits, all-caps labels, monospace faces.
 

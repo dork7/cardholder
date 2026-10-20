@@ -11,7 +11,7 @@ export default function Home() {
   const { cards } = useApp();
   const router = useRouter();
   const theme = useTheme();
-  // A plain View, not a ScrollView: the stack owns vertical swipes.
+  // A plain View: the screen fits without scrolling, so nothing competes with the stack for swipes.
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg, padding: 16, gap: 24 }}>
       {cards.length === 0 ? (

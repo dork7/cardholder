@@ -6,16 +6,24 @@ import {
   releaseAction,
   restingPose,
   rubberBand,
-  slotAtY,
+  slotAtX,
   stackGeometry,
 } from '../stackGeometry';
 
-const FLY = 150;
+const FLY = 200;
+
+describe('stackGeometry', () => {
+  test('the front card leaves room for the fanned strips', () => {
+    const geo = stackGeometry(360, 5);
+    expect(geo.cardW + PEEK * (geo.visible - 1)).toBe(360);
+    expect(stackGeometry(360, 1).cardW).toBe(360);
+  });
+});
 
 describe('restingPose', () => {
-  test('the front card sits lowest and the cards behind rise above it', () => {
-    expect(restingPose(0, 5)).toEqual({ ty: 0, scale: 1, opacity: 1, z: 5 });
-    expect(restingPose(2, 5).ty).toBe(-2 * PEEK);
+  test('the cards behind fan out to the right of the front one', () => {
+    expect(restingPose(0, 5)).toEqual({ tx: 0, rotate: 0, scale: 1, opacity: 1, z: 5 });
+    expect(restingPose(2, 5).tx).toBe(2 * PEEK);
     expect(restingPose(2, 5).scale).toBeLessThan(restingPose(1, 5).scale);
     expect(restingPose(1, 5).z).toBeLessThan(restingPose(0, 5).z);
   });
@@ -38,11 +46,15 @@ describe('cardPose', () => {
     }
   });
 
-  test('the leaving card flies out in front of the pile, then fades in at the back', () => {
+  test('the leaving card flies out to the left, tilting, in front of the pile', () => {
     const flying = cardPose(0, 5, 0, 1, 0.25, FLY);
-    expect(flying.ty).toBeCloseTo(FLY / 2);
+    expect(flying.tx).toBeCloseTo(-FLY / 2);
+    expect(flying.rotate).toBeLessThan(0);
     expect(flying.z).toBeGreaterThan(5);
-    expect(cardPose(0, 5, 0, 1, 0.5, FLY)).toMatchObject({ ty: -4 * PEEK, opacity: 0, z: 1 });
+  });
+
+  test('then it fades in at the back of the pile', () => {
+    expect(cardPose(0, 5, 0, 1, 0.5, FLY)).toMatchObject({ tx: 4 * PEEK, rotate: 0, opacity: 0, z: 1 });
   });
 
   test('it is invisible at the moment it jumps to the back', () => {
@@ -55,10 +67,8 @@ describe('cardPose', () => {
   });
 
   test('selecting a card sends every card in front of it away together', () => {
-    const p0 = cardPose(0, 5, 0, 3, 0.25, FLY);
-    const p2 = cardPose(2, 5, 0, 3, 0.25, FLY);
-    expect(p0.ty).toBeGreaterThan(0);
-    expect(p2.ty).toBeGreaterThan(restingPose(2, 5).ty);
+    expect(cardPose(0, 5, 0, 3, 0.25, FLY).tx).toBeLessThan(0);
+    expect(cardPose(2, 5, 0, 3, 0.25, FLY).tx).toBeLessThan(restingPose(2, 5).tx);
     expect(cardPose(3, 5, 0, 3, 0.5, FLY)).toEqual(restingPose(0, 5));
   });
 
@@ -73,44 +83,44 @@ describe('cardPose', () => {
 });
 
 describe('drag', () => {
-  test('the front card tracks the rubber-banded finger', () => {
-    const f = dragProgress(80, FLY);
-    expect(cardPose(0, 5, 0, 1, f, FLY).ty).toBeCloseTo(rubberBand(80));
+  test('the front card tracks the rubber-banded finger to the left', () => {
+    const f = dragProgress(-80, FLY);
+    expect(cardPose(0, 5, 0, 1, f, FLY).tx).toBeCloseTo(-rubberBand(80));
   });
 
-  test('upward drags do not advance the stack', () => {
-    expect(dragProgress(-40, FLY)).toBe(0);
+  test('rightward drags do not advance the stack', () => {
+    expect(dragProgress(40, FLY)).toBe(0);
   });
 });
 
 describe('releaseAction', () => {
   test('commits on distance', () => {
-    expect(releaseAction(COMMIT_PX, 0)).toBe(1);
-    expect(releaseAction(-COMMIT_PX, 0)).toBe(-1);
+    expect(releaseAction(-COMMIT_PX, 0)).toBe(1);
+    expect(releaseAction(COMMIT_PX, 0)).toBe(-1);
   });
 
   test('commits a short fast flick', () => {
-    expect(releaseAction(20, 900)).toBe(1);
-    expect(releaseAction(-20, -900)).toBe(-1);
+    expect(releaseAction(-20, -900)).toBe(1);
+    expect(releaseAction(20, 900)).toBe(-1);
   });
 
   test('springs back from a slow short drag', () => {
-    expect(releaseAction(40, 100)).toBe(0);
+    expect(releaseAction(-40, -100)).toBe(0);
   });
 });
 
-describe('slotAtY', () => {
-  const geo = stackGeometry(340, 5);
+describe('slotAtX', () => {
+  const geo = stackGeometry(360, 5);
 
-  test('taps on the front card or the strips above it', () => {
-    expect(slotAtY(geo.frontTop + 10, geo)).toBe(0);
-    expect(slotAtY(geo.frontTop - 10, geo)).toBe(1);
-    expect(slotAtY(geo.frontTop - PEEK - 10, geo)).toBe(2);
-    expect(slotAtY(0, geo)).toBe(3);
+  test('taps on the front card or the strips to its right', () => {
+    expect(slotAtX(geo.cardW - 10, geo)).toBe(0);
+    expect(slotAtX(geo.cardW + 10, geo)).toBe(1);
+    expect(slotAtX(geo.cardW + PEEK + 10, geo)).toBe(2);
+    expect(slotAtX(360, geo)).toBe(3);
   });
 
   test('never returns a hidden slot', () => {
-    expect(slotAtY(0, stackGeometry(340, 1))).toBe(0);
-    expect(slotAtY(-500, geo)).toBe(3);
+    expect(slotAtX(400, stackGeometry(360, 1))).toBe(0);
+    expect(slotAtX(1000, geo)).toBe(3);
   });
 });

@@ -25,7 +25,7 @@ import {
   mod,
   releaseAction,
   rubberBand,
-  slotAtY,
+  slotAtX,
   stackGeometry,
   StackGeometry,
   TAP_SLOP,
@@ -41,8 +41,8 @@ interface Props {
   onOpen: (card: Card) => void;
 }
 
-// Wallet-style stack: the front card is fully visible, the cards behind it show their top strip,
-// swiping down sends the front card to the back, swiping up brings the previous one back,
+// Wallet-style stack: the front card is fully visible, the cards behind it fan out to its right,
+// swiping left sends the front card to the back, swiping right brings the previous one back,
 // and tapping a strip brings that card straight to the front.
 export function CardStack({ cards, onOpen }: Props) {
   const theme = useTheme();
@@ -58,8 +58,8 @@ export function CardStack({ cards, onOpen }: Props) {
   const from = useSharedValue(active);
   const steps = useSharedValue(0);
   const f = useSharedValue(0);
-  const lift = useSharedValue(0); // upward drag on the front card
-  const liftIndex = useSharedValue(active); // the card that upward drag belongs to
+  const pull = useSharedValue(0); // rightward drag on the front card
+  const pullIndex = useSharedValue(active); // the card that rightward drag belongs to
   const busy = useSharedValue(false);
   const dragging = useSharedValue(false);
 
@@ -95,7 +95,7 @@ export function CardStack({ cards, onOpen }: Props) {
     if (n < 2 || count <= 0) return;
     busy.value = true;
     steps.value = count;
-    lift.value = withTiming(0, { duration, easing: EASING });
+    pull.value = withTiming(0, { duration, easing: EASING });
     const to = mod(from.value + count, n);
     f.value = withTiming(1, { duration, easing: EASING }, (done) => {
       if (done) finish(to);
@@ -110,7 +110,7 @@ export function CardStack({ cards, onOpen }: Props) {
     from.value = to;
     steps.value = 1;
     f.value = 1;
-    lift.value = withTiming(0, { duration, easing: EASING });
+    pull.value = withTiming(0, { duration, easing: EASING });
     f.value = withTiming(0, { duration, easing: EASING }, (done) => {
       if (done) finish(to);
     });
@@ -118,7 +118,7 @@ export function CardStack({ cards, onOpen }: Props) {
 
   const springBack = () => {
     'worklet';
-    lift.value = withTiming(0, { duration, easing: EASING });
+    pull.value = withTiming(0, { duration, easing: EASING });
     f.value = withTiming(0, { duration, easing: EASING }, () => {
       steps.value = 0;
       busy.value = false;
@@ -131,8 +131,8 @@ export function CardStack({ cards, onOpen }: Props) {
     advance(mod(index - from.value, n));
   };
 
-  const tapAt = (y: number) => {
-    const k = slotAtY(y, geo);
+  const tapAt = (x: number) => {
+    const k = slotAtX(x, geo);
     if (k === 0) {
       const card = cardsRef.current[active];
       if (card) onOpen(card);
@@ -143,31 +143,32 @@ export function CardStack({ cards, onOpen }: Props) {
 
   const pan = usePanGesture({
     enabled: n > 1,
-    minDistance: TAP_SLOP,
+    activeOffsetX: [-TAP_SLOP, TAP_SLOP],
+    failOffsetY: [-20, 20], // a mostly vertical move is not a swipe
     onActivate: () => {
       'worklet';
       dragging.value = !busy.value;
       if (!dragging.value) return;
       busy.value = true;
-      liftIndex.value = from.value;
+      pullIndex.value = from.value;
     },
     onUpdate: (e) => {
       'worklet';
       if (!dragging.value) return;
-      if (e.translationY > 0) {
+      if (e.translationX < 0) {
         steps.value = 1;
-        f.value = dragProgress(e.translationY, geo.fly);
-        lift.value = 0;
+        f.value = dragProgress(e.translationX, geo.fly);
+        pull.value = 0;
       } else {
         f.value = 0;
-        lift.value = rubberBand(e.translationY) * 0.5;
+        pull.value = rubberBand(e.translationX) * 0.5;
       }
     },
     onDeactivate: (e) => {
       'worklet';
       if (!dragging.value) return;
       dragging.value = false;
-      const action = e.canceled ? 0 : releaseAction(e.translationY, e.velocityY);
+      const action = e.canceled ? 0 : releaseAction(e.translationX, e.velocityX);
       if (action === 1) advance(1);
       else if (action === -1) goBack();
       else springBack();
@@ -178,7 +179,7 @@ export function CardStack({ cards, onOpen }: Props) {
     runOnJS: true,
     maxDistance: TAP_SLOP,
     onActivate: (e) => {
-      if (!busy.value) tapAt(e.y);
+      if (!busy.value) tapAt(e.x);
     },
   });
 
@@ -189,7 +190,7 @@ export function CardStack({ cards, onOpen }: Props) {
   const onAccessibilityAction = (e: AccessibilityActionEvent) => {
     if (e.nativeEvent.actionName === 'increment') select(mod(active + 1, n));
     else if (e.nativeEvent.actionName === 'decrement' && !busy.value) goBack();
-    else if (e.nativeEvent.actionName === 'activate') tapAt(geo.frontTop);
+    else if (e.nativeEvent.actionName === 'activate') tapAt(0);
   };
 
   const front = cards[active];
@@ -211,7 +212,7 @@ export function CardStack({ cards, onOpen }: Props) {
             testID="card-stack"
           >
             {cards.map((card, i) => (
-              <StackCard key={card.id} card={card} index={i} n={n} geo={geo} motion={{ from, steps, f, lift, liftIndex }} />
+              <StackCard key={card.id} card={card} index={i} n={n} geo={geo} motion={{ from, steps, f, pull, pullIndex }} />
             ))}
           </View>
         </GestureDetector>
@@ -251,23 +252,23 @@ interface Motion {
   from: SharedValue<number>;
   steps: SharedValue<number>;
   f: SharedValue<number>;
-  lift: SharedValue<number>;
-  liftIndex: SharedValue<number>;
+  pull: SharedValue<number>;
+  pullIndex: SharedValue<number>;
 }
 
 function StackCard({ card, index, n, geo, motion }: { card: Card; index: number; n: number; geo: StackGeometry; motion: Motion }) {
   const theme = useTheme();
   const uri = useCardImage(card, 'thumb');
-  const { from, steps, f, lift, liftIndex } = motion;
+  const { from, steps, f, pull, pullIndex } = motion;
   const { fly } = geo;
 
   const animated = useAnimatedStyle(() => {
     const pose = cardPose(index, n, from.value, steps.value, f.value, fly);
-    const extra = index === liftIndex.value ? lift.value : 0;
+    const extra = index === pullIndex.value ? pull.value : 0;
     return {
       zIndex: pose.z,
       opacity: pose.opacity,
-      transform: [{ translateY: pose.ty + extra }, { scale: pose.scale }],
+      transform: [{ translateX: pose.tx + extra }, { rotate: `${pose.rotate}deg` }, { scale: pose.scale }],
     };
   });
 
@@ -277,7 +278,6 @@ function StackCard({ card, index, n, geo, motion }: { card: Card; index: number;
       style={[
         styles.card,
         {
-          top: geo.frontTop,
           width: geo.cardW,
           height: geo.cardH,
           borderRadius: geo.cardW * ID1_RADIUS,
@@ -292,7 +292,8 @@ function StackCard({ card, index, n, geo, motion }: { card: Card; index: number;
 }
 
 const styles = StyleSheet.create({
-  card: { position: 'absolute', left: 0, overflow: 'hidden', transformOrigin: '50% 0%' },
+  // Scaling from the right edge keeps every peeking strip the same width.
+  card: { position: 'absolute', top: 0, left: 0, overflow: 'hidden', transformOrigin: '100% 50%' },
   caption: { marginTop: 16, gap: 2 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 16 },
   dot: { width: 6, height: 6, borderRadius: 3 },
