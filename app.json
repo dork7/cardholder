@@ -33,14 +33,15 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "16.0"
+            "deploymentTarget": "16.4"
           },
           "android": {
             "minSdkVersion": 29
           }
         }
       ],
-      "react-native-quick-crypto"
+      "react-native-quick-crypto",
+      "expo-notifications"
     ],
     "scheme": "cardholder"
   }

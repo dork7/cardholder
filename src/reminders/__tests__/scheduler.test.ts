@@ -1,48 +1,47 @@
-import { scheduleReminders, clearReminders } from '../scheduler';
-import { ReminderNotification } from '../plan';
 import * as Notifications from 'expo-notifications';
+import { makeCard } from '../../../test/fixtures';
+import { requestReminderPermissionOnce, syncReminders } from '../scheduler';
 
 jest.mock('expo-notifications', () => ({
+  cancelAllScheduledNotificationsAsync: jest.fn(async () => {}),
+  getPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  scheduleNotificationAsync: jest.fn(async () => 'id'),
   setNotificationHandler: jest.fn(),
-  cancelAllScheduledNotificationsAsync: jest.fn(),
-  scheduleNotificationAsync: jest.fn(),
+  setNotificationChannelAsync: jest.fn(async () => {}),
+  AndroidImportance: { DEFAULT: 3 },
+  SchedulableTriggerInputTypes: { DATE: 'date' },
 }));
 
-describe('scheduler', () => {
-  const notifications: ReminderNotification[] = [
-    {
-      id: '1',
-      title: 'Title 1',
-      body: 'Body 1',
-      date: new Date('2026-12-01T09:00:00'),
-    },
-    {
-      id: '2',
-      title: 'Title 2',
-      body: 'Body 2',
-      date: new Date('2026-12-02T09:00:00'),
-    },
-  ];
+const mocked = Notifications as jest.Mocked<typeof Notifications>;
+const now = new Date(2027, 0, 1, 12, 0);
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+beforeEach(() => jest.clearAllMocks());
 
-  test('scheduleReminders calls cancelAll and scheduleNotificationAsync for each', async () => {
-    await scheduleReminders(notifications);
-    expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
-    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
-    expect(Notifications.scheduleNotificationAsync).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        identifier: '1',
-        content: { title: 'Title 1', body: 'Body 1' },
-      }),
-    );
+test('cancels everything, then schedules the plan', async () => {
+  await syncReminders([makeCard({ id: 'c1', name: 'Visa', expiresOn: '2027-06-30' })], now);
+  expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+  expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+  expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith({
+    identifier: 'c1:30',
+    content: { title: 'Visa expires in 30 days', body: 'Tap to open the card.', data: { cardId: 'c1' } },
+    trigger: { type: 'date', date: new Date(2027, 4, 31, 9, 0), channelId: 'reminders' },
   });
+});
 
-  test('clearReminders calls cancelAllScheduledNotificationsAsync', async () => {
-    await clearReminders();
-    expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
-  });
+test('without permission it only cancels', async () => {
+  mocked.getPermissionsAsync.mockResolvedValueOnce({ status: 'denied' } as never);
+  await syncReminders([makeCard({ expiresOn: '2027-06-30' })], now);
+  expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+  expect(mocked.scheduleNotificationAsync).not.toHaveBeenCalled();
+});
+
+test('asks for permission only when it has never been asked', async () => {
+  mocked.getPermissionsAsync.mockResolvedValueOnce({ status: 'undetermined' } as never);
+  expect(await requestReminderPermissionOnce()).toBe(true);
+  expect(mocked.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+
+  mocked.getPermissionsAsync.mockResolvedValueOnce({ status: 'denied' } as never);
+  expect(await requestReminderPermissionOnce()).toBe(false);
+  expect(mocked.requestPermissionsAsync).toHaveBeenCalledTimes(1);
 });

@@ -1,82 +1,57 @@
+import { makeCard } from '../../../test/fixtures';
 import { planReminders } from '../plan';
-import { Card } from '../../cards/types';
 
-describe('planReminders', () => {
-  beforeAll(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-10-19T10:00:00'));
-  });
+const now = new Date(2027, 0, 1, 12, 0);
 
-  afterAll(() => {
-    jest.useRealTimers();
-  });
+test('two reminders per card at 09:00, 30 and 7 days before expiry', () => {
+  const plan = planReminders([makeCard({ id: 'c1', name: 'Emirates ID', expiresOn: '2027-06-30' })], now);
+  expect(plan).toEqual([
+    {
+      id: 'c1:30',
+      cardId: 'c1',
+      daysBefore: 30,
+      fireAt: new Date(2027, 4, 31, 9, 0),
+      title: 'Emirates ID expires in 30 days',
+      body: 'Tap to open the card.',
+    },
+    {
+      id: 'c1:7',
+      cardId: 'c1',
+      daysBefore: 7,
+      fireAt: new Date(2027, 5, 23, 9, 0),
+      title: 'Emirates ID expires in 7 days',
+      body: 'Tap to open the card.',
+    },
+  ]);
+});
 
-  test('returns no reminders if no cards have expiry dates', () => {
-    const cards: Card[] = [
-      {
-        id: '1',
-        name: 'Test Card',
-        category: 'id',
-        number: '123',
-        notes: null,
-        expiresOn: null,
-        pinned: false,
-        position: 0,
-        hasBack: false,
-        frontAspect: 1,
-        backAspect: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    ];
-    expect(planReminders(cards)).toHaveLength(0);
-  });
+test('reminders already in the past are skipped', () => {
+  const plan = planReminders([makeCard({ id: 'c1', expiresOn: '2027-01-15' })], now);
+  expect(plan.map((r) => r.id)).toEqual(['c1:7']);
+  expect(planReminders([makeCard({ id: 'c2', expiresOn: '2026-12-01' })], now)).toEqual([]);
+});
 
-  test('plans reminders for a card with expiry date', () => {
-    const cards: Card[] = [
-      {
-        id: '1',
-        name: 'Test Card',
-        category: 'id',
-        number: '123',
-        notes: null,
-        expiresOn: '2026-11-18', // 30 days after 2026-10-19
-        pinned: false,
-        position: 0,
-        hasBack: false,
-        frontAspect: 1,
-        backAspect: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    ];
-    const reminders = planReminders(cards);
-    // Should have 2 reminders: 30 days and 7 days before
-    // 2026-11-18 - 30 days = 2026-10-19
-    // 2026-11-18 - 7 days = 2026-11-11
-    // But 2026-10-19 09:00 is in the past if current time is 10:00.
-    // Let's check the date logic.
-    expect(reminders.length).toBeGreaterThan(0);
-  });
+test('cards without an expiry date get nothing', () => {
+  expect(planReminders([makeCard({ expiresOn: null })], now)).toEqual([]);
+});
 
-  test('does not schedule past reminders', () => {
-    const cards: Card[] = [
-      {
-        id: '1',
-        name: 'Old Card',
-        category: 'id',
-        number: '123',
-        notes: null,
-        expiresOn: '2026-10-10', // Past date
-        pinned: false,
-        position: 0,
-        hasBack: false,
-        frontAspect: 1,
-        backAspect: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    ];
-    expect(planReminders(cards)).toHaveLength(0);
-  });
+test('sorted soonest first across cards', () => {
+  const plan = planReminders(
+    [makeCard({ id: 'late', expiresOn: '2027-12-01' }), makeCard({ id: 'soon', expiresOn: '2027-03-01' })],
+    now,
+  );
+  expect(plan.map((r) => r.id)).toEqual(['soon:30', 'soon:7', 'late:30', 'late:7']);
+});
+
+test('caps the plan at the soonest 60 reminders', () => {
+  const cards = Array.from({ length: 40 }, (_, i) =>
+    makeCard({ id: `c${i}`, expiresOn: `2028-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}` }),
+  );
+  const plan = planReminders(cards, now);
+  expect(plan).toHaveLength(60);
+  const times = plan.map((r) => r.fireAt.getTime());
+  expect([...times].sort((a, b) => a - b)).toEqual(times);
+  const all = planReminders(cards, now, Infinity);
+  expect(all).toHaveLength(80);
+  expect(plan[59].fireAt.getTime()).toBeLessThanOrEqual(all[60].fireAt.getTime());
 });

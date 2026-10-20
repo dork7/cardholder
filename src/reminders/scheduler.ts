@@ -1,33 +1,44 @@
 import * as Notifications from 'expo-notifications';
-import { ReminderNotification } from './plan';
+import { Platform } from 'react-native';
+import { Card } from '../cards/types';
+import { strings } from '../strings';
+import { planReminders } from './plan';
 
-// Configure how notifications are handled when the app is in the foreground.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+const CHANNEL_ID = 'reminders';
 
-export async function scheduleReminders(notifications: ReminderNotification[]): Promise<void> {
-  // Clear existing scheduled notifications to avoid duplicates.
-  await Notifications.cancelAllScheduledNotificationsAsync();
-
-  for (const notification of notifications) {
-    await Notifications.scheduleNotificationAsync({
-      identifier: notification.id,
-      content: {
-        title: notification.title,
-        body: notification.body,
-      },
-      trigger: {
-        date: notification.date,
-      },
+export async function setupNotifications(): Promise<void> {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+      name: strings.reminders.channelName,
+      importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
 }
 
-export async function clearReminders(): Promise<void> {
+// Called when the user saves a card with an expiry date — never at launch.
+export async function requestReminderPermissionOnce(): Promise<boolean> {
+  const current = await Notifications.getPermissionsAsync();
+  if (current.status !== 'undetermined') return current.status === 'granted';
+  return (await Notifications.requestPermissionsAsync()).status === 'granted';
+}
+
+// Re-plans from scratch so edits, deletes, imports and the 60-reminder window are always right.
+export async function syncReminders(cards: Card[], now: Date = new Date()): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
+  if ((await Notifications.getPermissionsAsync()).status !== 'granted') return;
+  for (const reminder of planReminders(cards, now)) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: reminder.id,
+      content: { title: reminder.title, body: reminder.body, data: { cardId: reminder.cardId } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminder.fireAt, channelId: CHANNEL_ID },
+    });
+  }
 }
