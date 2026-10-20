@@ -98,7 +98,7 @@ Agreed 2026-10-19. The visual language is **security printing**, the vernacular 
 - **Type:** Public Sans (OFL, bundled) for all text; weights 400 body, 600 card names, 700 titles. Scale 14 / 16 / **18 body** / 21 / 24 / 36. Card numbers use Public Sans with tabular figures.
 - **Shape:** card photos are the card — no box, border or shadow around tiles — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Buttons radius 8; text fields a bottom hairline only; settings are hairline-separated groups, not cards.
 - **One bold element:** a guilloche rosette (SVG), shown only on the empty state and the app-switcher cover.
-- **One motion:** a 3D card flip in the counter view when the user flips; instant when Reduce Motion is on. No other animation.
+- **Two motions:** a 3D card flip in the counter view when the user flips, and the home screen's wallet-style card stack (swipe down sends the front card to the back, swipe up brings the previous one back, tapping a peeking card brings it straight to the front). Both are instant when Reduce Motion is on. No other animation.
 - Content left-aligned; only the empty state centres its single call to action.
 - Avoid: stock iOS blue, uniform rounded card kits, all-caps labels, monospace faces.
 
