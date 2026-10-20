@@ -16,6 +16,7 @@ jest.mock('expo-brightness', () => ({
   setBrightnessAsync: () => Promise.resolve(),
 }));
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn() }));
+jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
   usePinchGesture: () => ({}),

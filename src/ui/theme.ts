@@ -15,6 +15,13 @@ export interface Theme {
   rosette: string; // guilloche line colour, field underlines
   bannerBg: string;
   bannerText: string;
+  // Home screen glass: soft colour blobs behind frosted panels.
+  aurora: [string, string, string]; // backdrop blobs, drawn as radial gradients over `bg`
+  glassFill: string; // translucent panel fill over the blur (heavier where the platform can't blur)
+  glassFillNoBlur: string;
+  glassEdge: string; // rim, brighter than the fill so the edge catches light
+  glassEdgeLit: string; // top rim, where the light falls
+  glassShade: string; // inset bottom shade and ambient drop shadow
 }
 
 const light: Theme = {
@@ -30,6 +37,12 @@ const light: Theme = {
   rosette: '#7C9893',
   bannerBg: '#E1E8E3',
   bannerText: '#1D3B4A',
+  aurora: ['#B2A8EB', '#86C0B1', '#93B5D4'],
+  glassFill: 'rgba(246, 248, 245, 0.62)', // muted text keeps 4.5:1 over the strongest blob
+  glassFillNoBlur: 'rgba(246, 248, 245, 0.86)',
+  glassEdge: 'rgba(255, 255, 255, 0.45)',
+  glassEdgeLit: 'rgba(255, 255, 255, 0.9)',
+  glassShade: 'rgba(29, 59, 74, 0.18)',
 };
 
 const dark: Theme = {
@@ -45,6 +58,12 @@ const dark: Theme = {
   rosette: '#4A6670',
   bannerBg: '#1B2C36',
   bannerText: '#E3EAE6',
+  aurora: ['#4A3BA8', '#1F6E60', '#24557A'],
+  glassFill: 'rgba(23, 38, 48, 0.45)',
+  glassFillNoBlur: 'rgba(23, 38, 48, 0.86)',
+  glassEdge: 'rgba(227, 234, 230, 0.14)',
+  glassEdgeLit: 'rgba(227, 234, 230, 0.32)',
+  glassShade: 'rgba(0, 0, 0, 0.35)',
 };
 
 // Bringhurst-style scale, body one step above the platform default for arm's-length reading.
