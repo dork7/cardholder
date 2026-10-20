@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
+import { Card } from '../src/cards/types';
 import { CardStack } from '../src/ui/CardStack';
 import { GlassPanel, GlassScene } from '../src/ui/Glass';
 import { TYPE, useTheme } from '../src/ui/theme';
@@ -14,10 +15,18 @@ import { TYPE, useTheme } from '../src/ui/theme';
 const ENTER = 360;
 
 export default function Home() {
-  const { cards } = useApp();
+  const { services, cards, refresh } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const togglePin = async (card: Card) => {
+    try {
+      await services.store.setPinned(card.id, !card.pinned);
+      await refresh();
+    } catch {
+      Alert.alert(strings.common.error);
+    }
+  };
   // A plain View: the screen fits without scrolling, so nothing competes with the stack for swipes.
   return (
     <GlassScene style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}>
@@ -38,7 +47,7 @@ export default function Home() {
             <Text style={{ fontSize: TYPE.body, color: theme.muted }}>{strings.promise}</Text>
           </GlassPanel>
         ) : (
-          <CardStack cards={cards} onOpen={(card) => router.push(`/card/${card.id}`)} />
+          <CardStack cards={cards} onOpen={(card) => router.push(`/card/${card.id}`)} onPin={togglePin} />
         )}
       </View>
 

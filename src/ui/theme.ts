@@ -15,6 +15,11 @@ export interface Theme {
   rosette: string; // guilloche line colour, field underlines
   bannerBg: string;
   bannerText: string;
+  // Stacked Journal Tokens
+  card: string;
+  cardBack: string;
+  accentInk: string;
+  onButton: string;
   // Home screen glass: soft colour blobs behind frosted panels.
   aurora: [string, string, string]; // backdrop blobs, drawn as radial gradients over `bg`
   glassFill: string; // translucent panel fill over the blur (heavier where the platform can't blur)
@@ -37,6 +42,10 @@ const light: Theme = {
   rosette: '#7C9893',
   bannerBg: '#E1E8E3',
   bannerText: '#1D3B4A',
+  card: '#F6F8F5',
+  cardBack: '#E1E8E3',
+  accentInk: '#EDF1EC',
+  onButton: '#EDF1EC',
   aurora: ['#B2A8EB', '#86C0B1', '#93B5D4'],
   glassFill: 'rgba(246, 248, 245, 0.62)', // muted text keeps 4.5:1 over the strongest blob
   glassFillNoBlur: 'rgba(246, 248, 245, 0.86)',
@@ -46,18 +55,22 @@ const light: Theme = {
 };
 
 const dark: Theme = {
-  bg: '#101B22',
-  surface: '#172630',
-  text: '#E3EAE6',
-  muted: '#9DB2AE',
-  accent: '#E3EAE6',
-  onAccent: '#101B22',
-  selection: '#A99BFF',
+  bg: '#001219',
+  surface: '#233d4d',
+  text: '#f1f5f7',
+  muted: '#9fb3bf',
+  accent: '#fe7f2d',
+  onAccent: '#001219',
+  selection: '#fe7f2d',
   danger: '#FF8A80',
-  border: '#2A3D47',
+  border: '#fe7f2d',
   rosette: '#4A6670',
   bannerBg: '#1B2C36',
   bannerText: '#E3EAE6',
+  card: '#233d4d',
+  cardBack: '#1c3443',
+  accentInk: '#001219',
+  onButton: '#ffffff',
   aurora: ['#4A3BA8', '#1F6E60', '#24557A'],
   glassFill: 'rgba(23, 38, 48, 0.45)',
   glassFillNoBlur: 'rgba(23, 38, 48, 0.86)',

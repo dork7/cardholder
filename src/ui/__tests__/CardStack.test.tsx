@@ -7,9 +7,9 @@ import { CardStack } from '../CardStack';
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
   usePanGesture: () => ({}),
-  useTapGesture: () => ({}),
-  useCompetingGestures: () => ({}),
 }));
+// Icon fonts load as assets, which the test environment has none of.
+jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({ services: { store: { loadImage: () => Promise.resolve(null) } } }),
 }));
@@ -20,12 +20,12 @@ const cards = [
   makeCard({ id: 'c', name: 'Gym', category: 'membership' }),
 ];
 
-async function renderStack(onOpen = jest.fn()) {
-  await render(<CardStack cards={cards} onOpen={onOpen} />);
-  // The stack measures its width before drawing the cards.
+async function renderStack(onOpen = jest.fn(), onPin?: jest.Mock) {
+  await render(<CardStack cards={cards} onOpen={onOpen} onPin={onPin} />);
+  // The stack measures the space it has before drawing the cards.
   await act(async () => {
     fireEvent(screen.getByTestId('card-stack-frame'), 'layout', {
-      nativeEvent: { layout: { width: 340, height: 0, x: 0, y: 0 } },
+      nativeEvent: { layout: { width: 340, height: 500, x: 0, y: 0 } },
     });
   });
   return onOpen;
@@ -60,4 +60,17 @@ test('swiping forward with assistive tech moves to the next card', async () => {
 test('a single card has no pager', async () => {
   await render(<CardStack cards={[cards[0]]} onOpen={jest.fn()} />);
   expect(screen.queryByRole('button')).toBeNull();
+});
+
+test('the pin button pins the front card', async () => {
+  const onPin = jest.fn();
+  await renderStack(jest.fn(), onPin);
+  fireEvent.press(screen.getByRole('button', { name: strings.card.unpin })); // fixture cards start pinned
+  expect(onPin).toHaveBeenCalledWith(cards[0]);
+});
+
+test('cards behind the front one show only their names', async () => {
+  await renderStack();
+  expect(screen.getByText('Health insurance')).toBeTruthy();
+  expect(screen.queryByText('Insurance')).toBeNull();
 });

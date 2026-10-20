@@ -25,7 +25,7 @@ function contrast(a: string, b: string): number {
 test('the test harness really switches themes', async () => {
   mockScheme = 'dark';
   await render(<Button label="Go" onPress={() => {}} />);
-  expect(StyleSheet.flatten(screen.getByRole('button', { name: 'Go' }).props.style).backgroundColor).toBe('#E3EAE6');
+  expect(StyleSheet.flatten(screen.getByRole('button', { name: 'Go' }).props.style).backgroundColor).toBe('#fe7f2d');
 });
 
 describe.each(['light', 'dark'] as const)('%s theme', (scheme) => {
