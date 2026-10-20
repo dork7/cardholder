@@ -44,6 +44,7 @@ function RootNavigator() {
         }}
       >
         <Stack.Screen name="index" options={{ title: strings.home.title }} />
+        <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
       </Stack>
     </>
   );

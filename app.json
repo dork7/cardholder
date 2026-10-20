@@ -8,7 +8,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.hamza.cardholder"
+      "bundleIdentifier": "com.hamza.cardholder",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "CardHolder imports card photos you choose from your library."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -54,7 +57,8 @@
         {
           "initialOrientation": "PORTRAIT_UP"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "scheme": "cardholder"
   }
