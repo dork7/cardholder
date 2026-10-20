@@ -1,89 +1,70 @@
-import * as React from 'react';
-import { StyleSheet, View, Pressable, Alert } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
-import {
-  PinchGestureHandler,
-  GestureHandlerRootView,
-  TapGestureHandler,
-} from 'react-native-gesture-handler';
+import { StyleSheet, View } from 'react-native';
+import { GestureDetector, usePinchGesture, useSimultaneousGestures, useTapGesture } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { strings } from '../../src/strings';
-import { useTheme } from '../theme';
+import { strings } from '../strings';
+import { Text } from './Text';
+import { useTheme } from './theme';
+
+const MAX_ZOOM = 4;
 
 interface ZoomableImageProps {
   uri: string | null;
-  onTap?: () => void;
-  testID?: string;
+  accessibilityLabel: string;
 }
 
-export function ZoomableImage({ uri, onTap, testID }: ZoomableImageProps) {
+// Fills its parent. Pinch to zoom in, double-tap to reset.
+export function ZoomableImage({ uri, accessibilityLabel }: ZoomableImageProps) {
   const theme = useTheme();
   const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
+  const saved = useSharedValue(1);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withSpring(scale.value) }],
-  }));
+  const pinch = usePinchGesture({
+    onUpdate: (e) => {
+      'worklet';
+      scale.value = Math.min(Math.max(saved.value * e.scale, 1), MAX_ZOOM);
+    },
+    onDeactivate: () => {
+      'worklet';
+      saved.value = scale.value;
+    },
+  });
+  const reset = useTapGesture({
+    numberOfTaps: 2,
+    onActivate: () => {
+      'worklet';
+      saved.value = 1;
+      scale.value = withTiming(1);
+    },
+  });
+  const gesture = useSimultaneousGestures(pinch, reset);
 
-  const pinchHandler = (event: any) => {
-    scale.value = savedScale.value * event.nativeEvent.scale;
-  };
-
-  const pinchHandlerEnd = () => {
-    savedScale.value = scale.value;
-  };
-
-  const tapHandler = () => {
-    if (onTap) {
-      onTap();
-    }
-  };
+  const zoomed = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   if (!uri) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.surface }]}>
+      <View style={[styles.fill, styles.empty, { backgroundColor: theme.surface }]}>
         <Text style={{ color: theme.muted }}>{strings.edit.noImage}</Text>
       </View>
     );
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <TapGestureHandler onHandlerStateChange={tapHandler}>
-        <Animated.View style={styles.container}>
-          <PinchGestureHandler
-            onGestureEvent={pinchHandler}
-            onHandlerStateChange={pinchHandlerEnd}
-          >
-            <Animated.View style={[styles.container, animatedStyle]}>
-              <Image
-                source={{ uri }}
-                style={styles.image}
-                contentFit="contain"
-                cachePolicy="disk"
-              />
-            </Animated.View>
-          </PinchGestureHandler>
-        </Animated.View>
-      </TapGestureHandler>
-    </GestureHandlerRootView>
+    <GestureDetector gesture={gesture}>
+      <Animated.View style={[styles.fill, zoomed]}>
+        <Image
+          source={{ uri }}
+          style={StyleSheet.absoluteFill}
+          contentFit="contain"
+          accessibilityLabel={accessibilityLabel}
+          accessible
+        />
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
+  fill: { flex: 1, alignSelf: 'stretch' },
+  empty: { alignItems: 'center', justifyContent: 'center' },
 });
-
-import { Text } from './Text';

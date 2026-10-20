@@ -1,104 +1,90 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, StyleSheet, View, Pressable } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import { useApp } from '../../../src/app/AppProvider';
-import { useMaxBrightness } from '../../../src/hooks/useMaxBrightness';
-import { ZoomableImage } from '../../../src/ui/ZoomableImage';
-import { Button } from '../../../src/ui/Button';
-import { Text } from '../../../src/ui/Text';
-import { useTheme } from '../../../src/ui/theme';
-import { dataUri, useCardImage } from '../../../src/hooks/useCardImage';
-import { strings } from '../../../src/strings';
-import { Image } from 'expo-image';
-
-// Since I don't have the exact path for Button in the previous steps, 
-// I'll check where Button is. It's in ../../../../src/ui/Button.
-// Wait, I already saw it in app/edit/[id].tsx.
+import { useApp } from '../../src/app/AppProvider';
+import { useMaxBrightness } from '../../src/hooks/useMaxBrightness';
+import { ZoomableImage } from '../../src/ui/ZoomableImage';
+import { Button } from '../../src/ui/Button';
+import { Text } from '../../src/ui/Text';
+import { useTheme } from '../../src/ui/theme';
+import { useCardImage } from '../../src/hooks/useCardImage';
+import { strings } from '../../src/strings';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cards, services } = useApp();
+  const { cards, services, refresh } = useApp();
   const router = useRouter();
   const theme = useTheme();
-  const [side, setSide] = useState<'front' | 'back'>('front');
 
   useMaxBrightness();
 
   const card = cards.find((c) => c.id === id);
+  // Hooks run on every render; a missing card or back just loads nothing.
+  const frontUri = useCardImage(card, 'front');
+  const backUri = useCardImage(card?.hasBack ? card : undefined, 'back');
 
   if (!card) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.bg }]}>
-        <Text style={{ color: theme.text, fontSize: 18 }}>{strings.edit.notFound}</Text>
-        <Button label="Back" onPress={() => router.back()} />
+      <View style={[styles.container, styles.padded, { backgroundColor: theme.bg }]}>
+        <Text style={{ color: theme.text }}>{strings.card.notFound}</Text>
+        <Button label={strings.common.close} onPress={() => router.back()} />
       </View>
     );
   }
 
-  const frontUri = useCardImage(card, 'front');
-  const backUri = card.hasBack ? useCardImage(card, 'back') : null;
-
-  const currentUri = side === 'front' ? frontUri : backUri;
-
-  const toggleSide = () => {
-    if (card.hasBack) {
-      setSide((s) => (s === 'front' ? 'back' : 'front'));
-    }
-  };
-
   const share = async () => {
-    if (!currentUri) return;
+    if (!frontUri) return;
     try {
-      await Sharing.shareAsync(currentUri);
-    } catch (e) {
+      await Sharing.shareAsync(frontUri);
+    } catch {
       Alert.alert(strings.common.error);
     }
   };
 
+  const confirmDelete = () =>
+    Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
+      { text: strings.common.cancel, style: 'cancel' },
+      {
+        text: strings.common.delete,
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await services.store.remove(card.id);
+            await refresh();
+            router.replace('/');
+          } catch {
+            Alert.alert(strings.common.error);
+          }
+        },
+      },
+    ]);
+
+  const sides = [{ label: strings.card.front, uri: frontUri }];
+  if (card.hasBack) sides.push({ label: strings.card.back, uri: backUri });
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.header}>
-        <Button variant="secondary" label="Back" onPress={() => router.back()} />
-        <Text style={[styles.title, { color: theme.text }]}>{card.name}</Text>
-        <View style={{ width: 60 }} />
+        <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} />
+        <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
+          {card.name}
+        </Text>
       </View>
 
-      <View style={styles.content}>
-        <Pressable onPress={toggleSide} style={styles.imageContainer}>
-          {currentUri ? (
-            <ZoomableImage uri={currentUri} />
-          ) : (
-            <Text style={{ color: theme.muted }}>No image available</Text>
-          )}
-        </Pressable>
+      <View style={styles.sides}>
+        {sides.map((side) => (
+          <View key={side.label} style={styles.side}>
+            <Text style={{ fontSize: 14, color: theme.muted }}>{side.label}</Text>
+            <View style={styles.frame}>
+              <ZoomableImage uri={side.uri} accessibilityLabel={strings.card.imageLabel(card.name, side.label)} />
+            </View>
+          </View>
+        ))}
       </View>
 
-      <View style={styles.footer}>
-        <View style={styles.buttonRow}>
-          {card.hasBack && (
-            <Button variant="secondary" label={side === 'front' ? 'Back' : 'Front'} onPress={toggleSide} />
-          )}
-          <Button variant="secondary" label="Share" onPress={share} />
-        </View>
-        <Button variant="danger" label="Delete" onPress={() => {
-          Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
-            { text: strings.common.cancel, style: 'cancel' },
-            {
-              text: strings.common.delete,
-              style: 'destructive',
-              onPress: async () => {
-                try {
-                  await services.store.remove(card.id);
-                  await services.refresh();
-                  router.replace('/');
-                } catch (e) {
-                  Alert.alert(strings.common.error);
-                }
-              },
-            },
-          ]);
-        }} />
+      <View style={[styles.padded, styles.footer]}>
+        <Button variant="secondary" label={strings.card.share} onPress={share} />
+        <Button variant="danger" label={strings.common.delete} onPress={confirmDelete} />
       </View>
     </View>
   );
@@ -106,17 +92,11 @@ export default function CardView() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  title: { fontSize: 20, fontWeight: '700' },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  imageContainer: { width: '100%', height: '100%' },
-  footer: { padding: 16, gap: 12 },
-  buttonRow: { flexDirection: 'row', gap: 12 },
+  padded: { padding: 16, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingTop: 50, paddingHorizontal: 16, paddingBottom: 8 },
+  title: { flex: 1, fontSize: 21, fontWeight: '700' },
+  sides: { flex: 1, paddingHorizontal: 16, gap: 16 },
+  side: { flex: 1, gap: 4 },
+  frame: { flex: 1 },
+  footer: { flexDirection: 'row' },
 });

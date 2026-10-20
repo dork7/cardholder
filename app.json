@@ -58,7 +58,9 @@
           "initialOrientation": "PORTRAIT_UP"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-image",
+      "expo-sharing"
     ],
     "scheme": "cardholder"
   }
