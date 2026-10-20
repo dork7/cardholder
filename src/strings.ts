@@ -20,6 +20,8 @@ export const strings = {
     startFreshConfirmTitle: 'Remove the locked cards?',
     startFreshConfirmBody: 'The locked cards are permanently removed from this phone.',
     errorTitle: "CardHolder couldn't start",
+    errorBody: 'Something went wrong while opening your cards. Your cards are still on this phone. Try again.',
+    retry: 'Retry',
   },
   home: {
     title: 'CardHolder',

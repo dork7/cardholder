@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '../cards/types';
 import { secureVault } from '../crypto/secureVault';
 import { isUnlocked } from '../purchases/entitlement';
@@ -6,16 +6,19 @@ import { syncReminders } from '../reminders/scheduler';
 import { createFileBlobStore } from '../storage/fileBlobStore';
 import { openDatabase } from '../storage/openDatabase';
 import { boot, BootDeps, bootFresh, Services } from './boot';
+import { AppSnapshot, createRefreshCoordinator } from './refreshCoordinator';
 
 export type BootPhase =
   | { status: 'loading' }
   | { status: 'orphaned' }
-  | { status: 'error'; message: string }
+  | { status: 'error' }
   | { status: 'ready'; services: Services };
 
 interface BootContextValue {
   phase: BootPhase;
   startFresh(thenImport: boolean): Promise<void>;
+  // Re-runs boot after a failed start; does nothing in any other phase.
+  retry(): Promise<void>;
 }
 
 export interface AppContextValue {
@@ -30,63 +33,89 @@ export interface AppContextValue {
 const BootContext = createContext<BootContextValue | null>(null);
 const AppContext = createContext<AppContextValue | null>(null);
 
+async function readSnapshot(services: Services): Promise<AppSnapshot> {
+  const [cards, unlocked] = await Promise.all([services.store.list(), isUnlocked(services.settings)]);
+  return { cards, unlocked };
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<BootPhase>({ status: 'loading' });
-  const [deps, setDeps] = useState<BootDeps | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [unlocked, setUnlocked] = useState(false);
   const [openImportOnReady, setOpenImportOnReady] = useState(false);
+  const depsRef = useRef<BootDeps | null>(null);
+  const bootingRef = useRef(false);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
 
-  const load = useCallback(async (services: Services) => {
-    const [list, unlockedNow] = await Promise.all([services.store.list(), isUnlocked(services.settings)]);
-    setCards(list);
-    setUnlocked(unlockedNow);
-    syncReminders(list).catch((e) => console.warn('Reminder sync failed', e));
-  }, []);
+  // One coordinator for the provider's lifetime: it makes the newest load win and keeps reminder
+  // syncs from overlapping (see refreshCoordinator.ts).
+  const [coordinator] = useState(() =>
+    createRefreshCoordinator({
+      apply: (snapshot) => {
+        setCards(snapshot.cards);
+        setUnlocked(snapshot.unlocked);
+      },
+      syncReminders,
+      onSyncError: (e) => console.warn('Reminder sync failed', e),
+    }),
+  );
+
+  const runBoot = useCallback(async () => {
+    if (bootingRef.current) return;
+    bootingRef.current = true;
+    setPhase({ status: 'loading' });
+    try {
+      // Opened once; a retry after a later boot step failed reuses the same handles.
+      depsRef.current ??= { db: await openDatabase(), blobs: createFileBlobStore(), vault: secureVault };
+      const result = await boot(depsRef.current);
+      if (result.status === 'orphaned') {
+        setPhase({ status: 'orphaned' });
+        return;
+      }
+      await coordinator.load(() => readSnapshot(result.services));
+      setPhase({ status: 'ready', services: result.services });
+    } catch (e) {
+      // The raw error can carry native paths and codes: log it, show only localized copy.
+      console.warn('Boot failed', e);
+      setPhase({ status: 'error' });
+    } finally {
+      bootingRef.current = false;
+    }
+  }, [coordinator]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const bootDeps: BootDeps = { db: await openDatabase(), blobs: createFileBlobStore(), vault: secureVault };
-        setDeps(bootDeps);
-        const result = await boot(bootDeps);
-        if (result.status === 'orphaned') {
-          setPhase({ status: 'orphaned' });
-          return;
-        }
-        await load(result.services);
-        setPhase({ status: 'ready', services: result.services });
-      } catch (e) {
-        setPhase({ status: 'error', message: e instanceof Error ? e.message : String(e) });
-      }
-    })();
-  }, [load]);
+    void runBoot();
+  }, [runBoot]);
+
+  const retry = useCallback(async () => {
+    if (phaseRef.current.status === 'error') await runBoot();
+  }, [runBoot]);
 
   const startFresh = useCallback(
     async (thenImport: boolean) => {
+      const deps = depsRef.current;
       if (!deps) return;
       const services = await bootFresh(deps);
-      await load(services);
+      await coordinator.load(() => readSnapshot(services));
       setOpenImportOnReady(thenImport);
       setPhase({ status: 'ready', services });
     },
-    [deps, load],
+    [coordinator],
   );
 
-  const bootValue = useMemo(() => ({ phase, startFresh }), [phase, startFresh]);
+  const services = phase.status === 'ready' ? phase.services : null;
+  const refresh = useCallback(async () => {
+    if (services) await coordinator.load(() => readSnapshot(services));
+  }, [coordinator, services]);
+  const clearOpenImport = useCallback(() => setOpenImportOnReady(false), []);
 
-  const appValue = useMemo<AppContextValue | null>(() => {
-    if (phase.status !== 'ready') return null;
-    const { services } = phase;
-    return {
-      services,
-      cards,
-      unlocked,
-      refresh: () => load(services),
-      openImportOnReady,
-      clearOpenImport: () => setOpenImportOnReady(false),
-    };
-  }, [phase, cards, unlocked, load, openImportOnReady]);
+  const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
+
+  const appValue = useMemo<AppContextValue | null>(
+    () => (services ? { services, cards, unlocked, refresh, openImportOnReady, clearOpenImport } : null),
+    [services, cards, unlocked, refresh, openImportOnReady, clearOpenImport],
+  );
 
   return (
     <BootContext.Provider value={bootValue}>

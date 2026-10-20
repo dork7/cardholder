@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
 import { Text } from '../ui/Text';
 import { strings } from '../strings';
 import { Button } from '../ui/Button';
@@ -7,7 +7,7 @@ import { useTheme } from '../ui/theme';
 import { useBoot } from './AppProvider';
 
 export function BootScreen() {
-  const { phase, startFresh } = useBoot();
+  const { phase, startFresh, retry } = useBoot();
   const theme = useTheme();
   const [busy, setBusy] = useState(false);
 
@@ -30,11 +30,18 @@ export function BootScreen() {
       },
     ]);
 
+  // Scrolls so the actions stay reachable at the largest system font sizes; the container grows to
+  // the screen height and centres short content vertically. Text and buttons are left-aligned.
   return (
-    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+    <ScrollView
+      testID="boot-scroll"
+      style={{ backgroundColor: theme.bg }}
+      contentContainerStyle={styles.content}
+      contentInsetAdjustmentBehavior="automatic"
+    >
       {phase.status === 'loading' && (
         <>
-          <ActivityIndicator color={theme.accent} />
+          <ActivityIndicator color={theme.accent} style={styles.spinner} />
           <Text style={[styles.body, { color: theme.muted }]}>{strings.boot.loading}</Text>
         </>
       )}
@@ -43,7 +50,8 @@ export function BootScreen() {
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
             {strings.boot.errorTitle}
           </Text>
-          <Text style={[styles.body, { color: theme.muted }]}>{phase.message}</Text>
+          <Text style={[styles.body, { color: theme.muted }]}>{strings.boot.errorBody}</Text>
+          <Button label={strings.boot.retry} onPress={() => void retry()} />
         </>
       )}
       {phase.status === 'orphaned' && (
@@ -56,12 +64,13 @@ export function BootScreen() {
           <Button variant="secondary" label={strings.boot.startFresh} onPress={() => confirm(false)} disabled={busy} />
         </>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'center', padding: 24, gap: 16 },
-  title: { fontSize: 24, fontWeight: '700', textAlign: 'center' },
-  body: { fontSize: 18, textAlign: 'center' },
+  content: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 16 },
+  spinner: { alignSelf: 'flex-start' },
+  title: { fontSize: 24, fontWeight: '700' },
+  body: { fontSize: 18 },
 });

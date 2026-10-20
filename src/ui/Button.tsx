@@ -15,6 +15,9 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
   const theme = useTheme();
   const primary = variant === 'primary';
   const color = primary ? theme.onAccent : variant === 'danger' ? theme.danger : theme.accent;
+  // The outline is what shows where a transparent button is, so it needs 3:1 against the paper
+  // (hairline `border` is far too faint for that): muted ink for secondary, stamp red for danger.
+  const outline = primary ? theme.accent : variant === 'danger' ? theme.danger : theme.muted;
   return (
     <Pressable
       accessibilityRole="button"
@@ -28,7 +31,7 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
         styles.base,
         {
           backgroundColor: primary ? theme.accent : 'transparent',
-          borderColor: primary ? theme.accent : theme.border,
+          borderColor: outline,
           opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
         },
       ]}
