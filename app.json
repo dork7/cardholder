@@ -28,7 +28,12 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "root": "app"
+        }
+      ],
       [
         "expo-build-properties",
         {
@@ -41,7 +46,15 @@
         }
       ],
       "react-native-quick-crypto",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ]
     ],
     "scheme": "cardholder"
   }
