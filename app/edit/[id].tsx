@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { useApp } from '../../src/app/AppProvider';
 import { draftFor, EditDraft, planSave, SaveError } from '../../src/cards/editForm';
@@ -28,6 +28,7 @@ export default function EditCard() {
   const [draft, setDraft] = useState<EditDraft>(() => draftFor(existing));
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
+  const writing = useRef(false); // synchronous guard: state updates land a render too late for a fast double tap
   const existingFront = useCardImage(existing ?? undefined, 'front');
   const existingBack = useCardImage(existing?.hasBack ? existing : undefined, 'back');
 
@@ -53,6 +54,7 @@ export default function EditCard() {
   };
 
   const save = async () => {
+    if (writing.current) return;
     const plan = planSave(draft, { existing, cardCount: cards.length, unlocked });
     if (plan.kind === 'invalid') {
       setErrors(plan.errors);
@@ -62,18 +64,25 @@ export default function EditCard() {
       router.replace('/paywall');
       return;
     }
+    writing.current = true;
     setSaving(true);
+    // The store write is the only step that can fail the save. Once it has succeeded the card exists,
+    // so `saving` stays true (Save can't write it again) and the follow-ups below are best-effort.
     try {
       if (plan.kind === 'create') await services.store.create(plan.fields, plan.images);
       else await services.store.update(plan.id, plan.fields, plan.changes);
-      if (plan.fields.expiresOn) await requestReminderPermissionOnce();
-      await refresh();
-      router.back();
     } catch (e) {
       console.warn('Save failed', e);
+      writing.current = false;
       setSaving(false);
       Alert.alert(strings.common.error);
+      return;
     }
+    if (plan.fields.expiresOn) {
+      await requestReminderPermissionOnce().catch((e) => console.warn('Reminder permission request failed', e));
+    }
+    await refresh().catch((e) => console.warn('Refresh after save failed', e));
+    router.back();
   };
 
   const confirmDelete = () =>
@@ -84,8 +93,14 @@ export default function EditCard() {
         style: 'destructive',
         onPress: async () => {
           if (!existing) return;
-          await services.store.remove(existing.id);
-          await refresh();
+          try {
+            await services.store.remove(existing.id);
+          } catch (e) {
+            console.warn('Delete failed', e);
+            Alert.alert(strings.common.error);
+            return;
+          }
+          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
           router.dismissAll();
         },
       },
