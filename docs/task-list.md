@@ -17,7 +17,7 @@ Each task is built by a fresh agent from its brief, then reviewed independently 
 | 9 | Build and apply backup snapshots | ✅ Complete — review clean |
 | 10 | Expiry reminders | ✅ Complete — 1 fix round (added Android channel) |
 | 11 | App shell — native adapters, boot, recovery screen, theme & fonts | ✅ Complete — 1 fix round (stable refresh/reminders, scrollable retry UI, atomic blob writes) |
-| 12 | Add and edit a card (photo library + freeform crop) | ⏳ Pending |
+| 12 | Add and edit a card (photo library + freeform crop) | ✅ Complete — 1 fix round (successful saves cannot duplicate; failed deletes stay visible) |
 | 13 | Counter view (zoom, flip, brightness, share) | ⏳ Pending |
 | 14 | Home screen (pinned cards, search, filters, rosette) | ⏳ Pending |
 | 15 | Settings, export, import and privacy screens | ⏳ Pending |
@@ -38,4 +38,4 @@ This machine has no Xcode, Android SDK or Maestro, so these are recorded in each
 
 ## Deferred minor findings
 
-These go to the final whole-branch review: 41 so far, from Tasks 1–11.
+These go to the final whole-branch review: 47 so far, from Tasks 1–12.
