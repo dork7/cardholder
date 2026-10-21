@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../src/ui/Text';
@@ -35,6 +35,18 @@ export default function Home() {
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
             {strings.home.title}
           </Text>
+          {/* Development builds only: opens the on-device AI test bench (app/dev/gemma.tsx). */}
+          {__DEV__ && (
+            <Pressable
+              onPress={() => router.push('/dev/gemma')}
+              accessibilityRole="button"
+              hitSlop={8}
+              style={({ pressed }) => [styles.devButton, { borderColor: theme.muted, opacity: pressed ? 0.7 : 1 }]}
+              testID="open-ai-bench"
+            >
+              <Text style={[styles.devLabel, { color: theme.text }]}>Test AI</Text>
+            </Pressable>
+          )}
         </GlassPanel>
       </Animated.View>
 
@@ -66,7 +78,9 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   inset: { paddingHorizontal: 16 },
-  header: { paddingHorizontal: 20, paddingVertical: 12 },
+  header: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  devButton: { minHeight: 40, paddingHorizontal: 14, borderWidth: 1, borderRadius: 20, justifyContent: 'center' },
+  devLabel: { fontSize: TYPE.caption, fontWeight: '600' },
   title: { fontSize: TYPE.title, fontWeight: '700' },
   body: { flex: 1, justifyContent: 'center', paddingVertical: 24, gap: 24 },
   empty: { padding: 20, gap: 8 },
