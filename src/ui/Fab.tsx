@@ -35,7 +35,7 @@ export function Fab({ label, onPress, testID }: FabProps) {
 const styles = StyleSheet.create({
   base: {
     position: 'absolute',
-    right: 24,
+    end: 24,
     width: 56,
     height: 56,
     borderRadius: 28,

@@ -3,16 +3,18 @@ import { draftFor, planSave } from '../editForm';
 
 const free = { existing: null, cardCount: 0, unlocked: false };
 
-test('a new card needs a name and a front photo', () => {
-  expect(planSave(draftFor(null), free)).toEqual({ kind: 'invalid', errors: ['name-required', 'front-required'] });
+test('a new card needs a front photo but no name', () => {
+  expect(planSave(draftFor(null), free)).toEqual({ kind: 'invalid', errors: ['front-required'] });
+  const front = frontImage('f');
+  expect(planSave({ ...draftFor(null), front }, free)).toMatchObject({ kind: 'create', fields: { name: '' } });
 });
 
 test('a valid new card within the free limit is created', () => {
   const front = frontImage('f');
-  const plan = planSave({ ...draftFor(null), name: ' Gym ', category: 'membership', number: '12 34', front }, free);
+  const plan = planSave({ ...draftFor(null), name: ' Gym ', category: 'membership', front }, free);
   expect(plan).toEqual({
     kind: 'create',
-    fields: { name: 'Gym', category: 'membership', number: '12 34', notes: null, expiresOn: null },
+    fields: { name: 'Gym', category: 'membership', expiresOn: null },
     images: { front, back: null },
   });
 });
@@ -29,7 +31,7 @@ test('editing is never limited and sends no image changes when none were made', 
   expect(plan).toEqual({
     kind: 'update',
     id: 'c9',
-    fields: { name: 'New', category: 'membership', number: null, notes: null, expiresOn: null },
+    fields: { name: 'New', category: 'membership', expiresOn: null },
     changes: {},
   });
 });
@@ -51,12 +53,10 @@ test('a new front photo is sent on edit', () => {
 });
 
 test('draftFor fills from an existing card', () => {
-  const card = makeCard({ name: 'Visa', category: 'id', number: 'P123', notes: 'n', expiresOn: '2027-01-01' });
+  const card = makeCard({ name: 'Visa', category: 'id', expiresOn: '2027-01-01' });
   expect(draftFor(card)).toEqual({
     name: 'Visa',
     category: 'id',
-    number: 'P123',
-    notes: 'n',
     expiresOn: '2027-01-01',
     front: null,
     back: null,

@@ -35,6 +35,7 @@ jest.mock('../../app/AppProvider', () => ({
     refresh: () => mockRefresh(),
   }),
 }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('../../reminders/scheduler', () => ({
   requestReminderPermissionOnce: () => mockPermission(),
 }));
@@ -148,4 +149,11 @@ describe('deleting', () => {
     expect(alert).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
   });
+});
+
+test('Close leaves the add-card modal without writing anything', async () => {
+  await fillNewCard();
+  await fireEvent.press(screen.getByRole('button', { name: strings.common.close }));
+  expect(mockBack).toHaveBeenCalled();
+  expect(mockCreate).not.toHaveBeenCalled();
 });

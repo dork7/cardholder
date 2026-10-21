@@ -1,11 +1,18 @@
-export const CATEGORIES = ['id', 'insurance', 'membership', 'loyalty', 'other'] as const;
+export const CATEGORIES = ['id', 'insurance', 'membership', 'other'] as const;
 export type Category = (typeof CATEGORIES)[number];
 
+// Categories that were dropped, and where cards saved under them now belong.
+const RETIRED_CATEGORIES = new Map<string, Category>([['loyalty', 'other']]);
+
+// Reads a category from storage or a backup file, moving cards off retired categories.
+export function toCategory(v: unknown): Category | undefined {
+  if (typeof v !== 'string') return undefined;
+  return CATEGORIES.find((c) => c === v) ?? RETIRED_CATEGORIES.get(v);
+}
+
 export interface CardFields {
-  name: string;
+  name: string; // '' when the card has no name
   category: Category;
-  number: string | null;
-  notes: string | null;
   expiresOn: string | null; // YYYY-MM-DD, local calendar day
 }
 

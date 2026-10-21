@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { draftFor, EditDraft, planSave, SaveError } from '../../src/cards/editForm';
 import { NAME_MAX_LENGTH } from '../../src/config';
@@ -13,6 +14,7 @@ import { CategoryChips } from '../../src/ui/CategoryChips';
 import { ExpiryField } from '../../src/ui/ExpiryField';
 import { Field, useInputStyle } from '../../src/ui/Field';
 import { ImageField } from '../../src/ui/ImageField';
+import { GlassPanel, GlassScene } from '../../src/ui/Glass';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 
@@ -24,6 +26,7 @@ export default function EditCard() {
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
+  const insets = useSafeAreaInsets();
 
   const [draft, setDraft] = useState<EditDraft>(() => draftFor(existing));
   const [errors, setErrors] = useState<SaveError[]>([]);
@@ -37,7 +40,11 @@ export default function EditCard() {
 
   if (!isNew && !existing) {
     return (
-      <Text style={[styles.content, { color: theme.text, fontSize: 18 }]}>{strings.edit.notFound}</Text>
+      <GlassScene style={styles.content}>
+        <GlassPanel style={styles.group}>
+          <Text style={{ color: theme.text, fontSize: 18 }}>{strings.edit.notFound}</Text>
+        </GlassPanel>
+      </GlassScene>
     );
   }
 
@@ -110,70 +117,84 @@ export default function EditCard() {
   const backUri = draft.back ? dataUri(draft.back.jpegBase64) : draft.removeBack ? null : existingBack;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: isNew ? strings.edit.newTitle : strings.edit.editTitle }} />
-      <ScrollView
-        style={{ backgroundColor: theme.bg }}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        <ImageField
-          label={strings.edit.front}
-          uri={frontUri}
-          onLibrary={() => capture('front')}
-          error={errorText('front-required')}
-          testIDPrefix="front"
-        />
-        <ImageField
-          label={strings.edit.back}
-          uri={backUri}
-          onLibrary={() => capture('back')}
-          onRemove={backUri ? () => update({ back: null, removeBack: true }) : undefined}
-          testIDPrefix="back"
-        />
-        <Field label={strings.edit.name} error={errorText('name-required') ?? errorText('name-too-long')}>
-          <TextInput
-            testID="card-name"
-            value={draft.name}
-            onChangeText={(name) => update({ name })}
-            placeholder={strings.edit.namePlaceholder}
-            placeholderTextColor={theme.muted}
-            maxLength={NAME_MAX_LENGTH}
-            accessibilityLabel={strings.edit.name}
-            style={inputStyle}
-          />
-        </Field>
-        <Field label={strings.edit.category} error={errorText('bad-category')}>
-          <CategoryChips value={draft.category} onChange={(category) => category && update({ category })} />
-        </Field>
-        <Field label={strings.edit.number}>
-          <TextInput
-            value={draft.number}
-            onChangeText={(number) => update({ number })}
-            autoCorrect={false}
-            autoCapitalize="characters"
-            accessibilityLabel={strings.edit.number}
-            style={[inputStyle, { fontVariant: ['tabular-nums'] }]}
-          />
-        </Field>
-        <Field label={strings.edit.notes}>
-          <TextInput
-            value={draft.notes}
-            onChangeText={(notes) => update({ notes })}
-            multiline
-            accessibilityLabel={strings.edit.notes}
-            style={[inputStyle, { minHeight: 96, textAlignVertical: 'top' }]}
-          />
-        </Field>
-        <ExpiryField value={draft.expiresOn} onChange={(expiresOn) => update({ expiresOn })} />
-        {errorText('bad-expiry') && <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>}
-        <Button label={strings.common.save} onPress={save} disabled={saving} testID="save-card" />
-        {existing && <Button variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} />}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    <GlassScene>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Stack.Screen options={{ title: isNew ? strings.edit.newTitle : strings.edit.editTitle }} />
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {/* Three panels, not one per field: each panel is a live blur, so fewer is smoother. */}
+          <GlassPanel style={styles.group}>
+            <ImageField
+              label={strings.edit.front}
+              uri={frontUri}
+              onLibrary={() => capture('front')}
+              error={errorText('front-required')}
+              testIDPrefix="front"
+            />
+            <ImageField
+              label={strings.edit.back}
+              uri={backUri}
+              onLibrary={() => capture('back')}
+              onRemove={backUri ? () => update({ back: null, removeBack: true }) : undefined}
+              testIDPrefix="back"
+            />
+          </GlassPanel>
+          <GlassPanel style={styles.group}>
+            <Field label={strings.edit.name} error={errorText('name-too-long')}>
+              <TextInput
+                testID="card-name"
+                value={draft.name}
+                onChangeText={(name) => update({ name })}
+                placeholder={strings.edit.namePlaceholder}
+                placeholderTextColor={theme.muted}
+                maxLength={NAME_MAX_LENGTH}
+                accessibilityLabel={strings.edit.name}
+                style={inputStyle}
+              />
+            </Field>
+            <Field label={strings.edit.category} error={errorText('bad-category')}>
+              <CategoryChips value={draft.category} onChange={(category) => category && update({ category })} />
+            </Field>
+          </GlassPanel>
+          <GlassPanel style={styles.group}>
+            <ExpiryField value={draft.expiresOn} onChange={(expiresOn) => update({ expiresOn })} />
+            {errorText('bad-expiry') && (
+              <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>
+            )}
+          </GlassPanel>
+          {/* Destructive, so it sits at the very end of the form, well apart from the save bar. */}
+          {existing && (
+            <View style={styles.danger}>
+              <Button variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} />
+            </View>
+          )}
+        </ScrollView>
+        {/* Pinned below the scroll so both actions are always in thumb reach and ride above the keyboard;
+            Close on the left, the primary action last on the right. */}
+        <View style={[styles.inset, { paddingBottom: 8 + insets.bottom }]}>
+          <GlassPanel style={styles.bar} radius={28}>
+            <View style={styles.action}>
+              <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} testID="close-edit" />
+            </View>
+            <View style={styles.action}>
+              <Button
+                label={isNew ? strings.edit.create : strings.edit.saveChanges}
+                onPress={save}
+                disabled={saving}
+                testID="save-card"
+              />
+            </View>
+          </GlassPanel>
+        </View>
+      </KeyboardAvoidingView>
+    </GlassScene>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 20, paddingBottom: 48 },
+  content: { padding: 16, gap: 16, paddingBottom: 32 },
+  group: { padding: 16, gap: 20 },
+  danger: { marginTop: 28 },
+  inset: { paddingHorizontal: 16, paddingTop: 8 },
+  bar: { flexDirection: 'row', gap: 12, padding: 8 },
+  action: { flex: 1 },
 });

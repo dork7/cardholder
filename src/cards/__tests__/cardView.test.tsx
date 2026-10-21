@@ -1,21 +1,24 @@
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import CardView from '../../../app/card/[id]';
 import { strings } from '../../strings';
 
+const mockPush = jest.fn();
 let mockCards: ReturnType<typeof makeCard>[] = [];
 const mockLoadImage = jest.fn((id: string, side: string) => Promise.resolve(`${id}-${side}`));
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'card1' }),
-  useRouter: () => ({ back: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ back: jest.fn(), push: (...a: unknown[]) => mockPush(...a) }),
 }));
 jest.mock('expo-brightness', () => ({
   getBrightnessAsync: () => Promise.resolve(0.5),
   setBrightnessAsync: () => Promise.resolve(),
 }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn() }));
+jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
   usePinchGesture: () => ({}),
@@ -53,4 +56,12 @@ test('a card without a back shows only the front', async () => {
   await waitFor(() => screen.getByLabelText(strings.card.imageLabel('Gym', strings.card.front)));
   expect(screen.queryByLabelText(strings.card.imageLabel('Gym', strings.card.back))).toBeNull();
   expect(mockLoadImage).not.toHaveBeenCalledWith('card1', 'back');
+});
+
+test('Edit opens this card in the edit screen, and delete is not offered next to everyday actions', async () => {
+  mockCards = [makeCard({ id: 'card1', name: 'Gym' })];
+  await render(<CardView />);
+  await fireEvent.press(screen.getByRole('button', { name: strings.card.edit }));
+  expect(mockPush).toHaveBeenCalledWith('/edit/card1');
+  expect(screen.queryByRole('button', { name: strings.common.delete })).toBeNull();
 });

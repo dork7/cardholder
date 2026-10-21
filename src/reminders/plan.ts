@@ -1,3 +1,4 @@
+import { displayName } from '../cards/display';
 import { Card } from '../cards/types';
 import { MAX_SCHEDULED_REMINDERS, REMINDER_DAYS_BEFORE, REMINDER_HOUR } from '../config';
 import { strings } from '../strings';
@@ -13,7 +14,7 @@ export interface PlannedReminder {
 }
 
 export function planReminders(
-  cards: ReadonlyArray<Pick<Card, 'id' | 'name' | 'expiresOn'>>,
+  cards: ReadonlyArray<Pick<Card, 'id' | 'name' | 'category' | 'expiresOn'>>,
   now: Date,
   max: number = MAX_SCHEDULED_REMINDERS,
 ): PlannedReminder[] {
@@ -29,7 +30,7 @@ export function planReminders(
         cardId: card.id,
         daysBefore,
         fireAt,
-        title: strings.reminders.title(card.name, daysBefore),
+        title: strings.reminders.title(displayName(card), daysBefore),
         body: strings.reminders.body,
       });
     }

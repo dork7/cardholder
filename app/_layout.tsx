@@ -43,7 +43,7 @@ function RootNavigator() {
           contentStyle: { backgroundColor: theme.bg },
         }}
       >
-         <Stack.Screen name="index" options={{ title: strings.home.title }} />
+         <Stack.Screen name="index" options={{ title: strings.home.title, headerShown: false }} />
          <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
          <Stack.Screen name="card/[id]" options={{ presentation: 'transparentModal', headerShown: false }} />
        </Stack>

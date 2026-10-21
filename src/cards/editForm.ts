@@ -5,8 +5,6 @@ import { FieldError, validateCardFields } from './validate';
 export interface EditDraft {
   name: string;
   category: Category;
-  number: string;
-  notes: string;
   expiresOn: string | null;
   front: FrontImage | null; // newly captured only
   back: CardImage | null; // newly captured only
@@ -25,8 +23,6 @@ export function draftFor(card: Card | null): EditDraft {
   return {
     name: card?.name ?? '',
     category: card?.category ?? 'id',
-    number: card?.number ?? '',
-    notes: card?.notes ?? '',
     expiresOn: card?.expiresOn ?? null,
     front: null,
     back: null,

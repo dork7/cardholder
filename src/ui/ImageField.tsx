@@ -1,4 +1,4 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { strings } from '../strings';
 import { Button } from './Button';
@@ -18,24 +18,30 @@ export function ImageField({ label, uri, onLibrary, onRemove, error, testIDPrefi
   const theme = useTheme();
   return (
     <Field label={label} error={error}>
-      <View style={[styles.preview, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+      <Pressable
+        onPress={onLibrary}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${uri ? strings.edit.changePhoto : strings.edit.addPhoto}`}
+        testID={`${testIDPrefix}-library`}
+        style={({ pressed }) => [
+          styles.preview,
+          { borderColor: theme.border, backgroundColor: theme.surface, opacity: pressed ? 0.7 : 1 },
+        ]}
+      >
         {uri ? (
-          <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" accessibilityLabel={label} />
+          <>
+            <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
+          </>
         ) : (
-          <Text style={{ color: theme.muted, fontSize: 16 }}>{strings.edit.noImage}</Text>
+          <Text style={{ color: theme.muted, fontSize: 16 }}>{strings.edit.tapToAddPhoto}</Text>
         )}
-      </View>
-      <View style={styles.actions}>
-        <Button
-          variant="secondary"
-          label={strings.edit.chooseFromLibrary}
-          onPress={onLibrary}
-          testID={`${testIDPrefix}-library`}
-        />
-        {onRemove && (
+      </Pressable>
+      {onRemove && (
+        <View style={styles.actions}>
           <Button variant="danger" label={strings.edit.removeBack} onPress={onRemove} testID={`${testIDPrefix}-remove`} />
-        )}
-      </View>
+        </View>
+      )}
     </Field>
   );
 }

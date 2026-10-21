@@ -20,7 +20,8 @@ export function Field({ label, error, children }: { label: string; error?: strin
 
 export function useInputStyle() {
   const theme = useTheme();
-  return [styles.input, { color: theme.text, borderColor: theme.rosette }];
+  // `muted`, not `rosette`: the underline is the field's only outline and needs 3:1 on glass.
+  return [styles.input, { color: theme.text, borderColor: theme.muted }];
 }
 
 const styles = StyleSheet.create({
