@@ -33,6 +33,7 @@ import {
   StackGeometry,
   TAP_SLOP,
 } from './stackGeometry';
+import { GlassPanel } from './Glass';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 
@@ -288,32 +289,34 @@ export function CardStack({ cards, onOpen }: Props) {
         </Animated.View>
       )}
 
-      <View style={styles.caption}>
-        <Text style={{ fontSize: TYPE.section, fontWeight: '600', color: theme.text }} numberOfLines={1}>
-          {displayName(front)}
-        </Text>
-        <Text style={{ fontSize: TYPE.secondary, color: theme.muted }}>{strings.categories[front.category]}</Text>
-      </View>
-
-      {n > 1 && (
-        <View style={styles.dots}>
-          {cards.map((card, i) => (
-            <Pressable
-              key={card.id}
-              onPress={() => select(i)}
-              hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
-              accessibilityRole="button"
-              accessibilityLabel={strings.home.showCard(i + 1, n)}
-              accessibilityState={{ selected: i === active }}
-              style={[
-                styles.dot,
-                { backgroundColor: i === active ? theme.text : theme.rosette },
-                i === active && styles.dotActive,
-              ]}
-            />
-          ))}
+      <GlassPanel style={styles.info}>
+        <View style={styles.caption}>
+          <Text style={{ fontSize: TYPE.section, fontWeight: '600', color: theme.text }} numberOfLines={1}>
+            {displayName(front)}
+          </Text>
+          <Text style={{ fontSize: TYPE.secondary, color: theme.muted }}>{strings.categories[front.category]}</Text>
         </View>
-      )}
+
+        {n > 1 && (
+          <View style={styles.dots}>
+            {cards.map((card, i) => (
+              <Pressable
+                key={card.id}
+                onPress={() => select(i)}
+                hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
+                accessibilityRole="button"
+                accessibilityLabel={strings.home.showCard(i + 1, n)}
+                accessibilityState={{ selected: i === active }}
+                style={[
+                  styles.dot,
+                  { backgroundColor: i === active ? theme.text : theme.muted }, // `rosette` drops below 3:1 on glass
+                  i === active && styles.dotActive,
+                ]}
+              />
+            ))}
+          </View>
+        )}
+      </GlassPanel>
     </View>
   );
 }
@@ -419,8 +422,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
-  caption: { marginTop: 16, gap: 2 },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 16 },
+  info: { marginTop: 20, paddingHorizontal: 20, paddingVertical: 14 },
+  caption: { gap: 2 },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   dotActive: { transform: [{ scale: 1.35 }] },
 });

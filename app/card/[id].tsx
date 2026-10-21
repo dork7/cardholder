@@ -5,6 +5,7 @@ import { useApp } from '../../src/app/AppProvider';
 import { useMaxBrightness } from '../../src/hooks/useMaxBrightness';
 import { ZoomableImage } from '../../src/ui/ZoomableImage';
 import { Button } from '../../src/ui/Button';
+import { GlassPanel, GlassScene } from '../../src/ui/Glass';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
@@ -15,9 +16,9 @@ import { strings } from '../../src/strings';
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { cards, services } = useApp();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   useMaxBrightness();
 
@@ -28,10 +29,12 @@ export default function CardView() {
 
   if (!card) {
     return (
-      <View style={[styles.container, styles.padded, { backgroundColor: theme.bg }]}>
-        <Text style={{ color: theme.text }}>{strings.card.notFound}</Text>
-        <Button label={strings.common.close} onPress={() => router.back()} />
-      </View>
+      <GlassScene style={[styles.padded, { paddingTop: insets.top + 16 }]}>
+        <GlassPanel style={styles.padded}>
+          <Text style={{ color: theme.text }}>{strings.card.notFound}</Text>
+          <Button label={strings.common.close} onPress={() => router.back()} />
+        </GlassPanel>
+      </GlassScene>
     );
   }
 
@@ -56,14 +59,17 @@ export default function CardView() {
   if (card.hasBack) sides.push({ label: strings.card.back, uri: backUri });
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
-          {displayName(card)}
-        </Text>
+    <GlassScene style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8, gap: 16 }}>
+      <View style={styles.inset}>
+        <GlassPanel style={styles.header} radius={24}>
+          <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
+            {displayName(card)}
+          </Text>
+        </GlassPanel>
       </View>
 
-      <View style={styles.sides}>
+      {/* The photos sit straight on the backdrop: the card is the card, glass is only the chrome. */}
+      <View style={[styles.inset, styles.sides]}>
         {sides.map((side) => (
           <View key={side.label} style={styles.side}>
             <Text style={{ fontSize: 14, color: theme.muted, textAlign: 'center' }}>{side.label}</Text>
@@ -76,29 +82,31 @@ export default function CardView() {
 
       {/* Every action in the thumb zone, primary (Close) last on the right. Delete lives on the
           edit screen, away from everyday actions. */}
-      <View style={[styles.padded, styles.footer, { paddingBottom: 16 + insets.bottom }]}>
-        <View style={styles.action}>
-          <Button variant="secondary" label={strings.card.share} onPress={share} />
-        </View>
-        <View style={styles.action}>
-          <Button variant="secondary" label={strings.card.edit} onPress={() => router.push(`/edit/${card.id}`)} />
-        </View>
-        <View style={styles.action}>
-          <Button label={strings.common.close} onPress={() => router.back()} />
-        </View>
+      <View style={styles.inset}>
+        <GlassPanel style={styles.footer} radius={28}>
+          <View style={styles.action}>
+            <Button variant="secondary" label={strings.card.share} onPress={share} />
+          </View>
+          <View style={styles.action}>
+            <Button variant="secondary" label={strings.card.edit} onPress={() => router.push(`/edit/${card.id}`)} />
+          </View>
+          <View style={styles.action}>
+            <Button label={strings.common.close} onPress={() => router.back()} />
+          </View>
+        </GlassPanel>
       </View>
-    </View>
+    </GlassScene>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
   padded: { padding: 16, gap: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingTop: 50, paddingHorizontal: 16, paddingBottom: 8 },
-  title: { flex: 1, fontSize: 21, fontWeight: '700' },
-  sides: { flex: 1, paddingHorizontal: 16, gap: 16 },
+  inset: { paddingHorizontal: 16 },
+  header: { paddingHorizontal: 20, paddingVertical: 12 },
+  title: { fontSize: 21, fontWeight: '700' },
+  sides: { flex: 1, gap: 16 },
   side: { flex: 1, gap: 4 },
   frame: { flex: 1 },
-  footer: { flexDirection: 'row' },
+  footer: { flexDirection: 'row', gap: 12, padding: 8 },
   action: { flex: 1 },
 });
