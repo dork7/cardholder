@@ -60,7 +60,14 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-image",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "llama.rn",
+        {
+          "enableEntitlements": false,
+          "enableOpenCL": false
+        }
+      ]
     ],
     "scheme": "cardholder"
   }
