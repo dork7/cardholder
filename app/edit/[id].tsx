@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { draftFor, EditDraft, planSave, SaveError } from '../../src/cards/editForm';
 import { NAME_MAX_LENGTH } from '../../src/config';
@@ -24,6 +25,7 @@ export default function EditCard() {
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
+  const insets = useSafeAreaInsets();
 
   const [draft, setDraft] = useState<EditDraft>(() => draftFor(existing));
   const [errors, setErrors] = useState<SaveError[]>([]);
@@ -148,13 +150,35 @@ export default function EditCard() {
         </Field>
         <ExpiryField value={draft.expiresOn} onChange={(expiresOn) => update({ expiresOn })} />
         {errorText('bad-expiry') && <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>}
-        <Button label={strings.common.save} onPress={save} disabled={saving} testID="save-card" />
-        {existing && <Button variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} />}
+        {/* Destructive, so it sits at the very end of the form, well apart from the save bar. */}
+        {existing && (
+          <View style={styles.danger}>
+            <Button variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} />
+          </View>
+        )}
       </ScrollView>
+      {/* Pinned below the scroll so both actions are always in thumb reach and ride above the keyboard;
+          Close on the left, the primary action last on the right. */}
+      <View style={[styles.bar, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: 12 + insets.bottom }]}>
+        <View style={styles.action}>
+          <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} testID="close-edit" />
+        </View>
+        <View style={styles.action}>
+          <Button
+            label={isNew ? strings.edit.create : strings.edit.saveChanges}
+            onPress={save}
+            disabled={saving}
+            testID="save-card"
+          />
+        </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 20, paddingBottom: 48 },
+  content: { padding: 16, gap: 20, paddingBottom: 32 },
+  danger: { marginTop: 28 },
+  bar: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  action: { flex: 1 },
 });

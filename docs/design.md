@@ -88,17 +88,19 @@ Agreed 2026-10-19. The visual language is **security printing**, the vernacular 
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| Security paper | `#EDF1EC` | `#101B22` | background (cool, faintly green — not cream) |
-| Intaglio | `#1D3B4A` | `#E3EAE6` | text, filled primary buttons |
-| Guilloche | `#7C9893` | `#4A6670` | rosette lines, field underlines (secondary text uses `#4F6A66` / `#9DB2AE` for 4.5:1) |
-| Hologram violet | `#5B44C8` | `#A99BFF` | selection, focus, the card being dragged — nothing else |
-| Stamp red | `#B3261E` | `#FF8A80` | destructive actions, "can't be recovered" |
+| Security paper | `#EDF1EC` | `#121212` | background (light: cool, faintly green — not cream; dark: neutral near-black) |
+| Intaglio | `#1D3B4A` | `#E0E0E0` | text, filled primary buttons (dark fills use the dimmer `#C8C8C8`) |
+| Guilloche | `#7C9893` | `#707070` | rosette lines, field underlines (secondary text uses `#4F6A66` / `#A3A3A3` for 4.5:1) |
+| Hologram violet | `#5B44C8` | `#ADA3EE` | selection, focus, the card being dragged — nothing else |
+| Stamp red | `#B3261E` | `#F0988F` | destructive actions, "can't be recovered" |
 | Counter black | `#000000` | `#000000` | counter view only |
+
+Dark mode is redesigned, not inverted: surfaces step up from `#121212` (page) to `#1E1E1E` (header, card tiles) to `#242424` (banners, sheets), text is off-white `#E0E0E0`, hues desaturated ~25%, hairlines are 12% white over whatever surface they sit on, elevation is shown by lighter surfaces (never shadows), and card thumbnails get a 12% black veil so white plastic doesn't glare. The counter view is never dimmed — it's for scanning.
 
 - **Type:** Public Sans (OFL, bundled) for all text; weights 400 body, 600 card names, 700 titles. Scale 14 / 16 / **18 body** / 21 / 24 / 36. Card numbers use Public Sans with tabular figures.
 - **Shape:** card photos are the card — no box, border or shadow around tiles — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Buttons radius 8; text fields a bottom hairline only; settings are hairline-separated groups, not cards.
 - **One bold element:** a guilloche rosette (SVG), shown only on the empty state and the app-switcher cover.
-- **Two motions:** a 3D card flip in the counter view when the user flips, and the home screen's wallet-style card stack (cards behind fan out to the right; swipe left sends the front card to the back, swipe right brings the previous one back, tapping a peeking card brings it straight to the front). Both are instant when Reduce Motion is on. No other animation.
+- **Two motions:** a 3D card flip (on the home stack's front card, via the flip button shown on two-sided cards: a spring turn with a slight lift and shading, interruptible mid-turn), and the home screen's wallet-style card stack (cards behind fan out to the right; swipe left sends the front card to the back, swipe right brings the previous one back, tapping a peeking card brings it straight to the front). Both are instant when Reduce Motion is on. No other animation.
 - Content left-aligned; only the empty state centres its single call to action.
 - Avoid: stock iOS blue, uniform rounded card kits, all-caps labels, monospace faces.
 
