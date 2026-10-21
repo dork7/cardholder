@@ -1,6 +1,6 @@
 import { SqlDb } from './sqlDb';
 
-export type SettingKey = 'keyCheck' | 'unlocked' | 'lastExportAt' | 'backupSnoozedUntil';
+export type SettingKey = 'keyCheck' | 'unlocked' | 'lastExportAt' | 'backupSnoozedUntil' | 'appearance';
 
 export interface Settings {
   get(key: SettingKey): Promise<string | null>;

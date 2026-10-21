@@ -33,7 +33,7 @@ import {
   StackGeometry,
   TAP_SLOP,
 } from './stackGeometry';
-import { GlassPanel } from './Glass';
+import { Panel } from './Surface';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 
@@ -289,7 +289,7 @@ export function CardStack({ cards, onOpen }: Props) {
         </Animated.View>
       )}
 
-      <GlassPanel style={styles.info}>
+      <Panel style={styles.info}>
         <View style={styles.caption}>
           <Text style={{ fontSize: TYPE.section, fontWeight: '600', color: theme.text }} numberOfLines={1}>
             {displayName(front)}
@@ -309,14 +309,14 @@ export function CardStack({ cards, onOpen }: Props) {
                 accessibilityState={{ selected: i === active }}
                 style={[
                   styles.dot,
-                  { backgroundColor: i === active ? theme.text : theme.muted }, // `rosette` drops below 3:1 on glass
+                  { backgroundColor: i === active ? theme.text : theme.muted }, // `rosette` drops below 3:1 on a panel
                   i === active && styles.dotActive,
                 ]}
               />
             ))}
           </View>
         )}
-      </GlassPanel>
+      </Panel>
     </View>
   );
 }

@@ -14,7 +14,7 @@ import { CategoryChips } from '../../src/ui/CategoryChips';
 import { ExpiryField } from '../../src/ui/ExpiryField';
 import { Field, useInputStyle } from '../../src/ui/Field';
 import { ImageField } from '../../src/ui/ImageField';
-import { GlassPanel, GlassScene } from '../../src/ui/Glass';
+import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 
@@ -40,11 +40,11 @@ export default function EditCard() {
 
   if (!isNew && !existing) {
     return (
-      <GlassScene style={styles.content}>
-        <GlassPanel style={styles.group}>
+      <Screen style={styles.content}>
+        <Panel style={styles.group}>
           <Text style={{ color: theme.text, fontSize: 18 }}>{strings.edit.notFound}</Text>
-        </GlassPanel>
-      </GlassScene>
+        </Panel>
+      </Screen>
     );
   }
 
@@ -117,12 +117,12 @@ export default function EditCard() {
   const backUri = draft.back ? dataUri(draft.back.jpegBase64) : draft.removeBack ? null : existingBack;
 
   return (
-    <GlassScene>
+    <Screen>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Stack.Screen options={{ title: isNew ? strings.edit.newTitle : strings.edit.editTitle }} />
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {/* Three panels, not one per field: each panel is a live blur, so fewer is smoother. */}
-          <GlassPanel style={styles.group}>
+          {/* Three panels, not one per field: photos, details, expiry. */}
+          <Panel style={styles.group}>
             <ImageField
               label={strings.edit.front}
               uri={frontUri}
@@ -137,8 +137,8 @@ export default function EditCard() {
               onRemove={backUri ? () => update({ back: null, removeBack: true }) : undefined}
               testIDPrefix="back"
             />
-          </GlassPanel>
-          <GlassPanel style={styles.group}>
+          </Panel>
+          <Panel style={styles.group}>
             <Field label={strings.edit.name} error={errorText('name-too-long')}>
               <TextInput
                 testID="card-name"
@@ -154,13 +154,13 @@ export default function EditCard() {
             <Field label={strings.edit.category} error={errorText('bad-category')}>
               <CategoryChips value={draft.category} onChange={(category) => category && update({ category })} />
             </Field>
-          </GlassPanel>
-          <GlassPanel style={styles.group}>
+          </Panel>
+          <Panel style={styles.group}>
             <ExpiryField value={draft.expiresOn} onChange={(expiresOn) => update({ expiresOn })} />
             {errorText('bad-expiry') && (
               <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>
             )}
-          </GlassPanel>
+          </Panel>
           {/* Destructive, so it sits at the very end of the form, well apart from the save bar. */}
           {existing && (
             <View style={styles.danger}>
@@ -171,7 +171,7 @@ export default function EditCard() {
         {/* Pinned below the scroll so both actions are always in thumb reach and ride above the keyboard;
             Close on the left, the primary action last on the right. */}
         <View style={[styles.inset, { paddingBottom: 8 + insets.bottom }]}>
-          <GlassPanel style={styles.bar} radius={28}>
+          <Panel style={styles.bar} radius={28}>
             <View style={styles.action}>
               <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} testID="close-edit" />
             </View>
@@ -183,10 +183,10 @@ export default function EditCard() {
                 testID="save-card"
               />
             </View>
-          </GlassPanel>
+          </Panel>
         </View>
       </KeyboardAvoidingView>
-    </GlassScene>
+    </Screen>
   );
 }
 

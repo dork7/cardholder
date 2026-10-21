@@ -17,10 +17,13 @@ jest.mock('react-native-gesture-handler', () => ({
   useTapGesture: () => ({}),
   useCompetingGestures: () => ({}),
 }));
+const mockSetAppearance = jest.fn(() => Promise.resolve());
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     cards: mockCards,
     services: { store: { loadImage: () => Promise.resolve(null) } },
+    appearance: 'system',
+    setAppearance: mockSetAppearance,
   }),
 }));
 
@@ -66,4 +69,12 @@ test('with only one type there is nothing to filter, so no filter is shown', asy
   } finally {
     mockCards = all;
   }
+});
+
+test('the appearance toggle says what is on and moves to the next choice', async () => {
+  await renderHome();
+  const toggle = screen.getByRole('button', { name: strings.home.appearance });
+  expect(toggle.props.accessibilityValue).toEqual({ text: strings.home.appearances.system });
+  fireEvent.press(toggle);
+  expect(mockSetAppearance).toHaveBeenCalledWith('light');
 });

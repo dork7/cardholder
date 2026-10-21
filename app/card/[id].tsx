@@ -5,7 +5,7 @@ import { useApp } from '../../src/app/AppProvider';
 import { useMaxBrightness } from '../../src/hooks/useMaxBrightness';
 import { ZoomableImage } from '../../src/ui/ZoomableImage';
 import { Button } from '../../src/ui/Button';
-import { GlassPanel, GlassScene } from '../../src/ui/Glass';
+import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
@@ -29,12 +29,12 @@ export default function CardView() {
 
   if (!card) {
     return (
-      <GlassScene style={[styles.padded, { paddingTop: insets.top + 16 }]}>
-        <GlassPanel style={styles.padded}>
+      <Screen style={[styles.padded, { paddingTop: insets.top + 16 }]}>
+        <Panel style={styles.padded}>
           <Text style={{ color: theme.text }}>{strings.card.notFound}</Text>
           <Button label={strings.common.close} onPress={() => router.back()} />
-        </GlassPanel>
-      </GlassScene>
+        </Panel>
+      </Screen>
     );
   }
 
@@ -59,16 +59,16 @@ export default function CardView() {
   if (card.hasBack) sides.push({ label: strings.card.back, uri: backUri });
 
   return (
-    <GlassScene style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8, gap: 16 }}>
+    <Screen style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8, gap: 16 }}>
       <View style={styles.inset}>
-        <GlassPanel style={styles.header} radius={24}>
+        <Panel style={styles.header} radius={24}>
           <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
             {displayName(card)}
           </Text>
-        </GlassPanel>
+        </Panel>
       </View>
 
-      {/* The photos sit straight on the backdrop: the card is the card, glass is only the chrome. */}
+      {/* The photos sit straight on the page: the card is the card, panels are only the chrome. */}
       <View style={[styles.inset, styles.sides]}>
         {sides.map((side) => (
           <View key={side.label} style={styles.side}>
@@ -83,7 +83,7 @@ export default function CardView() {
       {/* Every action in the thumb zone, primary (Close) last on the right. Delete lives on the
           edit screen, away from everyday actions. */}
       <View style={styles.inset}>
-        <GlassPanel style={styles.footer} radius={28}>
+        <Panel style={styles.footer} radius={28}>
           <View style={styles.action}>
             <Button variant="secondary" label={strings.card.share} onPress={share} />
           </View>
@@ -93,9 +93,9 @@ export default function CardView() {
           <View style={styles.action}>
             <Button label={strings.common.close} onPress={() => router.back()} />
           </View>
-        </GlassPanel>
+        </Panel>
       </View>
-    </GlassScene>
+    </Screen>
   );
 }
 

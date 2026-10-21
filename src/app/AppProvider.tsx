@@ -3,6 +3,7 @@ import { Card } from '../cards/types';
 import { secureVault } from '../crypto/secureVault';
 import { isUnlocked } from '../purchases/entitlement';
 import { syncReminders } from '../reminders/scheduler';
+import { AppearancePref, applyAppearance, loadAppearance, saveAppearance } from '../ui/appearance';
 import { createFileBlobStore } from '../storage/fileBlobStore';
 import { openDatabase } from '../storage/openDatabase';
 import { boot, BootDeps, bootFresh, Services } from './boot';
@@ -28,6 +29,8 @@ export interface AppContextValue {
   refresh(): Promise<void>;
   openImportOnReady: boolean;
   clearOpenImport(): void;
+  appearance: AppearancePref;
+  setAppearance(pref: AppearancePref): Promise<void>;
 }
 
 const BootContext = createContext<BootContextValue | null>(null);
@@ -43,6 +46,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cards, setCards] = useState<Card[]>([]);
   const [unlocked, setUnlocked] = useState(false);
   const [openImportOnReady, setOpenImportOnReady] = useState(false);
+  const [appearance, setAppearanceState] = useState<AppearancePref>('system');
   const depsRef = useRef<BootDeps | null>(null);
   const bootingRef = useRef(false);
   const phaseRef = useRef(phase);
@@ -61,6 +65,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
   );
 
+  // The saved choice is applied before the first screen draws; reading it never blocks boot.
+  const restoreAppearance = useCallback(async (services: Services) => {
+    const pref = await loadAppearance(services.settings).catch(() => 'system' as const);
+    applyAppearance(pref);
+    setAppearanceState(pref);
+  }, []);
+
   const runBoot = useCallback(async () => {
     if (bootingRef.current) return;
     bootingRef.current = true;
@@ -74,6 +85,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       await coordinator.load(() => readSnapshot(result.services));
+      await restoreAppearance(result.services);
       setPhase({ status: 'ready', services: result.services });
     } catch (e) {
       // The raw error can carry native paths and codes: log it, show only localized copy.
@@ -82,7 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       bootingRef.current = false;
     }
-  }, [coordinator]);
+  }, [coordinator, restoreAppearance]);
 
   useEffect(() => {
     void runBoot();
@@ -98,10 +110,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!deps) return;
       const services = await bootFresh(deps);
       await coordinator.load(() => readSnapshot(services));
+      await restoreAppearance(services);
       setOpenImportOnReady(thenImport);
       setPhase({ status: 'ready', services });
     },
-    [coordinator],
+    [coordinator, restoreAppearance],
   );
 
   const services = phase.status === 'ready' ? phase.services : null;
@@ -109,12 +122,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (services) await coordinator.load(() => readSnapshot(services));
   }, [coordinator, services]);
   const clearOpenImport = useCallback(() => setOpenImportOnReady(false), []);
+  const setAppearance = useCallback(
+    async (pref: AppearancePref) => {
+      // Applied first so the switch is instant; a failed save only means it isn't remembered.
+      applyAppearance(pref);
+      setAppearanceState(pref);
+      if (services) await saveAppearance(services.settings, pref);
+    },
+    [services],
+  );
 
   const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
 
   const appValue = useMemo<AppContextValue | null>(
-    () => (services ? { services, cards, unlocked, refresh, openImportOnReady, clearOpenImport } : null),
-    [services, cards, unlocked, refresh, openImportOnReady, clearOpenImport],
+    () =>
+      services
+        ? { services, cards, unlocked, refresh, openImportOnReady, clearOpenImport, appearance, setAppearance }
+        : null,
+    [services, cards, unlocked, refresh, openImportOnReady, clearOpenImport, appearance, setAppearance],
   );
 
   return (
