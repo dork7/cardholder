@@ -131,7 +131,7 @@ export default function EditCard() {
           onRemove={backUri ? () => update({ back: null, removeBack: true }) : undefined}
           testIDPrefix="back"
         />
-        <Field label={strings.edit.name} error={errorText('name-required') ?? errorText('name-too-long')}>
+        <Field label={strings.edit.name} error={errorText('name-too-long')}>
           <TextInput
             testID="card-name"
             value={draft.name}
@@ -145,25 +145,6 @@ export default function EditCard() {
         </Field>
         <Field label={strings.edit.category} error={errorText('bad-category')}>
           <CategoryChips value={draft.category} onChange={(category) => category && update({ category })} />
-        </Field>
-        <Field label={strings.edit.number}>
-          <TextInput
-            value={draft.number}
-            onChangeText={(number) => update({ number })}
-            autoCorrect={false}
-            autoCapitalize="characters"
-            accessibilityLabel={strings.edit.number}
-            style={[inputStyle, { fontVariant: ['tabular-nums'] }]}
-          />
-        </Field>
-        <Field label={strings.edit.notes}>
-          <TextInput
-            value={draft.notes}
-            onChangeText={(notes) => update({ notes })}
-            multiline
-            accessibilityLabel={strings.edit.notes}
-            style={[inputStyle, { minHeight: 96, textAlignVertical: 'top' }]}
-          />
         </Field>
         <ExpiryField value={draft.expiresOn} onChange={(expiresOn) => update({ expiresOn })} />
         {errorText('bad-expiry') && <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>}

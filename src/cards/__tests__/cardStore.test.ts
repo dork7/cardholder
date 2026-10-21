@@ -68,11 +68,11 @@ test('a card without a back has no back image', async () => {
 
 test('nothing readable is stored in plaintext', async () => {
   const { store, db, blobs } = await makeStore();
-  await store.create(fields({ name: 'Emirates ID', number: '784-1990' }), images('secret', true));
+  await store.create(fields({ name: 'Emirates ID', expiresOn: '2031-12-31' }), images('secret', true));
   const row = await db.getFirstAsync<{ payload: Uint8Array }>('SELECT payload FROM cards', []);
   const payloadText = utf8.decode(row!.payload);
   expect(payloadText).not.toContain('Emirates');
-  expect(payloadText).not.toContain('784-1990');
+  expect(payloadText).not.toContain('2031');
   expect(blobs.raw.size).toBe(3);
   for (const bytes of blobs.raw.values()) expect(utf8.decode(bytes)).not.toContain('secret');
 });
@@ -247,5 +247,40 @@ describe('insertMany', () => {
     expect(text(await store.loadImage('imp1', 'front'))).toBe('JPEG:imp1');
     expect(text(await store.loadImage(keep.id, 'front'))).toBe('JPEG:keep');
     expect(blobs.raw.has('imp1.front')).toBe(true);
+  });
+});
+
+test('cards saved before number and notes were removed still load, without them', async () => {
+  const db = memoryDb();
+  await migrate(db);
+  const aead = createAead(generateKey());
+  const store = createCardStore({ db, blobs: createMemoryBlobStore(), aead });
+  const legacy = {
+    name: 'Coffee club',
+    category: 'loyalty',
+    number: '1234',
+    notes: 'Gold tier',
+    expiresOn: null,
+    hasBack: false,
+    frontAspect: 1.586,
+    backAspect: null,
+  };
+  await db.runAsync(
+    'INSERT INTO cards (id, pinned, position, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ['old1', 0, 0, aead.seal(utf8.encode(JSON.stringify(legacy))), 1, 1],
+  );
+  const [card] = await store.list();
+  expect(card).toEqual({
+    id: 'old1',
+    name: 'Coffee club',
+    category: 'other',
+    expiresOn: null,
+    pinned: false,
+    position: 0,
+    hasBack: false,
+    frontAspect: 1.586,
+    backAspect: null,
+    createdAt: 1,
+    updatedAt: 1,
   });
 });

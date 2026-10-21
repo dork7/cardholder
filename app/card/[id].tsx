@@ -8,6 +8,7 @@ import { Button } from '../../src/ui/Button';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
+import { displayName } from '../../src/cards/display';
 import { strings } from '../../src/strings';
 
 export default function CardView() {
@@ -67,7 +68,7 @@ export default function CardView() {
       <View style={styles.header}>
         <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} />
         <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
-          {card.name}
+          {displayName(card)}
         </Text>
       </View>
 
@@ -76,7 +77,7 @@ export default function CardView() {
           <View key={side.label} style={styles.side}>
             <Text style={{ fontSize: 14, color: theme.muted }}>{side.label}</Text>
             <View style={styles.frame}>
-              <ZoomableImage uri={side.uri} accessibilityLabel={strings.card.imageLabel(card.name, side.label)} />
+              <ZoomableImage uri={side.uri} accessibilityLabel={strings.card.imageLabel(displayName(card), side.label)} />
             </View>
           </View>
         ))}

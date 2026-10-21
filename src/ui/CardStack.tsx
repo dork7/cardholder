@@ -15,6 +15,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { displayName } from '../cards/display';
 import { Card } from '../cards/types';
 import { useCardImage } from '../hooks/useCardImage';
 import { strings } from '../strings';
@@ -204,7 +205,7 @@ export function CardStack({ cards, onOpen }: Props) {
             style={{ height: geo.height }}
             accessible
             accessibilityRole="adjustable"
-            accessibilityLabel={front.name}
+            accessibilityLabel={displayName(front)}
             accessibilityValue={{ text: strings.home.cardOf(active + 1, n) }}
             accessibilityHint={strings.home.stackHint}
             accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }]}
@@ -220,7 +221,7 @@ export function CardStack({ cards, onOpen }: Props) {
 
       <View style={styles.caption}>
         <Text style={{ fontSize: TYPE.section, fontWeight: '600', color: theme.text }} numberOfLines={1}>
-          {front.name}
+          {displayName(front)}
         </Text>
         <Text style={{ fontSize: TYPE.secondary, color: theme.muted }}>{strings.categories[front.category]}</Text>
       </View>

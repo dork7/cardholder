@@ -125,3 +125,12 @@ describe('parseSnapshot', () => {
     expect(await parseCode({ formatVersion: 1, exportedAt: 1, cards: 'nope' })).toBe('invalid-contents');
   });
 });
+
+test('older backups with a card number, notes and Loyalty still import', () => {
+  const raw = rawSnapshot();
+  Object.assign(raw.cards[0].card, { number: '784', notes: 'Renew at ICP', category: 'loyalty' });
+  const [card] = parseSnapshot(raw).cards.map((c) => c.card);
+  expect(card.category).toBe('other');
+  expect(card).not.toHaveProperty('number');
+  expect(card).not.toHaveProperty('notes');
+});

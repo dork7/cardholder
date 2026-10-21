@@ -4,7 +4,7 @@ import { engine } from '../crypto/engine';
 import { BlobStore } from '../storage/blobStore';
 import { SqlDb } from '../storage/sqlDb';
 import { sortCards } from './listing';
-import { Card, CardFields, ImageChanges, ImageSide, NewCardImages } from './types';
+import { Card, CardFields, ImageChanges, ImageSide, NewCardImages, toCategory } from './types';
 
 export class CardNotFoundError extends Error {
   constructor(id: string) {
@@ -70,8 +70,6 @@ export function createCardStore({
     const payload: Payload = {
       name: card.name,
       category: card.category,
-      number: card.number,
-      notes: card.notes,
       expiresOn: card.expiresOn,
       hasBack: card.hasBack,
       frontAspect: card.frontAspect,
@@ -82,8 +80,14 @@ export function createCardStore({
 
   const toCard = (row: Row): Card => {
     const payload = JSON.parse(utf8.decode(aead.open(row.payload))) as Payload;
+    // Built field by field: older payloads can still hold a card number and notes, and a retired category.
     return {
-      ...payload,
+      name: payload.name,
+      category: toCategory(payload.category) ?? 'other',
+      expiresOn: payload.expiresOn,
+      hasBack: payload.hasBack,
+      frontAspect: payload.frontAspect,
+      backAspect: payload.backAspect,
       id: row.id,
       pinned: row.pinned === 1,
       position: row.position,
