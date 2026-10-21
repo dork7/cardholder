@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
 import { Text } from '../ui/Text';
 import { strings } from '../strings';
 import { Button } from '../ui/Button';
-import { GlassPanel, GlassScene } from '../ui/Glass';
+import { Panel, Screen } from '../ui/Surface';
 import { useTheme } from '../ui/theme';
 import { useBoot } from './AppProvider';
 
@@ -34,9 +34,9 @@ export function BootScreen() {
   // Scrolls so the actions stay reachable at the largest system font sizes; the container grows to
   // the screen height and centres short content vertically. Text and buttons are left-aligned.
   return (
-    <GlassScene>
+    <Screen>
       <ScrollView testID="boot-scroll" contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
-        <GlassPanel style={styles.panel}>
+        <Panel style={styles.panel}>
           {phase.status === 'loading' && (
             <>
               <ActivityIndicator color={theme.accent} style={styles.spinner} />
@@ -62,9 +62,9 @@ export function BootScreen() {
               <Button variant="secondary" label={strings.boot.startFresh} onPress={() => confirm(false)} disabled={busy} />
             </>
           )}
-        </GlassPanel>
+        </Panel>
       </ScrollView>
-    </GlassScene>
+    </Screen>
   );
 }
 

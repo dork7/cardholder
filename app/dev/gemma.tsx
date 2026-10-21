@@ -5,7 +5,7 @@ import { ExtractRun, extractWithGemma, modelFile, releaseGemma } from '../../src
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { Field, useInputStyle } from '../../src/ui/Field';
-import { GlassPanel, GlassScene } from '../../src/ui/Glass';
+import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { TYPE, useTheme } from '../../src/ui/theme';
 
@@ -72,19 +72,19 @@ function Bench() {
     : [];
 
   return (
-    <GlassScene>
+    <Screen>
       <Stack.Screen options={{ title: 'Gemma 3 270M' }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {!hasModel && (
-          <GlassPanel style={styles.group}>
+          <Panel style={styles.group}>
             <Text style={[styles.body, { color: theme.danger }]}>
               Model missing. Copy {modelFile().name} into the app's documents folder under models/ (see
               docs/gemma-sample.md).
             </Text>
-          </GlassPanel>
+          </Panel>
         )}
 
-        <GlassPanel style={styles.group}>
+        <Panel style={styles.group}>
           <View style={styles.chips}>
             {SAMPLES.map((sample) => (
               <Pressable
@@ -107,16 +107,16 @@ function Bench() {
             />
           </Field>
           <Button label={busy ? 'Running…' : 'Extract'} onPress={extract} disabled={busy || !hasModel} testID="extract" />
-        </GlassPanel>
+        </Panel>
 
         {error && (
-          <GlassPanel style={styles.group}>
+          <Panel style={styles.group}>
             <Text style={[styles.body, { color: theme.danger }]}>{error}</Text>
-          </GlassPanel>
+          </Panel>
         )}
 
         {run && (
-          <GlassPanel style={styles.group} testID="result">
+          <Panel style={styles.group} testID="result">
             {s ? (
               rows.map(([label, value]) => (
                 <View key={label} style={styles.row}>
@@ -132,10 +132,10 @@ function Bench() {
               Prompt {Math.round(run.promptMs)} ms · output {Math.round(run.predictMs)} ms ·{' '}
               {run.tokensPerSecond.toFixed(1)} tokens/s
             </Text>
-          </GlassPanel>
+          </Panel>
         )}
       </ScrollView>
-    </GlassScene>
+    </Screen>
   );
 }
 

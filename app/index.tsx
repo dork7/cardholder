@@ -9,9 +9,10 @@ import { filterCards } from '../src/cards/listing';
 import { CATEGORIES, Category } from '../src/cards/types';
 import { strings } from '../src/strings';
 import { CardStack } from '../src/ui/CardStack';
+import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { CategoryChips } from '../src/ui/CategoryChips';
 import { Fab } from '../src/ui/Fab';
-import { GlassPanel, GlassScene } from '../src/ui/Glass';
+import { Panel, Screen } from '../src/ui/Surface';
 import { TYPE, useTheme } from '../src/ui/theme';
 
 // Panels settle in from just off their resting place; Reanimated skips this under Reduce Motion.
@@ -29,9 +30,9 @@ export default function Home() {
   const shown = filterCards(cards, { query: '', category });
   // A plain View: the screen fits without scrolling, so nothing competes with the stack for swipes.
   return (
-    <GlassScene style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}>
+    <Screen style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}>
       <Animated.View entering={FadeInDown.duration(ENTER)} style={styles.inset}>
-        <GlassPanel style={styles.header} radius={24}>
+        <Panel style={styles.header} radius={24}>
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
             {strings.home.title}
           </Text>
@@ -47,18 +48,19 @@ export default function Home() {
               <Text style={[styles.devLabel, { color: theme.text }]}>Test AI</Text>
             </Pressable>
           )}
-        </GlassPanel>
+          <AppearanceToggle />
+        </Panel>
       </Animated.View>
 
       {/* The stack and filter sit centred; the add button floats in the thumb zone below them. */}
       <View style={[styles.inset, styles.body]}>
         {cards.length === 0 ? (
-          <GlassPanel style={styles.empty} testID="empty-state">
+          <Panel style={styles.empty} testID="empty-state">
             <Text style={[styles.emptyTitle, { color: theme.text }]} accessibilityRole="header">
               {strings.home.emptyTitle}
             </Text>
             <Text style={{ fontSize: TYPE.body, color: theme.muted }}>{strings.promise}</Text>
-          </GlassPanel>
+          </Panel>
         ) : (
           <>
             {/* Keyed by filter so the stack starts from its first card instead of carrying motion over. */}
@@ -72,16 +74,16 @@ export default function Home() {
       </View>
 
       <Fab label={strings.home.addCard} onPress={() => router.push('/edit/new')} testID="add-card" />
-    </GlassScene>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   inset: { paddingHorizontal: 16 },
-  header: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20, paddingRight: 10, paddingVertical: 8 },
   devButton: { minHeight: 40, paddingHorizontal: 14, borderWidth: 1, borderRadius: 20, justifyContent: 'center' },
   devLabel: { fontSize: TYPE.caption, fontWeight: '600' },
-  title: { fontSize: TYPE.title, fontWeight: '700' },
+  title: { flex: 1, fontSize: TYPE.title, fontWeight: '700' },
   body: { flex: 1, justifyContent: 'center', paddingVertical: 24, gap: 24 },
   empty: { padding: 20, gap: 8 },
   emptyTitle: { fontSize: TYPE.title, fontWeight: '700' },
