@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local test data (card photos etc.), never committed
+/dataSet
