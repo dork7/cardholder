@@ -1,16 +1,18 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import CardView from '../../../app/card/[id]';
 import { strings } from '../../strings';
 
 const mockPush = jest.fn();
+const mockBack = jest.fn();
+const mockRefresh = jest.fn(() => Promise.resolve());
 let mockCards: ReturnType<typeof makeCard>[] = [];
 const mockLoadImage = jest.fn((id: string, side: string) => Promise.resolve(`${id}-${side}`));
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'card1' }),
-  useRouter: () => ({ back: jest.fn(), push: (...a: unknown[]) => mockPush(...a) }),
+  useRouter: () => ({ back: () => mockBack(), push: (...a: unknown[]) => mockPush(...a) }),
 }));
 jest.mock('expo-brightness', () => ({
   getBrightnessAsync: () => Promise.resolve(0.5),
@@ -26,12 +28,13 @@ jest.mock('react-native-gesture-handler', () => ({
   useSimultaneousGestures: () => ({}),
 }));
 // Stable like the real provider's memoised value; a fresh object per render would reload images forever.
-const mockServices = { store: { loadImage: (id: string, side: string) => mockLoadImage(id, side), remove: jest.fn() } };
+const mockRemove = jest.fn((_id: string) => Promise.resolve());
+const mockServices = { store: { loadImage: (id: string, side: string) => mockLoadImage(id, side), remove: (id: string) => mockRemove(id) } };
 jest.mock('../../app/AppProvider', () => ({
-  useApp: () => ({ services: mockServices, cards: mockCards, refresh: jest.fn() }),
+  useApp: () => ({ services: mockServices, cards: mockCards, refresh: () => mockRefresh() }),
 }));
 
-beforeEach(() => mockLoadImage.mockClear());
+beforeEach(() => jest.clearAllMocks());
 
 const imageUri = (label: string) => screen.getByLabelText(label).props.source?.uri ?? screen.getByLabelText(label).props.source?.[0]?.uri;
 
@@ -58,10 +61,49 @@ test('a card without a back shows only the front', async () => {
   expect(mockLoadImage).not.toHaveBeenCalledWith('card1', 'back');
 });
 
-test('Edit opens this card in the edit screen, and delete is not offered next to everyday actions', async () => {
-  mockCards = [makeCard({ id: 'card1', name: 'Gym' })];
-  await render(<CardView />);
-  await fireEvent.press(screen.getByRole('button', { name: strings.card.edit }));
-  expect(mockPush).toHaveBeenCalledWith('/edit/card1');
-  expect(screen.queryByRole('button', { name: strings.common.delete })).toBeNull();
+describe('actions', () => {
+  let alert: jest.SpyInstance;
+  beforeEach(() => {
+    mockCards = [makeCard({ id: 'card1', name: 'Gym' })];
+    alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  });
+  afterEach(() => alert.mockRestore());
+
+  // Alert.alert(title, body, buttons): press the button with this label.
+  const pressInAlert = async (label: string) => {
+    const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => unknown }[];
+    await buttons.find((b) => b.text === label)?.onPress?.();
+  };
+
+  test('delete, share and edit are icon buttons named for screen readers, with Close below them', async () => {
+    await render(<CardView />);
+    for (const name of [strings.edit.deleteCard, strings.card.share, strings.card.edit, strings.common.close]) {
+      expect(screen.getByRole('button', { name })).toBeTruthy();
+    }
+  });
+
+  test('Edit opens this card in the edit screen', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.edit }));
+    expect(mockPush).toHaveBeenCalledWith('/edit/card1');
+  });
+
+  test('Delete asks first; confirming removes the card and goes back', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    expect(alert).toHaveBeenCalledWith(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, expect.any(Array));
+    expect(mockRemove).not.toHaveBeenCalled();
+    await pressInAlert(strings.common.delete);
+    expect(mockRemove).toHaveBeenCalledWith('card1');
+    expect(mockRefresh).toHaveBeenCalled();
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  test('cancelling the delete keeps the card', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    await pressInAlert(strings.common.cancel);
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
 });

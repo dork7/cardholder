@@ -5,6 +5,7 @@ import { useApp } from '../../src/app/AppProvider';
 import { useMaxBrightness } from '../../src/hooks/useMaxBrightness';
 import { ZoomableImage } from '../../src/ui/ZoomableImage';
 import { Button } from '../../src/ui/Button';
+import { IconButton } from '../../src/ui/IconButton';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
@@ -15,7 +16,7 @@ import { strings } from '../../src/strings';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cards, services } = useApp();
+  const { cards, services, refresh } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -55,6 +56,26 @@ export default function CardView() {
     }
   };
 
+  const confirmDelete = () =>
+    Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
+      { text: strings.common.cancel, style: 'cancel' },
+      {
+        text: strings.common.delete,
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await services.store.remove(card.id);
+          } catch (e) {
+            console.warn('Delete failed', e);
+            Alert.alert(strings.common.error);
+            return;
+          }
+          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
+          router.back();
+        },
+      },
+    ]);
+
   const sides = [{ label: strings.card.front, uri: frontUri }];
   if (card.hasBack) sides.push({ label: strings.card.back, uri: backUri });
 
@@ -80,19 +101,16 @@ export default function CardView() {
         ))}
       </View>
 
-      {/* Every action in the thumb zone, primary (Close) last on the right. Delete lives on the
-          edit screen, away from everyday actions. */}
+      {/* Every action in the thumb zone: the card's actions as icons in a row, and Close, the one
+          you need most, full width at the bottom. Delete asks first. */}
       <View style={styles.inset}>
         <Panel style={styles.footer} radius={28}>
-          <View style={styles.action}>
-            <Button variant="secondary" label={strings.card.share} onPress={share} />
+          <View style={styles.actions}>
+            <IconButton icon="trash" variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} testID="delete-card" />
+            <IconButton icon="share" label={strings.card.share} onPress={share} testID="share-card" />
+            <IconButton icon="edit" label={strings.card.edit} onPress={() => router.push(`/edit/${card.id}`)} testID="edit-card" />
           </View>
-          <View style={styles.action}>
-            <Button variant="secondary" label={strings.card.edit} onPress={() => router.push(`/edit/${card.id}`)} />
-          </View>
-          <View style={styles.action}>
-            <Button label={strings.common.close} onPress={() => router.back()} />
-          </View>
+          <Button label={strings.common.close} onPress={() => router.back()} testID="close-card" />
         </Panel>
       </View>
     </Screen>
@@ -107,6 +125,6 @@ const styles = StyleSheet.create({
   sides: { flex: 1, gap: 16 },
   side: { flex: 1, gap: 4 },
   frame: { flex: 1 },
-  footer: { flexDirection: 'row', gap: 12, padding: 8 },
-  action: { flex: 1 },
+  footer: { gap: 12, padding: 12 },
+  actions: { flexDirection: 'row', gap: 12 },
 });
