@@ -1,7 +1,7 @@
 import { Redirect, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { ExtractRun, extractWithGemma, modelFile, releaseGemma } from '../../src/analysis/gemma';
+import { deleteModel, downloadModel, ExtractRun, extractWithGemma, modelFile, releaseGemma } from '../../src/analysis/gemma';
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { Field, useInputStyle } from '../../src/ui/Field';
@@ -44,10 +44,57 @@ function Bench() {
   const [run, setRun] = useState<ExtractRun | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const hasModel = modelFile().exists;
+  const [hasModel, setHasModel] = useState(() => modelFile().exists);
+  // null while idle; a number (0–1) or 'unknown' while downloading.
+  const [progress, setProgress] = useState<number | 'unknown' | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const abort = useRef<AbortController | null>(null);
 
-  // Free the ~300 MB model as soon as the bench closes.
-  useEffect(() => () => void releaseGemma(), []);
+  const download = useCallback(async () => {
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
+    setDownloadError(null);
+    setProgress(0);
+    try {
+      await downloadModel((f) => setProgress(f ?? 'unknown'), controller.signal);
+      setHasModel(true);
+    } catch (e) {
+      if (!controller.signal.aborted) setDownloadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (!controller.signal.aborted) setProgress(null);
+    }
+  }, []);
+
+  const remove = async () => {
+    setRun(null);
+    setError(null);
+    try {
+      await deleteModel();
+    } catch (e) {
+      setDownloadError(e instanceof Error ? e.message : String(e));
+    }
+    setHasModel(modelFile().exists);
+  };
+
+  const redownload = async () => {
+    await remove();
+    if (!modelFile().exists) void download();
+  };
+
+  // Fetch the model if it's missing when the bench opens (a fresh install, or deleted by hand).
+  useEffect(() => {
+    if (!modelFile().exists) void download();
+  }, [download]);
+
+  // Stop any download and free the ~300 MB model as soon as the bench closes.
+  useEffect(
+    () => () => {
+      abort.current?.abort();
+      void releaseGemma();
+    },
+    [],
+  );
 
   const extract = async () => {
     setBusy(true);
@@ -76,11 +123,36 @@ function Bench() {
       <Stack.Screen options={{ title: 'Gemma 3 270M' }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {!hasModel && (
-          <Panel style={styles.group}>
-            <Text style={[styles.body, { color: theme.danger }]}>
-              Model missing. Copy {modelFile().name} into the app's documents folder under models/ (see
-              docs/gemma-sample.md).
+          <Panel style={styles.group} testID="model-download">
+            {progress !== null ? (
+              <Text style={[styles.body, { color: theme.text }]}>
+                Downloading {modelFile().name} (~290 MB)…{' '}
+                {progress === 'unknown' ? '' : `${Math.round(progress * 100)}%`}
+              </Text>
+            ) : (
+              <>
+                <Text style={[styles.body, { color: theme.danger }]}>
+                  Model missing{downloadError ? ` — download failed: ${downloadError}` : '.'}
+                </Text>
+                <Button label="Download model" onPress={download} testID="download-model" />
+              </>
+            )}
+          </Panel>
+        )}
+
+        {hasModel && (
+          <Panel style={styles.group} testID="model-actions">
+            <Text style={[styles.body, { color: theme.muted }]}>
+              {modelFile().name} · {Math.round((modelFile().size ?? 0) / 1e6)} MB
             </Text>
+            <View style={styles.actions}>
+              <View style={styles.action}>
+                <Button label="Re-download" variant="secondary" onPress={redownload} disabled={busy} testID="redownload-model" />
+              </View>
+              <View style={styles.action}>
+                <Button label="Delete model" variant="danger" onPress={remove} disabled={busy} testID="delete-model" />
+              </View>
+            </View>
           </Panel>
         )}
 
@@ -143,6 +215,8 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 16 },
   group: { padding: 16, gap: 16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  actions: { flexDirection: 'row', gap: 12 },
+  action: { flex: 1 },
   chip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
   input: { minHeight: 140, textAlignVertical: 'top' },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },

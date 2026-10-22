@@ -1,12 +1,29 @@
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import { initLlama, LlamaContext } from 'llama.rn';
 import { buildMessages, parseSuggestion, SmartSuggestion, SUGGESTION_SCHEMA } from './smartExtract';
 
-// Gemma 3 270M, instruction-tuned, Q8_0 GGUF (~290 MB). The app never downloads it: for the sample,
-// it is copied into the app's documents folder from a computer (see docs/gemma-sample.md).
+// Gemma 3 270M, instruction-tuned, Q8_0 GGUF (~290 MB). Release builds never download it (the app
+// never touches the internet); development builds fetch it when it's missing (see docs/gemma-sample.md).
 export const MODEL_FILE = 'gemma-3-270m-it-Q8_0.gguf';
+export const MODEL_URL = `https://huggingface.co/ggml-org/gemma-3-270m-it-GGUF/resolve/main/${MODEL_FILE}`;
 
-export const modelFile = () => new File(Paths.document, 'models', MODEL_FILE);
+const modelDir = () => new Directory(Paths.document, 'models');
+export const modelFile = () => new File(modelDir(), MODEL_FILE);
+const partFile = () => new File(modelDir(), `${MODEL_FILE}.part`);
+
+// Development builds only. Downloads to a .part file and moves it into place once complete, so an
+// interrupted download never leaves a truncated model behind. Progress is 0–1, or null if the size is unknown.
+export async function downloadModel(onProgress?: (fraction: number | null) => void, signal?: AbortSignal): Promise<void> {
+  if (!__DEV__) throw new Error('Model download is only available in development builds');
+  modelDir().create({ intermediates: true, idempotent: true });
+  const part = partFile();
+  await File.downloadFileAsync(MODEL_URL, part, {
+    idempotent: true,
+    signal,
+    onProgress: ({ bytesWritten, totalBytes }) => onProgress?.(totalBytes > 0 ? bytesWritten / totalBytes : null),
+  });
+  part.move(modelFile(), { overwrite: true });
+}
 
 export interface ExtractRun {
   suggestion: SmartSuggestion | null; // null when the output wasn't usable JSON
@@ -46,6 +63,12 @@ export async function extractWithGemma(cardText: string): Promise<ExtractRun> {
     predictMs: result.timings.predicted_ms,
     tokensPerSecond: result.timings.predicted_per_second,
   };
+}
+
+// Frees the loaded model first, so the file isn't deleted out from under it. Also clears a leftover partial download.
+export async function deleteModel(): Promise<void> {
+  await releaseGemma();
+  for (const file of [modelFile(), partFile()]) if (file.exists) file.delete();
 }
 
 export async function releaseGemma(): Promise<void> {

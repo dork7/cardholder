@@ -8,6 +8,8 @@ A development-only test bench for phase 5 of the [on-device AI plan](superpowers
 
 ## Run it
 
+The bench downloads the model itself (development builds only) when it isn't on the phone as the bench opens, showing progress, with a **Download model** button to retry if it fails. Once it's there, **Re-download** replaces it and **Delete model** removes it (freeing ~290 MB). The steps below are for copying it in by hand instead, e.g. without a network.
+
 1. Get the model (about 290 MB). Gemma is under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
 
    ```sh
