@@ -1,5 +1,5 @@
 import { frontImage, image, makeCard } from '../../../test/fixtures';
-import { draftFor, planSave } from '../editForm';
+import { applyAnalysis, draftFor, editField, formFor, planSave } from '../editForm';
 
 const free = { existing: null, cardCount: 0, unlocked: false };
 
@@ -61,5 +61,50 @@ test('draftFor fills from an existing card', () => {
     front: null,
     back: null,
     removeBack: false,
+  });
+});
+
+describe('suggestions from the photo', () => {
+  const guess = <T,>(value: T, confidence: number) => ({ value, confidence });
+
+  test('fill blank fields and the category of a new card', () => {
+    const state = applyAnalysis(formFor(null), {
+      name: guess('Daman', 0.6),
+      expiresOn: guess('2027-12-31', 0.85),
+      category: guess('insurance' as const, 0.75),
+    });
+    expect(state.draft).toMatchObject({ name: 'Daman', expiresOn: '2027-12-31', category: 'insurance' });
+    expect(state.suggested).toEqual({ name: 0.6, expiresOn: 0.85, category: 0.75 });
+  });
+
+  test("a stronger read (the back's MRZ) replaces a weaker suggestion; a weaker one does not", () => {
+    let state = applyAnalysis(formFor(null), { expiresOn: guess('2029-01-01', 0.6) });
+    state = applyAnalysis(state, { expiresOn: guess('2030-11-09', 0.95) });
+    expect(state.draft.expiresOn).toBe('2030-11-09');
+    state = applyAnalysis(state, { expiresOn: guess('2031-01-01', 0.85) });
+    expect(state.draft.expiresOn).toBe('2030-11-09');
+  });
+
+  test('a field the user set is theirs: its tag goes and suggestions skip it', () => {
+    let state = applyAnalysis(formFor(null), { name: guess('Daman', 0.6) });
+    state = editField(state, { name: 'Health' });
+    expect(state.suggested.name).toBeUndefined();
+    state = applyAnalysis(state, { name: guess('Daman', 0.9) });
+    expect(state.draft.name).toBe('Health');
+  });
+
+  test('an existing card keeps its category and any name it has', () => {
+    const card = makeCard({ name: 'Gym', category: 'membership', expiresOn: null });
+    const state = applyAnalysis(formFor(card), {
+      name: guess('Fitness First', 0.6),
+      category: guess('id' as const, 0.95),
+      expiresOn: guess('2028-06-30', 0.85),
+    });
+    expect(state.draft).toMatchObject({ name: 'Gym', category: 'membership', expiresOn: '2028-06-30' });
+  });
+
+  test('changing a photo is not a user edit of the fields', () => {
+    const state = editField(formFor(null), { front: frontImage('f') });
+    expect(state.touched).toEqual([]);
   });
 });

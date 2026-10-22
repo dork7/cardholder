@@ -76,6 +76,8 @@ export const strings = {
     expiry: 'Expiry date (optional)',
     addExpiry: 'Add expiry date',
     clearExpiry: 'Clear',
+    suggested: 'Suggested from the photo',
+    reading: 'Reading the card…',
     create: 'Add card',
     saveChanges: 'Save changes',
     deleteCard: 'Delete card',

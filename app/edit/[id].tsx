@@ -3,7 +3,8 @@ import { useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
-import { draftFor, EditDraft, planSave, SaveError } from '../../src/cards/editForm';
+import { analyzeImage } from '../../src/analysis/analyze';
+import { applyAnalysis, editField, EditDraft, formFor, planSave, SaveError } from '../../src/cards/editForm';
 import { NAME_MAX_LENGTH } from '../../src/config';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { pickImage } from '../../src/images/capture';
@@ -28,14 +29,21 @@ export default function EditCard() {
   const inputStyle = useInputStyle();
   const insets = useSafeAreaInsets();
 
-  const [draft, setDraft] = useState<EditDraft>(() => draftFor(existing));
+  const [form, setForm] = useState(() => formFor(existing));
+  const draft = form.draft;
+  // How many photos are being read right now, and which read is current for each side: a result for a
+  // photo that has since been replaced or removed is dropped.
+  const [reading, setReading] = useState(0);
+  const reads = useRef({ front: 0, back: 0 });
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
   const writing = useRef(false); // synchronous guard: state updates land a render too late for a fast double tap
   const existingFront = useCardImage(existing ?? undefined, 'front');
   const existingBack = useCardImage(existing?.hasBack ? existing : undefined, 'back');
 
-  const update = (patch: Partial<EditDraft>) => setDraft((d) => ({ ...d, ...patch }));
+  const update = (patch: Partial<EditDraft>) => setForm((f) => editField(f, patch));
+  const suggestedHint = (field: keyof typeof form.suggested) =>
+    form.suggested[field] !== undefined ? strings.edit.suggested : undefined;
   const errorText = (e: SaveError) => (errors.includes(e) ? strings.edit.errors[e] : undefined);
 
   if (!isNew && !existing) {
@@ -54,10 +62,29 @@ export default function EditCard() {
       if (!captured) return;
       if (side === 'front') update({ front: captured });
       else update({ back: captured, removeBack: false });
+      readCard(side, captured.jpegBase64);
     } catch (e) {
       console.warn('Capture failed', e);
       Alert.alert(strings.edit.captureFailed);
     }
+  };
+
+  // Reads the photo on the device and pre-fills what it finds. Never blocks the form: the user can
+  // keep typing, and anything they set is left alone.
+  const readCard = (side: 'front' | 'back', jpegBase64: string) => {
+    const read = ++reads.current[side];
+    setReading((n) => n + 1);
+    analyzeImage(jpegBase64)
+      .then((analysis) => {
+        if (reads.current[side] === read) setForm((f) => applyAnalysis(f, analysis));
+      })
+      .catch((e) => console.warn('Reading the card failed', e))
+      .finally(() => setReading((n) => n - 1));
+  };
+
+  const removeBack = () => {
+    reads.current.back++; // drop a read of the photo being removed
+    update({ back: null, removeBack: true });
   };
 
   const save = async () => {
@@ -134,12 +161,17 @@ export default function EditCard() {
               label={strings.edit.back}
               uri={backUri}
               onLibrary={() => capture('back')}
-              onRemove={backUri ? () => update({ back: null, removeBack: true }) : undefined}
+              onRemove={backUri ? removeBack : undefined}
               testIDPrefix="back"
             />
+            {reading > 0 && (
+              <Text style={{ color: theme.muted, fontSize: 16 }} accessibilityLiveRegion="polite" testID="reading-card">
+                {strings.edit.reading}
+              </Text>
+            )}
           </Panel>
           <Panel style={styles.group}>
-            <Field label={strings.edit.name} error={errorText('name-too-long')}>
+            <Field label={strings.edit.name} error={errorText('name-too-long')} hint={suggestedHint('name')}>
               <TextInput
                 testID="card-name"
                 value={draft.name}
@@ -151,12 +183,16 @@ export default function EditCard() {
                 style={inputStyle}
               />
             </Field>
-            <Field label={strings.edit.category} error={errorText('bad-category')}>
+            <Field label={strings.edit.category} error={errorText('bad-category')} hint={suggestedHint('category')}>
               <CategoryChips value={draft.category} onChange={(category) => category && update({ category })} />
             </Field>
           </Panel>
           <Panel style={styles.group}>
-            <ExpiryField value={draft.expiresOn} onChange={(expiresOn) => update({ expiresOn })} />
+            <ExpiryField
+              value={draft.expiresOn}
+              onChange={(expiresOn) => update({ expiresOn })}
+              hint={suggestedHint('expiresOn')}
+            />
             {errorText('bad-expiry') && (
               <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>
             )}

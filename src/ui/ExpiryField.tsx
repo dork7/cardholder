@@ -5,7 +5,15 @@ import { formatDate, fromIsoDate, toIsoDate } from '../time/dates';
 import { Button } from './Button';
 import { Field } from './Field';
 
-export function ExpiryField({ value, onChange }: { value: string | null; onChange: (value: string | null) => void }) {
+export function ExpiryField({
+  value,
+  onChange,
+  hint,
+}: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+  hint?: string;
+}) {
   const date = value ? fromIsoDate(value) : new Date();
 
   const openAndroidDialog = () =>
@@ -18,7 +26,7 @@ export function ExpiryField({ value, onChange }: { value: string | null; onChang
     });
 
   return (
-    <Field label={strings.edit.expiry}>
+    <Field label={strings.edit.expiry} hint={hint}>
       {value === null ? (
         <Button
           variant="secondary"

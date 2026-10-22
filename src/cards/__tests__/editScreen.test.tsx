@@ -42,6 +42,8 @@ jest.mock('../../reminders/scheduler', () => ({
 jest.mock('../../images/capture', () => ({
   pickImage: () => Promise.resolve(require('../../../test/fixtures').frontImage('picked')),
 }));
+const mockAnalyze = jest.fn();
+jest.mock('../../analysis/analyze', () => ({ analyzeImage: (...a: unknown[]) => mockAnalyze(...a) }));
 
 let warn: jest.SpyInstance;
 let alert: jest.SpyInstance;
@@ -55,6 +57,7 @@ beforeEach(() => {
   mockRemove.mockResolvedValue(undefined);
   mockRefresh.mockResolvedValue(undefined);
   mockPermission.mockResolvedValue(true);
+  mockAnalyze.mockResolvedValue({});
   warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
@@ -156,4 +159,63 @@ test('Close leaves the add-card modal without writing anything', async () => {
   await fireEvent.press(screen.getByRole('button', { name: strings.common.close }));
   expect(mockBack).toHaveBeenCalled();
   expect(mockCreate).not.toHaveBeenCalled();
+});
+
+describe('reading the card from its photo', () => {
+  const emiratesId = {
+    name: { value: 'Emirates ID', confidence: 0.9 },
+    expiresOn: { value: '2030-11-09', confidence: 0.85 },
+    category: { value: 'id', confidence: 0.95 },
+  };
+
+  test('a picked photo fills name, expiry and category, marked as suggested, and they are saved', async () => {
+    mockAnalyze.mockResolvedValue({ ...emiratesId, category: { value: 'insurance', confidence: 0.8 } });
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64);
+    expect(screen.getByTestId('card-name').props.value).toBe('Emirates ID');
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(
+      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09' },
+      expect.anything(),
+    );
+  });
+
+  test('what the user typed is never replaced, even when the read finishes later', async () => {
+    let finish: (a: unknown) => void = () => {};
+    mockAnalyze.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByText(strings.edit.reading)).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'My ID');
+    await act(async () => finish(emiratesId));
+    expect(screen.getByTestId('card-name').props.value).toBe('My ID');
+    expect(screen.queryByText(strings.edit.reading)).toBeNull();
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(2); // expiry and category only
+  });
+
+  test('editing an existing card keeps its saved name and category', async () => {
+    mockCards = [makeCard({ id: 'c1', name: 'Gym', category: 'membership' })];
+    mockParams = { id: 'c1' };
+    mockAnalyze.mockResolvedValue(emiratesId);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByTestId('card-name').props.value).toBe('Gym');
+    await save();
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'c1',
+      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09' }, // only the blank expiry is filled
+      expect.anything(),
+    );
+  });
+
+  test('a photo that cannot be read leaves the form as it was', async () => {
+    mockAnalyze.mockRejectedValue(new Error('vision failed'));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByTestId('card-name').props.value).toBe('');
+    expect(screen.queryByText(strings.edit.suggested)).toBeNull();
+    expect(alert).not.toHaveBeenCalled();
+  });
 });
