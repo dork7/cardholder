@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Text } from './Text';
 import { CATEGORIES, Category } from '../cards/types';
 import { strings } from '../strings';
-import { useTheme } from './theme';
+import { TYPE, useTheme } from './theme';
 
 interface Props {
   value: Category | null;
@@ -34,10 +34,12 @@ export function CategoryChips({ value, onChange, includeAll = false, categories 
             accessibilityState={{ checked: selected }}
             style={[
               styles.chip,
-              { borderColor: selected ? theme.accent : theme.border, backgroundColor: selected ? theme.accent : theme.surface },
+              { backgroundColor: selected ? theme.accent : theme.bannerBg },
             ]}
           >
-            <Text style={[styles.text, { color: selected ? theme.onAccent : theme.text }]}>{label}</Text>
+            <Text style={[styles.text, { color: selected ? theme.onAccent : theme.text, fontWeight: selected ? '700' : '400' }]}>
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -49,6 +51,6 @@ const styles = StyleSheet.create({
   // A horizontal ScrollView otherwise grows to fill a column, stretching every chip tall.
   scroller: { flexGrow: 0 },
   row: { gap: 8, paddingVertical: 4 },
-  chip: { minHeight: 40, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 20, borderWidth: 1 },
-  text: { fontSize: 16 },
+  chip: { minHeight: 40, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 9999 },
+  text: { fontSize: TYPE.secondary },
 });

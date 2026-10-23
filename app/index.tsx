@@ -81,8 +81,8 @@ export default function Home() {
 const styles = StyleSheet.create({
   inset: { paddingHorizontal: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20, paddingRight: 10, paddingVertical: 8 },
-  devButton: { minHeight: 40, paddingHorizontal: 14, borderWidth: 1, borderRadius: 20, justifyContent: 'center' },
-  devLabel: { fontSize: TYPE.caption, fontWeight: '600' },
+  devButton: { minHeight: 40, paddingHorizontal: 16, borderWidth: 1, borderRadius: 9999, justifyContent: 'center' },
+  devLabel: { fontSize: TYPE.caption, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase' },
   title: { flex: 1, fontSize: TYPE.title, fontWeight: '700' },
   body: { flex: 1, justifyContent: 'center', paddingVertical: 24, gap: 24 },
   empty: { padding: 20, gap: 8 },

@@ -12,8 +12,8 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
 const panelStyle = () => StyleSheet.flatten(screen.getByTestId('panel').props.style);
 
 test.each([
-  ['light', '#F6F8F5'],
-  ['dark', '#1E1E1E'],
+  ['light', '#F4F4F4'],
+  ['dark', '#181818'],
 ] as const)('in %s mode a panel is a solid surface one step up from the page', async (scheme, surface) => {
   mockScheme = scheme;
   await render(

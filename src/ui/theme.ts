@@ -1,61 +1,67 @@
 import { useColorScheme } from 'react-native';
 
-// Security-printing palette: cool security paper, intaglio ink, guilloche lines,
-// a hologram violet reserved for selection, and rubber-stamp red for anything destructive.
+// Spotify-inspired (.claude/skills/spotify-design): near-black surfaces where the card photos are
+// the only colour, one functional green for primary actions and active states, announcement blue
+// reserved for selection, and negative red for anything destructive.
 export interface Theme {
-  bg: string; // security paper
-  surface: string; // slightly lifted paper (modals, banners)
-  text: string; // intaglio ink
+  bg: string; // the page
+  surface: string; // one step up: panels, card tiles
+  text: string;
   muted: string; // secondary text (passes 4.5:1 on bg)
-  accent: string; // filled primary buttons and links
+  accent: string; // filled primary buttons, active chips, links
   onAccent: string;
-  selection: string; // hologram violet: selection, focus, the card being dragged — nothing else
-  danger: string; // stamp red
+  selection: string; // selection, focus, the card being dragged — nothing else
+  danger: string;
   border: string; // hairlines between list items
-  rosette: string; // guilloche line colour, field underlines
-  bannerBg: string;
+  rosette: string; // outlines of secondary buttons, field underlines (3:1)
+  bannerBg: string; // two steps up: banners, sheets, chips
   bannerText: string;
   photoDim: string; // veil over card thumbnails so white plastic doesn't glare in the dark; never on the counter view
 }
 
+// The style is dark-first; light keeps the same geometry. Spotify Green doesn't reach 3:1 on white,
+// so light mode uses a deeper green with white labels.
 const light: Theme = {
-  bg: '#EDF1EC',
-  surface: '#F6F8F5',
-  text: '#1D3B4A',
-  muted: '#4F6A66',
-  accent: '#1D3B4A',
-  onAccent: '#EDF1EC',
-  selection: '#5B44C8',
-  danger: '#B3261E',
-  border: '#C9D4CF',
-  rosette: '#7C9893',
-  bannerBg: '#E1E8E3',
-  bannerText: '#1D3B4A',
+  bg: '#FFFFFF',
+  surface: '#F4F4F4',
+  text: '#121212',
+  muted: '#5E5E5E',
+  accent: '#117A37',
+  onAccent: '#FFFFFF',
+  selection: '#1F6FD0',
+  danger: '#C2283A',
+  border: 'rgba(0, 0, 0, 0.1)',
+  rosette: '#7C7C7C',
+  bannerBg: '#EEEEEE',
+  bannerText: '#121212',
   photoDim: 'transparent',
 };
 
-// Not an inversion: neutral near-black paper with elevation shown by lighter greys (never shadows),
-// off-white rather than pure-white ink, saturated hues are pulled back so they don't vibrate on the dark paper,
-// the filled accent keeps the brand's ink-teal hue at low saturation so a full-width button isn't a glaring slab,
-// and hairlines are translucent ink so they read the same on paper and on lifted surfaces.
+// Depth through shade: #121212 page, #181818 surfaces, #1f1f1f for what sits on them.
 const dark: Theme = {
-  bg: '#121212', // darkest: the page
-  surface: '#1E1E1E', // surface 1: header, card tiles, chips
-  text: '#E0E0E0',
-  muted: '#A3A3A3',
-  accent: '#A4C0CC', // light's #1D3B4A ink teal, lifted and desaturated (hsl 198 28% 72%)
-  onAccent: '#121212',
-  selection: '#ADA3EE',
-  danger: '#F0988F',
-  border: 'rgba(255, 255, 255, 0.12)',
-  rosette: '#707070', // 3:1 on bg and surface, so field underlines still mark the field
-  bannerBg: '#242424', // surface 2: banners, sheets
-  bannerText: '#E0E0E0',
+  bg: '#121212',
+  surface: '#181818',
+  text: '#FDFDFD',
+  muted: '#B3B3B3',
+  accent: '#1ED760',
+  onAccent: '#000000',
+  selection: '#539DF5',
+  danger: '#F3727F',
+  border: 'rgba(255, 255, 255, 0.1)',
+  rosette: '#7C7C7C',
+  bannerBg: '#1F1F1F',
+  bannerText: '#FDFDFD',
   photoDim: 'rgba(0, 0, 0, 0.12)',
 };
 
-// Bringhurst-style scale, body one step above the platform default for arm's-length reading.
-export const TYPE = { caption: 14, secondary: 16, body: 18, section: 21, title: 24, display: 36 } as const;
+// Compact, as the style asks: 12–24 for the UI, with display kept for the counter view.
+export const TYPE = { caption: 12, secondary: 14, body: 16, section: 18, title: 24, display: 32 } as const;
+
+// Heavy enough to read on near-black: medium lifts cards, heavy floats dialogs and the add button.
+export const SHADOW = {
+  medium: { shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  heavy: { shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
+} as const;
 
 // Exported for the contrast tests.
 export const palettes = { light, dark } as const;

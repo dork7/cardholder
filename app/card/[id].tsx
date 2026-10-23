@@ -8,7 +8,7 @@ import { Button } from '../../src/ui/Button';
 import { IconButton } from '../../src/ui/IconButton';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
-import { useTheme } from '../../src/ui/theme';
+import { TYPE, useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
 import { displayName } from '../../src/cards/display';
 import { shareCardImage } from '../../src/share/shareCard';
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   padded: { padding: 16, gap: 12 },
   inset: { paddingHorizontal: 16 },
   header: { paddingHorizontal: 20, paddingVertical: 12 },
-  title: { fontSize: 21, fontWeight: '700' },
+  title: { fontSize: TYPE.section, fontWeight: '700' },
   sides: { flex: 1, gap: 16 },
   side: { flex: 1, gap: 4 },
   frame: { flex: 1 },

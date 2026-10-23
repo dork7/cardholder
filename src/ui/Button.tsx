@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { Text } from './Text';
-import { useTheme } from './theme';
+import { TYPE, useTheme } from './theme';
 
 export interface ButtonProps {
   label: string;
@@ -14,10 +14,11 @@ export interface ButtonProps {
 export function Button({ label, onPress, variant = 'primary', disabled = false, testID, accessibilityHint }: ButtonProps) {
   const theme = useTheme();
   const primary = variant === 'primary';
-  const color = primary ? theme.onAccent : variant === 'danger' ? theme.danger : theme.accent;
-  // The outline is what shows where a transparent button is, so it needs 3:1 against the paper
-  // (hairline `border` is far too faint for that): muted ink for secondary, stamp red for danger.
-  const outline = primary ? theme.accent : variant === 'danger' ? theme.danger : theme.muted;
+  // Green is for the primary action only; a secondary button is white text in a grey outline.
+  const labelColor = primary ? theme.onAccent : variant === 'danger' ? theme.danger : theme.text;
+  // The outline is what shows where a transparent button is, so it needs 3:1 against the page
+  // (hairline `border` is far too faint for that): mid grey for secondary, red for danger.
+  const outline = primary ? theme.accent : variant === 'danger' ? theme.danger : theme.rosette;
   return (
     <Pressable
       accessibilityRole="button"
@@ -36,7 +37,7 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
         },
       ]}
     >
-      <Text style={[styles.label, { color }]}>{label}</Text>
+      <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -46,10 +47,11 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 9999,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: { fontSize: 18, fontWeight: '600', textAlign: 'center' },
+  // Uppercase with wide tracking: the buttons' label voice, distinct from content text.
+  label: { fontSize: TYPE.secondary, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', textAlign: 'center' },
 });

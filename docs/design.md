@@ -84,26 +84,29 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
 ## Visual design
 
-Agreed 2026-10-19. The visual language is **security printing**, the vernacular of the documents the app holds: guilloche rosettes, intaglio ink, the ISO ID-1 card shape.
+Revised 2026-10-23: the visual language is **Spotify-inspired** (full rules in the project skill `.claude/skills/spotify-design`). Near-black surfaces recede so the card photos are the only colour; one functional green marks primary actions and active states. Tokens live in `src/ui/theme.ts`.
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| Security paper | `#EDF1EC` | `#121212` | background (light: cool, faintly green — not cream; dark: neutral near-black) |
-| Intaglio | `#1D3B4A` | `#E0E0E0` | text, filled primary buttons (dark fills use `#A4C0CC`, the same ink teal lifted and desaturated) |
-| Guilloche | `#7C9893` | `#707070` | rosette lines, field underlines (secondary text uses `#4F6A66` / `#A3A3A3` for 4.5:1) |
-| Hologram violet | `#5B44C8` | `#ADA3EE` | selection, focus, the card being dragged — nothing else |
-| Stamp red | `#B3261E` | `#F0988F` | destructive actions, "can't be recovered" |
+| Page | `#FFFFFF` | `#121212` | background |
+| Surface | `#F4F4F4` | `#181818` | panels, card tiles |
+| Raised | `#EEEEEE` | `#1F1F1F` | banners, sheets, unselected chips |
+| Text / muted | `#121212` / `#5E5E5E` | `#FDFDFD` / `#B3B3B3` | primary and secondary text (4.5:1) |
+| Green | `#117A37` | `#1ED760` | filled primary buttons, active chips, the add button — never decoration. Light uses a deeper green: `#1ED760` doesn't reach 3:1 on white |
+| Outline grey | `#7C7C7C` | `#7C7C7C` | secondary button outlines, field underlines (3:1) |
+| Selection blue | `#1F6FD0` | `#539DF5` | selection, focus, the card being dragged — nothing else |
+| Negative red | `#C2283A` | `#F3727F` | destructive actions, "can't be recovered" |
 | Counter black | `#000000` | `#000000` | counter view only |
 
-Dark mode is redesigned, not inverted: surfaces step up from `#121212` (page) to `#1E1E1E` (header, card tiles) to `#242424` (banners, sheets), text is off-white `#E0E0E0`, hues desaturated ~25%, hairlines are 12% white over whatever surface they sit on, elevation is shown by lighter surfaces (never shadows), and card thumbnails get a 12% black veil so white plastic doesn't glare. The counter view is never dimmed — it's for scanning. A toggle in the home title bar cycles System → Light → Dark; System follows the phone, and the choice is saved in settings and applied app-wide (native alerts and pickers included) before the first screen draws. Contrast tests check text and secondary text at 4.5:1 on every opaque surface in both palettes.
+Depth is shown by shade (`#121212` → `#181818` → `#1F1F1F`), and floating elements (the add button) carry a heavy shadow (50% black, 24 blur, 8 down) so it reads on near-black. Hairlines are 10% white/black. Card thumbnails get a 12% black veil in dark mode so white plastic doesn't glare; the counter view is never dimmed. A toggle in the home title bar cycles System → Light → Dark; System follows the phone, and the choice is saved in settings and applied app-wide (native alerts and pickers included) before the first screen draws. Contrast tests check text and secondary text at 4.5:1 on every opaque surface in both palettes.
 
-- **Type:** Public Sans (OFL, bundled) for all text; weights 400 body, 600 card names, 700 titles. Scale 14 / 16 / **18 body** / 21 / 24 / 36. Card numbers use Public Sans with tabular figures.
-- **Shape:** card photos are the card — no box, border or shadow around tiles — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Buttons radius 8; text fields a bottom hairline only; settings are hairline-separated groups, not cards.
+- **Type:** Public Sans (OFL, bundled; Spotify's own faces are proprietary) for all text; 400 body, 700 emphasis, 600 sparingly. Compact scale 12 / 14 / **16 body** / 18 / 24, 32 for display. Button labels are uppercase, 14 bold, tracked 1.4. Card numbers use tabular figures.
+- **Shape:** pill everything you press — buttons, chips and icon buttons are full pills, the add and appearance buttons are circles. Panels radius 8 (title and action bars keep their larger rounded ends). Card photos are the card — no box or border — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Text fields a bottom hairline only.
 - **One bold element:** a guilloche rosette (SVG), shown only on the empty state and the app-switcher cover.
 - **Two motions:** a 3D card flip (on the home stack's front card, via the flip button shown on two-sided cards: a spring turn with a slight lift and shading, interruptible mid-turn), and the home screen's wallet-style card stack (cards behind fan out to the right; swipe left sends the front card to the back, swipe right brings the previous one back, tapping a peeking card brings it straight to the front). Both are instant when Reduce Motion is on. No other animation.
 - **Surfaces** (glass removed 2026-10-21): every screen sits on the plain page colour (`bg`), with solid panels (`surface`, a hairline `border`) for the chrome: home's title bar, card caption and Add card bar; the card view's header and Share / Edit / Close bar; the edit form's three groups and its Close / Save bar; the boot panel. No blur, translucency or backdrop blobs. Card photos stay unframed on the page.
 - Content left-aligned; only the empty state centres its single call to action.
-- Avoid: stock iOS blue, uniform rounded card kits, all-caps labels, monospace faces.
+- Avoid: green as decoration or a background, square buttons, extra brand colours, relaxed line heights, monospace faces.
 
 ## Stack
 

@@ -22,8 +22,8 @@ interface Props {
 // An outlined button with only an icon. Same outline rules as Button: 3:1 against the page.
 export function IconButton({ icon, label, onPress, variant = 'secondary', testID }: Props) {
   const theme = useTheme();
-  const color = variant === 'danger' ? theme.danger : theme.accent;
-  const outline = variant === 'danger' ? theme.danger : theme.muted;
+  const color = variant === 'danger' ? theme.danger : theme.text;
+  const outline = variant === 'danger' ? theme.danger : theme.rosette;
   return (
     <Pressable
       accessibilityRole="button"
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   base: {
     flex: 1,
     minHeight: 56,
-    borderRadius: 8,
+    borderRadius: 9999,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

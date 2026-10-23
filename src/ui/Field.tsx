@@ -34,5 +34,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '600' },
   hint: { fontSize: 14 },
   error: { fontSize: 16 },
-  input: { minHeight: 48, borderBottomWidth: 1, paddingHorizontal: 2, paddingVertical: 10, fontSize: 18, fontFamily: FONT.regular },
+  input: { minHeight: 48, borderBottomWidth: 1, paddingHorizontal: 2, paddingVertical: 10, fontSize: 16, fontFamily: FONT.regular },
 });

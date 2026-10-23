@@ -8,8 +8,8 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   default: () => mockScheme,
 }));
 
-// Security paper from docs/design.md; the button sits on it.
-const PAPER = { light: '#EDF1EC', dark: '#121212' } as const;
+// The page the button sits on.
+const PAPER = { light: '#FFFFFF', dark: '#121212' } as const;
 
 function luminance(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -25,7 +25,7 @@ function contrast(a: string, b: string): number {
 test('the test harness really switches themes', async () => {
   mockScheme = 'dark';
   await render(<Button label="Go" onPress={() => {}} />);
-  expect(StyleSheet.flatten(screen.getByRole('button', { name: 'Go' }).props.style).backgroundColor).toBe('#A4C0CC');
+  expect(StyleSheet.flatten(screen.getByRole('button', { name: 'Go' }).props.style).backgroundColor).toBe('#1ED760');
 });
 
 describe.each(['light', 'dark'] as const)('%s theme', (scheme) => {

@@ -15,8 +15,8 @@ interface PanelProps {
   testID?: string;
 }
 
-// A solid surface one step up from the page. In dark mode elevation is the lighter grey, not a shadow.
-export function Panel({ children, style, radius = 20, testID }: PanelProps) {
+// A solid surface one step up from the page; the lighter shade is what lifts it.
+export function Panel({ children, style, radius = 8, testID }: PanelProps) {
   const theme = useTheme();
   return (
     <View
