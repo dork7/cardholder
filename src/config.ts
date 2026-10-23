@@ -1,6 +1,8 @@
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const FREE_CARD_LIMIT = 4;
+// Off while testing: there is no paywall yet, so the limit would strand people at FREE_CARD_LIMIT cards.
+export const CARD_LIMIT_ENABLED = false;
 export const UNLOCK_PRODUCT_ID = 'cardholder.unlimited';
 
 export const NAME_MAX_LENGTH = 60;

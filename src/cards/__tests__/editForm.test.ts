@@ -1,6 +1,9 @@
 import { frontImage, image, makeCard } from '../../../test/fixtures';
 import { applyAnalysis, draftFor, editField, formFor, planSave } from '../editForm';
 
+// The limit is switched off in the app for now; these tests keep its rules covered for when it returns.
+jest.mock('../../config', () => ({ ...jest.requireActual('../../config'), CARD_LIMIT_ENABLED: true }));
+
 const free = { existing: null, cardCount: 0, unlocked: false };
 
 test('a new card needs a front photo but no name', () => {

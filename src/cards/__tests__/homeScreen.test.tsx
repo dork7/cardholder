@@ -140,7 +140,7 @@ test('search narrows the stack by name, and says so when nothing matches', async
   expect(screen.getByTestId('card-stack').props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 3) });
 });
 
-test('adding goes to the editor below the free limit', async () => {
+test('adding goes to the editor', async () => {
   await renderHome();
   await fireEvent.press(screen.getByTestId('add-card'));
   expect(mockPush).toHaveBeenLastCalledWith('/edit/new');
@@ -148,16 +148,8 @@ test('adding goes to the editor below the free limit', async () => {
 
 const fullWallet = () => Array.from({ length: FREE_CARD_LIMIT }, (_, i) => makeCard({ id: `c${i}`, name: `Card ${i}` }));
 
-test('at the free limit, adding goes to the paywall', async () => {
-  await withCards(fullWallet(), async () => {
-    await renderHome();
-    await fireEvent.press(screen.getByTestId('add-card'));
-    expect(mockPush).toHaveBeenLastCalledWith('/paywall');
-  });
-});
-
-test('with Unlimited unlocked, adding past the limit goes to the editor', async () => {
-  mockUnlocked = true;
+// CARD_LIMIT_ENABLED is off while there is no paywall.
+test('with the card limit off, adding past it still goes to the editor', async () => {
   await withCards(fullWallet(), async () => {
     await renderHome();
     await fireEvent.press(screen.getByTestId('add-card'));
