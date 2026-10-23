@@ -3,7 +3,7 @@ import { memoryDb } from '../../../test/memoryDb';
 import { fields, frontImage, image, images, importEntry, makeStore } from '../../../test/fixtures';
 import { createAead, generateKey } from '../../crypto/aead';
 import { base64, utf8 } from '../../crypto/bytes';
-import { createCardStore, CardNotFoundError } from '../cardStore';
+import { createCardStore, CardNotFoundError, FolderNotFoundError } from '../cardStore';
 import { migrate } from '../../storage/sqlDb';
 import { BlobStore } from '../../storage/blobStore';
 
@@ -275,6 +275,7 @@ test('cards saved before number and notes were removed still load, without them'
     name: 'Coffee club',
     category: 'other',
     expiresOn: null,
+    folderId: null,
     pinned: false,
     position: 0,
     hasBack: false,
@@ -282,5 +283,57 @@ test('cards saved before number and notes were removed still load, without them'
     backAspect: null,
     createdAt: 1,
     updatedAt: 1,
+  });
+});
+
+describe('folders', () => {
+  test('are created, renamed and listed by name, with their names sealed', async () => {
+    const { store, db } = await makeStore();
+    const work = await store.createFolder('  Work ');
+    await store.createFolder('family');
+    expect(work.name).toBe('Work');
+    expect((await store.listFolders()).map((f) => f.name)).toEqual(['family', 'Work']);
+    await store.renameFolder(work.id, 'Office');
+    expect((await store.listFolders()).map((f) => f.name)).toEqual(['family', 'Office']);
+    const rows = await db.getAllAsync<{ payload: Uint8Array }>('SELECT payload FROM folders', []);
+    for (const row of rows) expect(Buffer.from(row.payload).toString('latin1')).not.toMatch(/family|Office/);
+  });
+
+  test('renaming a folder that is gone fails', async () => {
+    const { store } = await makeStore();
+    await expect(store.renameFolder('nope', 'x')).rejects.toThrow(FolderNotFoundError);
+  });
+
+  test("a card's folder is saved on create and update", async () => {
+    const { store } = await makeStore();
+    const folder = await store.createFolder('Health');
+    const card = await store.create(fields({ folderId: folder.id }), images('a'));
+    expect((await store.get(card.id))!.folderId).toBe(folder.id);
+    await store.update(card.id, fields({ folderId: null }));
+    expect((await store.get(card.id))!.folderId).toBeNull();
+  });
+
+  test('deleting a folder keeps its cards, outside any folder', async () => {
+    const { store } = await makeStore();
+    const folder = await store.createFolder('Health');
+    const card = await store.create(fields({ folderId: folder.id }), images('a'));
+    await store.removeFolder(folder.id);
+    expect(await store.listFolders()).toEqual([]);
+    expect((await store.get(card.id))!.folderId).toBeNull();
+  });
+
+  test('insertMany writes folders: replace swaps them, merge keeps names already on the phone', async () => {
+    const { store } = await makeStore();
+    const mine = await store.createFolder('Mine');
+    const incoming = [
+      { id: mine.id, name: 'Theirs', createdAt: 1 },
+      { id: 'f-new', name: 'New', createdAt: 2 },
+    ];
+    await store.insertMany([importEntry('x1', { folderId: 'f-new' })], { replace: false, folders: incoming });
+    expect((await store.listFolders()).map((f) => f.name)).toEqual(['Mine', 'New']);
+    expect((await store.get('x1'))!.folderId).toBe('f-new');
+
+    await store.insertMany([], { replace: true, folders: [{ id: 'f-only', name: 'Only', createdAt: 3 }] });
+    expect((await store.listFolders()).map((f) => f.id)).toEqual(['f-only']);
   });
 });

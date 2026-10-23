@@ -21,10 +21,12 @@ export function analyzeText(result: OcrResult, today: string): CardAnalysis {
     .filter((l) => l.text.trim() !== '' && l.confidence > MIN_LINE_CONFIDENCE)
     .sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
   const mrz = findMrz(lines.map((l) => l.text));
+  const text = lines.map((l) => l.text).join('\n');
   return {
     name: keep(extractName(lines, mrz)),
     expiresOn: keep(extractExpiry(lines, mrz, today)),
-    category: keep(classifyCard(lines.map((l) => l.text).join('\n'), mrz)),
+    category: keep(classifyCard(text, mrz)),
+    text,
   };
 }
 

@@ -14,6 +14,14 @@ export interface CardFields {
   name: string; // '' when the card has no name
   category: Category;
   expiresOn: string | null; // YYYY-MM-DD, local calendar day
+  folderId: string | null; // null when the card isn't in a folder
+}
+
+// A user-made group of cards. Its name is sealed like a card's; the id is random.
+export interface Folder {
+  id: string;
+  name: string;
+  createdAt: number;
 }
 
 export interface CardImage {

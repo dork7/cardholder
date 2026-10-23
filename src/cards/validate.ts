@@ -9,9 +9,14 @@ export interface RawCardFields {
   name?: unknown;
   category?: unknown;
   expiresOn?: unknown;
+  folderId?: unknown;
 }
 
 export type CardValidation = { ok: true; value: CardFields } | { ok: false; errors: FieldError[] };
+
+// Folder ids are random hex from this app; anything else (or none, in an older backup) means no folder.
+const FOLDER_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const toFolderId = (v: unknown): string | null => (typeof v === 'string' && FOLDER_ID.test(v) ? v : null);
 
 function optionalText(v: unknown): string | null {
   if (typeof v !== 'string') return null;
@@ -33,5 +38,5 @@ export function validateCardFields(raw: RawCardFields): CardValidation {
   if (expiresOn !== null && !isValidIsoDate(expiresOn)) errors.push('bad-expiry');
 
   if (errors.length > 0 || !category) return { ok: false, errors };
-  return { ok: true, value: { name, category, expiresOn } };
+  return { ok: true, value: { name, category, expiresOn, folderId: toFolderId(raw.folderId) } };
 }

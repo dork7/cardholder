@@ -115,6 +115,7 @@ describe('reading a card', () => {
       name: undefined,
       expiresOn: undefined,
       category: undefined,
+      text: '1234 5678\n***',
     });
   });
 

@@ -1,7 +1,7 @@
 import { ImportEntry } from '../cards/cardStore';
-import { Card, CardImage } from '../cards/types';
+import { Card, CardImage, Folder } from '../cards/types';
 import { validateCardFields } from '../cards/validate';
-import { PBKDF2_ITERATIONS } from '../config';
+import { FOLDER_NAME_MAX_LENGTH, PBKDF2_ITERATIONS } from '../config';
 import { createAead } from '../crypto/aead';
 import { concat, utf8 } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
@@ -12,6 +12,7 @@ export interface BackupSnapshot {
   formatVersion: 1;
   exportedAt: number;
   cards: BackupCard[];
+  folders: Folder[]; // absent from backups made before folders; read as none
 }
 
 export type BackupErrorCode = 'not-a-backup' | 'unsupported-version' | 'wrong-passphrase-or-damaged' | 'invalid-contents';
@@ -97,6 +98,17 @@ function parseImage(v: unknown): CardImage {
   return { jpegBase64: v.jpegBase64, aspect: v.aspect };
 }
 
+function parseFolder(v: unknown, seen: Set<string>): Folder {
+  if (!isObject(v) || typeof v.id !== 'string' || !ID_PATTERN.test(v.id) || !isNumber(v.createdAt)) invalid();
+  if (typeof v.name !== 'string') invalid();
+  const name = v.name.trim();
+  if (name === '' || [...name].length > FOLDER_NAME_MAX_LENGTH) invalid();
+  const idFold = v.id.toLowerCase();
+  if (seen.has(idFold)) invalid();
+  seen.add(idFold);
+  return { id: v.id, name, createdAt: v.createdAt };
+}
+
 function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
   if (!isObject(entry) || !isObject(entry.card) || !isObject(entry.images)) invalid();
   const c = entry.card;
@@ -137,6 +149,16 @@ export function parseSnapshot(value: unknown): BackupSnapshot {
   if (!isObject(value) || value.formatVersion !== 1 || !isNumber(value.exportedAt) || !Array.isArray(value.cards)) {
     invalid();
   }
+  if (value.folders !== undefined && !Array.isArray(value.folders)) invalid();
+  const seenFolders = new Set<string>();
+  const folders = (value.folders ?? []).map((f) => parseFolder(f, seenFolders));
+  const folderIds = new Set(folders.map((f) => f.id));
   const seen = new Set<string>();
-  return { formatVersion: 1, exportedAt: value.exportedAt, cards: value.cards.map((entry) => parseEntry(entry, seen)) };
+  const cards = value.cards.map((entry) => {
+    const parsed = parseEntry(entry, seen);
+    // A card pointing at a folder the file doesn't hold is kept, outside any folder.
+    if (parsed.card.folderId !== null && !folderIds.has(parsed.card.folderId)) parsed.card.folderId = null;
+    return parsed;
+  });
+  return { formatVersion: 1, exportedAt: value.exportedAt, cards, folders };
 }

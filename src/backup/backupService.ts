@@ -23,17 +23,19 @@ export async function buildSnapshot(store: CardStore, now: number): Promise<Back
       },
     });
   }
-  return { formatVersion: 1, exportedAt: now, cards };
+  return { formatVersion: 1, exportedAt: now, cards, folders: await store.listFolders() };
 }
 
 // The snapshot must come from decodeBackup, which has already validated every card.
 export async function applySnapshot(store: CardStore, snapshot: BackupSnapshot, mode: ImportMode): Promise<ImportResult> {
   if (mode === 'replace') {
-    await store.insertMany(snapshot.cards, { replace: true });
+    await store.insertMany(snapshot.cards, { replace: true, folders: snapshot.folders });
     return { added: snapshot.cards.length, skipped: 0 };
   }
   const existing = new Set(await store.ids());
   const fresh = snapshot.cards.filter((entry) => !existing.has(entry.card.id));
-  if (fresh.length > 0) await store.insertMany(fresh, { replace: false });
+  if (fresh.length > 0 || snapshot.folders.length > 0) {
+    await store.insertMany(fresh, { replace: false, folders: snapshot.folders });
+  }
   return { added: fresh.length, skipped: snapshot.cards.length - fresh.length };
 }

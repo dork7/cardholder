@@ -13,6 +13,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
     name: 'Gym',
     category: 'membership',
     expiresOn: null,
+    folderId: null,
     pinned: true,
     position: 0,
     hasBack: false,
@@ -25,7 +26,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
 }
 
 export function fields(overrides: Partial<CardFields> = {}): CardFields {
-  return { name: 'Gym', category: 'membership', expiresOn: null, ...overrides };
+  return { name: 'Gym', category: 'membership', expiresOn: null, folderId: null, ...overrides };
 }
 
 // Fake "JPEGs": readable markers so tests can check what came back and that nothing leaks.
@@ -56,6 +57,7 @@ export function backupSnapshot(): BackupSnapshot {
       importEntry('card1', { name: 'Emirates ID', category: 'id', expiresOn: '2027-03-01' }),
       importEntry('card2', { name: 'Gym', pinned: false, position: 0 }, true),
     ],
+    folders: [],
   };
 }
 

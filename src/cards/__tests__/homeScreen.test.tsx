@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { makeCard } from '../../../test/fixtures';
+import { Folder } from '../types';
 import Home from '../../../app/index';
 import { FREE_CARD_LIMIT } from '../../config';
 import { strings } from '../../strings';
@@ -28,6 +29,7 @@ jest.mock('react-native-gesture-handler', () => ({
 }));
 const mockSetAppearance = jest.fn(() => Promise.resolve());
 let mockUnlocked = false;
+let mockFolders: Folder[] = [];
 let mockLastExportAt: string | null = null;
 const mockSettingsSet = jest.fn(() => Promise.resolve());
 // Stable across renders, as the real provider's services are.
@@ -45,6 +47,7 @@ const mockServices = {
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     cards: mockCards,
+    folders: mockFolders,
     unlocked: mockUnlocked,
     services: mockServices,
     openImportOnReady: false,
@@ -58,6 +61,7 @@ beforeEach(() => {
   mockPush.mockClear();
   mockSettingsSet.mockClear();
   mockUnlocked = false;
+  mockFolders = [];
   mockLastExportAt = String(Date.now());
 });
 
@@ -100,6 +104,28 @@ test('choosing a type narrows the stack to cards of that type', async () => {
   const stack = screen.getByTestId('card-stack');
   expect(stack.props.accessibilityLabel).toBe('Health insurance');
   expect(stack.props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 1) });
+});
+
+test('with no folders there is no folder filter', async () => {
+  await renderHome();
+  expect(screen.queryByTestId('folder-filter-all')).toBeNull();
+});
+
+test('choosing a folder narrows the stack to its cards', async () => {
+  mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
+  mockCards = mockCards.map((c) => (c.id === 'b' ? { ...c, folderId: 'f1' } : c));
+  await renderHome();
+  await act(async () => fireEvent.press(screen.getByTestId('folder-filter-f1')));
+  await act(async () => {
+    fireEvent(screen.getByTestId('card-stack-frame'), 'layout', {
+      nativeEvent: { layout: { width: 340, height: 0, x: 0, y: 0 } },
+    });
+  });
+  const stack = screen.getByTestId('card-stack');
+  expect(stack.props.accessibilityLabel).toBe('Health insurance');
+  expect(stack.props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 1) });
+  await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.folders.manage })));
+  expect(mockPush).toHaveBeenCalledWith('/folders');
 });
 
 test('types with no cards are not offered', async () => {

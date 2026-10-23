@@ -12,7 +12,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const snapshot = (cards: Card[], unlocked = false): AppSnapshot => ({ cards, unlocked });
+const snapshot = (cards: Card[], unlocked = false): AppSnapshot => ({ cards, folders: [], unlocked });
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function setup() {

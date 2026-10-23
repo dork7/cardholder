@@ -35,6 +35,9 @@ export default function SettingsScreen() {
           <Button label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
           <Button variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
         </Section>
+        <Section title={strings.folders.title}>
+          <Button variant="secondary" label={strings.folders.manage} onPress={() => router.push('/folders')} testID="manage-folders" />
+        </Section>
         <Section title={strings.settings.about}>
           <Text style={[styles.body, { color: theme.text }]}>{strings.promise}</Text>
           <Button variant="secondary" label={strings.settings.privacyPolicy} onPress={() => router.push('/privacy')} />

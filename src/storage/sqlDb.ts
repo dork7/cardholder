@@ -23,6 +23,14 @@ const MIGRATIONS = [
      key TEXT PRIMARY KEY NOT NULL,
      value TEXT NOT NULL
    );`,
+  // Folders. A card's folder is a plain column, like its pin, so deleting a folder can empty it in one
+  // statement; the folder's name stays sealed in its payload.
+  `CREATE TABLE folders (
+     id TEXT PRIMARY KEY NOT NULL,
+     payload BLOB NOT NULL,
+     created_at INTEGER NOT NULL
+   );
+   ALTER TABLE cards ADD COLUMN folder_id TEXT;`,
 ];
 
 export async function migrate(db: SqlDb): Promise<void> {

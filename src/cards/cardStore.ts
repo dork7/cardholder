@@ -4,7 +4,14 @@ import { engine } from '../crypto/engine';
 import { BlobStore } from '../storage/blobStore';
 import { SqlDb } from '../storage/sqlDb';
 import { sortCards } from './listing';
-import { Card, CardFields, ImageChanges, ImageSide, NewCardImages, toCategory } from './types';
+import { Card, CardFields, Folder, ImageChanges, ImageSide, NewCardImages, toCategory } from './types';
+
+export class FolderNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Folder ${id} not found`);
+    this.name = 'FolderNotFoundError';
+  }
+}
 
 export class CardNotFoundError extends Error {
   constructor(id: string) {
@@ -30,7 +37,13 @@ export interface CardStore {
   remove(id: string): Promise<void>;
   setPinned(id: string, pinned: boolean): Promise<void>;
   reorderPinned(orderedIds: string[]): Promise<void>;
-  insertMany(entries: ImportEntry[], options: { replace: boolean }): Promise<void>;
+  // Folders given here are written with the cards; ones already on the phone keep their name.
+  insertMany(entries: ImportEntry[], options: { replace: boolean; folders?: Folder[] }): Promise<void>;
+  listFolders(): Promise<Folder[]>;
+  createFolder(name: string): Promise<Folder>;
+  renameFolder(id: string, name: string): Promise<Folder>;
+  // Its cards stay, outside any folder.
+  removeFolder(id: string): Promise<void>;
 }
 
 export interface CardStoreDeps {
@@ -45,17 +58,25 @@ interface Row {
   id: string;
   pinned: number;
   position: number;
+  folder_id: string | null;
   payload: Uint8Array;
   created_at: number;
   updated_at: number;
 }
 
+interface FolderRow {
+  id: string;
+  payload: Uint8Array;
+  created_at: number;
+}
+
 // Everything about a card except what SQL needs for ordering is sealed in the payload.
-type Payload = Omit<Card, 'id' | 'pinned' | 'position' | 'createdAt' | 'updatedAt'>;
+type Payload = Omit<Card, 'id' | 'pinned' | 'position' | 'folderId' | 'createdAt' | 'updatedAt'>;
 
 const SIDES: ImageSide[] = ['front', 'back', 'thumb'];
 const INSERT_SQL =
-  'INSERT INTO cards (id, pinned, position, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
+  'INSERT INTO cards (id, pinned, position, folder_id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
+const INSERT_FOLDER_SQL = 'INSERT INTO folders (id, payload, created_at) VALUES (?, ?, ?)';
 
 export const blobName = (id: string, side: ImageSide) => `${id}.${side}`;
 
@@ -91,10 +112,19 @@ export function createCardStore({
       id: row.id,
       pinned: row.pinned === 1,
       position: row.position,
+      folderId: row.folder_id ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
   };
+
+  const sealFolder = (folder: Folder) => aead.seal(utf8.encode(JSON.stringify({ name: folder.name })));
+  const toFolder = (row: FolderRow): Folder => ({
+    id: row.id,
+    name: (JSON.parse(utf8.decode(aead.open(row.payload))) as { name: string }).name,
+    createdAt: row.created_at,
+  });
+  const folderName = (name: string) => name.trim();
 
   const getRow = (id: string) => db.getFirstAsync<Row>('SELECT * FROM cards WHERE id = ?', [id]);
 
@@ -171,7 +201,7 @@ export function createCardStore({
         createdAt: t,
         updatedAt: t,
       };
-      await db.runAsync(INSERT_SQL, [card.id, 1, card.position, seal(card), t, t]);
+      await db.runAsync(INSERT_SQL, [card.id, 1, card.position, card.folderId, seal(card), t, t]);
       return card;
     },
 
@@ -196,7 +226,12 @@ export function createCardStore({
         // Strictly increasing so image caches keyed on updatedAt never serve a stale picture.
         updatedAt: Math.max(now(), current.updatedAt + 1),
       };
-      await db.runAsync('UPDATE cards SET payload = ?, updated_at = ? WHERE id = ?', [seal(next), next.updatedAt, id]);
+      await db.runAsync('UPDATE cards SET folder_id = ?, payload = ?, updated_at = ? WHERE id = ?', [
+        next.folderId,
+        seal(next),
+        next.updatedAt,
+        id,
+      ]);
       return next;
     },
 
@@ -221,7 +256,7 @@ export function createCardStore({
       });
     },
 
-    async insertMany(entries, { replace }) {
+    async insertMany(entries, { replace, folders = [] }) {
       const existingBefore = new Set(await ids());
       const previousIds = replace ? [...existingBefore] : [];
       const newBlobIds: string[] = [];
@@ -239,13 +274,21 @@ export function createCardStore({
         const positions = new Map(pinnedInOrder.map((e) => [e.card.id, position++] as const));
 
         await db.withTransactionAsync(async () => {
-          if (replace) await db.runAsync('DELETE FROM cards', []);
+          if (replace) {
+            await db.runAsync('DELETE FROM cards', []);
+            await db.runAsync('DELETE FROM folders', []);
+          }
+          for (const folder of folders) {
+            const exists = await db.getFirstAsync('SELECT id FROM folders WHERE id = ?', [folder.id]);
+            if (!exists) await db.runAsync(INSERT_FOLDER_SQL, [folder.id, sealFolder(folder), folder.createdAt]);
+          }
           for (const { card } of entries) {
             const stored: Card = { ...card, position: positions.get(card.id) ?? 0 };
             await db.runAsync(INSERT_SQL, [
               stored.id,
               stored.pinned ? 1 : 0,
               stored.position,
+              stored.folderId,
               seal(stored),
               stored.createdAt,
               stored.updatedAt,
@@ -265,6 +308,42 @@ export function createCardStore({
         const kept = new Set(entries.map((e) => e.card.id));
         for (const id of previousIds) if (!kept.has(id)) await removeImages(id);
       }
+    },
+
+    async listFolders() {
+      const rows = await db.getAllAsync<FolderRow>('SELECT * FROM folders', []);
+      const folders: Folder[] = [];
+      for (const row of rows) {
+        try {
+          folders.push(toFolder(row));
+        } catch {
+          console.warn(`Skipping unreadable folder ${row.id}`);
+        }
+      }
+      return folders.sort(
+        (a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }) || a.id.localeCompare(b.id),
+      );
+    },
+
+    async createFolder(name) {
+      const folder: Folder = { id: newId(), name: folderName(name), createdAt: now() };
+      await db.runAsync(INSERT_FOLDER_SQL, [folder.id, sealFolder(folder), folder.createdAt]);
+      return folder;
+    },
+
+    async renameFolder(id, name) {
+      const row = await db.getFirstAsync<FolderRow>('SELECT * FROM folders WHERE id = ?', [id]);
+      if (!row) throw new FolderNotFoundError(id);
+      const folder = { ...toFolder(row), name: folderName(name) };
+      await db.runAsync('UPDATE folders SET payload = ? WHERE id = ?', [sealFolder(folder), id]);
+      return folder;
+    },
+
+    async removeFolder(id) {
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('UPDATE cards SET folder_id = NULL WHERE folder_id = ?', [id]);
+        await db.runAsync('DELETE FROM folders WHERE id = ?', [id]);
+      });
     },
   };
 }

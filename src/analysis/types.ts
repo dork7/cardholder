@@ -32,4 +32,5 @@ export interface CardAnalysis {
   name?: Guess<string>;
   expiresOn?: Guess<string>; // YYYY-MM-DD
   category?: Guess<Category>;
+  text?: string; // what was read, in reading order; matched against folder names
 }
