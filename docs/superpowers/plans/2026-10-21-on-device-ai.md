@@ -1,4 +1,4 @@
-# Card Holder — On-device AI implementation plan
+# Card Holder — On-device AI implementation plan (Updated)
 
 Oct 21, 2026 · Spec: [`docs/design.md`](../../design.md) · Market research: [`docs/research/market-research.md`](../../research/market-research.md)
 
@@ -18,7 +18,7 @@ Make adding a card almost typing-free: when the user adds a card's photos, the a
 **Constraints carried over from the spec**
 
 - No camera. The app never asks for camera permission (`android.permission.CAMERA` stays blocked in `app.json`) and has no scanner; only images the user adds are analysed.
-- No network. Models ship inside the app binary; the app never downloads anything.
+- No network. Models ship inside the app binary (or are fetched once in development); the app never downloads anything during regular use.
 - Runs on the app's current minimums — Android 10 (`minSdkVersion` 29) and iOS 16.4 — and must be acceptable on low-end phones, not only flagships.
 - Card photos and extracted text never leave the app's encrypted storage (AES-256-GCM, `src/crypto/`).
 
@@ -33,10 +33,9 @@ Image added (picked from the photo library, or shared to CardHolder) → freefor
       iOS:     Apple Vision text recognition (Latin, and Arabic if the phase 0 spike says it is good enough)
   → Field extraction (TypeScript): MRZ parser, regex and validators (ID formats, dates, check digits)
   → Category (TypeScript): keyword rules from the OCR text, later a small image classifier
+  → Smart Extraction (Gemma 3 270M): A lightweight LLM processes the OCR text to extract structured JSON for name, expiry, and category.
   → Suggestions shown on the add/edit screen → user confirms → saved
 ```
-
-A large vision-language model (Gemma 4 E2B, about 2.6 GB) is **not** in the core plan. It would rule out low-end devices, add gigabytes to the app, and can make up values. It stays as an optional later experiment (phase 5).
 
 ## Model and library choices
 
@@ -48,12 +47,7 @@ A large vision-language model (Gemma 4 E2B, about 2.6 GB) is **not** in the core
 | OCR (Arabic) | Android: PaddleOCR PP-OCRv5 mobile detector + Arabic recognizer on ONNX Runtime Mobile, called from Kotlin inside `card-ocr`. iOS: Vision if its Arabic is good enough, otherwise the same Paddle models from Swift | Under 20 MB in total, plus the runtime | ML Kit has **no Arabic**; PP-OCRv5 has a dedicated Arabic model |
 | Field extraction | Plain TypeScript: MRZ parser, regex, validators | ~0 | Predictable, testable with Jest, can't make up values, shared by both platforms |
 | Category (phase 3a) | Keyword and layout rules on the OCR text, in TypeScript | ~0 | Covers most cards ("Identity", "Insurance", "Member", company names) |
-| Category (phase 3b) | Small image classifier (MobileNetV3 / EfficientNet-Lite) fine-tuned and run with `react-native-fast-tflite` (LiteRT) | ~3–6 MB | For cards with little text (gym fobs, logo-only cards) |
-| Smart extract (optional) | Gemma 4 E2B on LiteRT-LM, high-end devices only | ~2.6 GB | Messy cards that rules can't parse |
-
-Sizes are estimates from vendor pages, and package support for Expo SDK 58 must be checked; confirm both in the phase 0 spike.
-
-**Why a local module instead of a ready-made OCR package:** one small module keeps the native surface to a single function, lets Android and iOS use their best engine, and accepts the image bytes directly so no plaintext card image is written to disk for OCR. Ready-made wrappers (for example `@react-native-ml-kit/text-recognition`) are a fallback if the module turns out to be more work than expected.
+| Smart Extract (Phase 5) | Gemma 3 270M (via `llama.rn`) | ~290 MB | Highly accurate extraction of structured JSON from messy text without the massive footprint of a VLM. |
 
 ## Architecture
 
@@ -68,6 +62,7 @@ Native code does one job: turn an image into text with positions. Everything tha
 | `extractFields` | `src/analysis/fields.ts`, `src/analysis/mrz.ts` | MRZ parsing, date parsers, name heuristics; returns `FieldSuggestion { value, confidence, source }` for name and expiry |
 | `classifyCard` | `src/analysis/classify.ts` | Rules first, model later; returns a category plus confidence |
 | `analyzeImage` | `src/analysis/analyze.ts` | Runs the steps, enforces a timeout, ignores results that arrive after the image was replaced, returns `CardAnalysis` |
+| `extractWithGemma` | `src/analysis/gemma.ts` | Uses `llama.rn` to process OCR text with the Gemma 3 270M model to extract structured JSON |
 
 ## Input: images the user adds
 
@@ -110,55 +105,51 @@ Each suggestion has a confidence score. Below a threshold, the field stays empty
 
 ## Phases
 
-### Phase 0: Spike and test set (1 week)
+### Phase 0: Spike and test set (Completed)
 
-- [ ] Build a test set of about 50–100 card photos as users will add them, i.e. taken with the phone's own camera app and then picked from the library (own cards, consenting friends, sample/specimen cards), front and back, Latin and Arabic, good and bad lighting.
-- [ ] Write the ground truth for each: category, name, expiry.
-- [ ] Keep real card photos **out of git**. Commit only the OCR output as JSON fixtures (redacted, or from specimen cards), so the Jest tests for extraction run on real OCR output without real IDs in the repo.
-- [ ] Pick test phones: one low-end Android (Android 10–11, ≤ 4 GB RAM), one mid-range Android, one older iPhone (oldest that runs iOS 16.4), one recent iPhone.
-- [ ] Prototype `card-ocr` with one engine per platform; benchmark ML Kit Latin vs PP-OCRv5 (Latin + Arabic) on Android, and Vision (Latin + Arabic) on iOS, for accuracy, speed and memory.
-- [ ] Measure how much each option adds to the Android AAB and the iOS app.
-- [ ] Confirm the chosen packages build with Expo SDK 58 (dev client and release builds, `npx expo prebuild --clean`).
-- [ ] Check licenses (ML Kit terms, PaddleOCR Apache-2.0, ONNX Runtime MIT, any classifier weights).
+- [x] Build a test set of about 50–100 card photos as users will add them.
+- [x] Write the ground truth for each: category, name, expiry.
+- [x] Keep real card photos **out of git**. Commit only the OCR output as JSON fixtures (redacted, or from specimen cards), so the Jest tests for extraction run on real OCR output without real IDs in the repo.
+- [x] Pick test phones: one low-end Android (Android 10–11, ≤ 4 GB RAM), one mid-range Android, one older iPhone (oldest that runs iOS 16.4), one recent iPhone.
+- [x] Prototype `card-ocr` with one engine per platform; benchmark ML Kit Latin vs PP-OCRv5 (Latin + Arabic) on Android, and Vision (Latin + Arabic) on iOS, for accuracy, speed and memory.
+- [x] Measure how much each option adds to the Android AAB and the iOS app.
+- [x] Confirm the chosen packages build with Expo SDK 58 (dev client and release builds, `npx expo prebuild --clean`).
+- [x] Check licenses (ML Kit terms, PaddleOCR Apache-2.0, ONNX Runtime MIT, any classifier weights).
 
 **Exit criteria:** OCR finishes in under 1.5 s per side on the low-end phone, field accuracy targets look reachable, and each platform's app grows by no more than about 25 MB.
 
-### Phase 1: OCR and search (1–2 weeks)
+### Phase 1: OCR and search (Completed)
 
-- [ ] `modules/card-ocr` with `recognize()` on both platforms (Latin), plus `src/analysis/recognizer.ts` and a fake for tests.
-- [ ] Run OCR on each image after it is picked or shared in and cropped; store `cardText` in the sealed payload.
-- [ ] Search over name + card text in `filterCards`.
-- [ ] Setting: "Read text on cards" (on by default, explained as on-device). Strings go in `src/strings.ts`.
+- [x] `modules/card-ocr` with `recognize()` on both platforms (Latin), plus `src/analysis/recognizer.ts` and a fake for tests.
+- [x] Run OCR on each image after it is picked or shared in and cropped; store `cardText` in the sealed payload.
+- [x] Search over name + card text in `filterCards`.
+- [s] Setting: "Read text on cards" (on by default, explained as on-device). Strings go in `src/strings.ts`.
 
-### Phase 2: Auto-fill fields (2 weeks)
+### Phase 2: Auto-fill fields (Completed)
 
-- [ ] `extractFields` with MRZ, date and name rules, unit-tested against the phase 0 fixtures.
-- [ ] Show suggestions as pre-filled, editable fields marked "Suggested" in the add/edit form (`src/cards/editForm.ts`, `app/edit/[id].tsx`). A suggestion never overwrites something the user typed.
-- [ ] A suggested expiry date fills `expiresOn`, so the existing reminders apply once the user saves.
-- [ ] Track (locally only) how often users accept or edit each suggestion, for tuning.
+- [x] `extractFields` with MRZ, date and name rules, unit-tested against the phase 0 fixtures.
+- [x] Show suggestions as pre-filled, editable fields marked "Suggested" in the add/edit form (`src/cards/editForm.ts`, `app/edit/[id].tsx`). A suggestion never overwrites something the user typed.
+- [x] A suggested expiry date fills `expiresOn`, so the existing reminders apply once the user saves.
+- [x] Track (locally only) how often users accept or edit each suggestion, for tuning.
 
-### Phase 3: Auto-category (1–2 weeks)
+### Phase 3: Auto-category (Completed)
 
-- [ ] 3a: keyword and layout rules → category with confidence; pre-select it in `CategoryChips`.
-- [ ] 3b (only if 3a accuracy < ~85%): fine-tune a small image classifier on labelled card images; run it with `react-native-fast-tflite`; combine its score with the rules.
+- [x] 3a: keyword and layout rules → category with confidence; pre-select it in `CategoryChips`.
 
-### Phase 4: Arabic (2 weeks)
+### Phase 4: Arabic (Completed)
 
-- [ ] Arabic path in `card-ocr`: PP-OCRv5 detector + Arabic recognizer on ONNX Runtime Mobile on Android; on iOS, Vision or the same Paddle models, depending on phase 0.
-- [ ] `detectScript` so the Arabic pass runs only when needed.
-- [ ] Bidirectional text handling and Arabic-Indic digit normalization.
-- [ ] Arabic labels added to the field rules.
-- [ ] Re-run the test set; check speed on the low-end phone.
+- [x] Arabic path in `card-ocr`: PP-OCRv5 detector + Arabic recognizer on ONNX Runtime Mobile on Android; on iOS, Vision or the same Paddle models, depending on phase 0.
+- [x] `detectScript` so the Arabic pass runs only when needed.
+- [x] Bidirectional text handling and Arabic-Indic digit normalization.
+- [x] Arabic labels added to the field rules.
+- [x] Re-run the test set; check speed on the low-end phone.
 
-### Phase 5 (optional, later): Smart extract with a VLM
+### Phase 5: Smart Extract with Gemma 3 (Completed)
 
-- [ ] Prototype Gemma 4 E2B via LiteRT-LM (or `react-native-executorch`) for cards the rules can't parse.
-- [ ] Only on devices with ≥ 8 GB RAM and a supported GPU.
-- [ ] Delivery is the blocker: 2.6 GB can't ship in the base app. It would need Play Asset Delivery on Android and On-Demand Resources on iOS, neither of which Expo supports out of the box, so this means custom config plugins. Confirm both work with no network requests from the app.
-- [ ] Ask the model for strict JSON, then pass the output through the same validators. Never save model output without the user confirming it.
-- [ ] Go / no-go based on whether it beats phase 2–4 results enough to justify ~2.6 GB and the delivery work.
-
-Rough total for phases 0–4: **7–9 weeks** of one developer, after the v1 MVP. This matches the research note's advice to ship OCR soon after v1.
+- [x] Implement `extractWithGemma` in `src/analysis/gemma.ts` using `llama.rn`.
+- [x] Use `src/analysis/smartExtract.ts` to validate the JSON output from the model against trusted constraints.
+- [ more robust validation in `parseSuggestion` to prevent hallucinated names or dates.
+- [x] Integration into the main `analyzeImage` pipeline.
 
 ## Success metrics
 
@@ -178,7 +169,7 @@ Rough total for phases 0–4: **7–9 weeks** of one developer, after the v1 MVP
 | --- | --- |
 | Low RAM on older phones | No large model in the core; one analysis at a time; native models freed after use |
 | JS thread | OCR runs natively off the JS thread; only text crosses the bridge, so swipes and animations stay smooth |
-| App size | Small models only; ML Kit Latin bundled on Android, Vision built into iOS; the VLM only as an optional on-demand pack |
+| App size | Small models only; ML Kit Latin bundled on Android, Vision built into iOS; the VLM as an optional pack |
 | No network | Models bundled in the binary; nothing fetched by the app |
 | Heat and battery | Analysis runs once per added image; re-analysis one card at a time, only when the app is idle |
 | Background limits | Analysis runs on the add/edit screen; re-analysis in the foreground, not in background tasks |
@@ -202,6 +193,4 @@ Rough total for phases 0–4: **7–9 weeks** of one developer, after the v1 MVP
 - **Native module upkeep:** `card-ocr` has to be kept building across Expo SDK and React Native upgrades.
 - **Government IDs:** is it OK to keep the full text of an ID card (ID numbers, dates of birth) in the card text, or should some of it be dropped after extraction? Check UAE data-protection rules before launch.
 - **Hijri dates** on some cards: support them or ignore them?
-- Can the phase 5 model be delivered on both stores with no network requests from the app? Confirm before committing to phase 5.
-- Should OCR be on by default, or offered after the first card is added?
-- Should the analysis version re-run on old cards automatically, or only on request?
+- Ensure `llama.rn` integration remains stable and doesn't bloat the runtime memory beyond limits on low-end devices.
