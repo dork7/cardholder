@@ -34,6 +34,7 @@ export const strings = {
     searchLabel: 'Search cards by name',
     allCategories: 'All',
     noResults: 'No cards match.',
+    clearSearch: 'Clear search',
     settings: 'Settings',
     appearance: 'Appearance',
     appearanceHint: 'Switches between System, Light and Dark.',
