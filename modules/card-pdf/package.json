@@ -1,0 +1,7 @@
+{
+  "name": "card-pdf",
+  "version": "0.1.0",
+  "description": "Renders a page of a PDF to a JPEG on the device (PDFKit on iOS, PdfRenderer on Android).",
+  "license": "UNLICENSED",
+  "private": true
+}

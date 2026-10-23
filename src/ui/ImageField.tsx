@@ -9,12 +9,13 @@ interface Props {
   label: string;
   uri: string | null;
   onLibrary: () => void;
+  onPdf?: () => void;
   onRemove?: () => void;
   error?: string;
   testIDPrefix: string;
 }
 
-export function ImageField({ label, uri, onLibrary, onRemove, error, testIDPrefix }: Props) {
+export function ImageField({ label, uri, onLibrary, onPdf, onRemove, error, testIDPrefix }: Props) {
   const theme = useTheme();
   return (
     <Field label={label} error={error}>
@@ -37,9 +38,20 @@ export function ImageField({ label, uri, onLibrary, onRemove, error, testIDPrefi
           <Text style={{ color: theme.muted, fontSize: 16 }}>{strings.edit.tapToAddPhoto}</Text>
         )}
       </Pressable>
-      {onRemove && (
+      {(onPdf || onRemove) && (
         <View style={styles.actions}>
-          <Button variant="danger" label={strings.edit.removeBack} onPress={onRemove} testID={`${testIDPrefix}-remove`} />
+          {onPdf && (
+            <Button
+              variant="secondary"
+              label={strings.edit.fromPdf}
+              onPress={onPdf}
+              accessibilityHint={label}
+              testID={`${testIDPrefix}-pdf`}
+            />
+          )}
+          {onRemove && (
+            <Button variant="danger" label={strings.edit.removeBack} onPress={onRemove} testID={`${testIDPrefix}-remove`} />
+          )}
         </View>
       )}
     </Field>

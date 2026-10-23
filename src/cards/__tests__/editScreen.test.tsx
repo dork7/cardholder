@@ -39,8 +39,12 @@ jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({
 jest.mock('../../reminders/scheduler', () => ({
   requestReminderPermissionOnce: () => mockPermission(),
 }));
+const mockPickPdfPage = jest.fn();
 jest.mock('../../images/capture', () => ({
   pickImage: () => Promise.resolve(require('../../../test/fixtures').frontImage('picked')),
+  canPickPdf: true,
+  pickPdfPage: (...a: unknown[]) => mockPickPdfPage(...a),
+  isPdfLocked: (e: { code?: string }) => e.code === 'E_PDF_LOCKED',
 }));
 const mockAnalyze = jest.fn();
 jest.mock('../../analysis/analyze', () => ({ analyzeImage: (...a: unknown[]) => mockAnalyze(...a) }));
@@ -58,6 +62,7 @@ beforeEach(() => {
   mockRefresh.mockResolvedValue(undefined);
   mockPermission.mockResolvedValue(true);
   mockAnalyze.mockResolvedValue({});
+  mockPickPdfPage.mockResolvedValue(frontImage('pdf'));
   warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
@@ -120,6 +125,44 @@ describe('saving', () => {
     expect(screen.getByTestId('save-card').props.accessibilityState).toMatchObject({ disabled: true });
     await save();
     expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('adding from a PDF', () => {
+  test('the front comes from page 1 and the back from page 2, and both are read', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    await fireEvent.press(screen.getByTestId('back-pdf'));
+    expect(mockPickPdfPage.mock.calls).toEqual([[0], [1]]);
+    expect(mockAnalyze).toHaveBeenCalledTimes(2);
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ front: frontImage('pdf'), back: frontImage('pdf') }),
+    );
+  });
+
+  test('a cancelled pick changes nothing', async () => {
+    mockPickPdfPage.mockResolvedValue(null);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    await save();
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  test('a password-protected PDF says so', async () => {
+    mockPickPdfPage.mockRejectedValue(Object.assign(new Error('locked'), { code: 'E_PDF_LOCKED' }));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    expect(alert).toHaveBeenCalledWith(strings.edit.pdfLocked);
+  });
+
+  test('any other failure shows the PDF error', async () => {
+    mockPickPdfPage.mockRejectedValue(new Error('bad file'));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    expect(alert).toHaveBeenCalledWith(strings.edit.pdfFailed);
   });
 });
 

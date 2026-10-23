@@ -24,6 +24,7 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 
 - Images come from the **photo library only** — no in-app camera in v1, so the app never asks for camera permission. Two ways in:
   - **Pick from the library** on the add/edit screen.
+  - **Use a PDF** on the add/edit screen, for cards issued as PDFs (digital insurance cards, e-IDs). One page is rendered on the device (PDFKit on iOS, `PdfRenderer` on Android, in `modules/card-pdf`): page 1 for the front, page 2 for the back (the last page if there is only one). Password-protected PDFs are refused with a short message. The original PDF is not kept; only the cropped image is saved.
   - **Share to CardHolder** from Photos (or any app) via the system share sheet. One shared image opens the add-card screen with it as the front; two images become front and back, in the order shared; more than two is refused with a short message. If the user is at the free limit, the upgrade screen shows instead (the shared images are discarded).
 - Every image goes through a **freeform crop** before it is saved.
 - Every field and image is editable after saving.
@@ -112,7 +113,8 @@ Dark mode is redesigned, not inverted: surfaces step up from `#121212` (page) to
 - `react-native-quick-crypto` (AES-256-GCM, PBKDF2, random bytes), `buffer` (byte/string conversion)
 - `expo-secure-store` (device-only key)
 - `expo-file-system` (encrypted image blobs, temp files)
-- `react-native-image-crop-picker` (library picker, freeform crop — also crops shared-in images), `expo-image-manipulator` (list thumbnails)
+- `react-native-image-crop-picker` (library picker, freeform crop — also crops shared-in images and rendered PDF pages), `expo-image-manipulator` (list thumbnails)
+- `expo-document-picker` (pick a PDF from Files)
 - `expo-share-intent` (receive images shared to the app: iOS Share Extension + Android `SEND`/`SEND_MULTIPLE` image intents)
 - `expo-brightness`, `expo-keep-awake`, `expo-screen-orientation` (counter view)
 - `react-native-gesture-handler`, `react-native-reanimated` (pinch zoom), `react-native-draggable-flatlist` (pinned reorder)
@@ -135,7 +137,7 @@ These follow from the agreed design; they're recorded so nobody re-derives them.
 
 - **Everything about a card is encrypted, not just "sensitive" fields.** SQLite holds only `id`, `pinned`, `position`, timestamps and an encrypted JSON payload. Search and category filtering happen in memory after decryption — datasets are tiny.
 - **Backup exclusion.** Android: `android.allowBackup: false`. iOS: files in the app container can still be swept into an iCloud device backup, but they are useless there because the key is `…ThisDeviceOnly` and never leaves the original phone. On launch, if card data exists but the key is missing or doesn't match (a "key-check" value fails to decrypt), the app shows a recovery screen: "Cards from a previous device can't be opened — import your CardHolder backup file" with **Import backup** and **Start fresh**. It never crashes or shows garbage.
-- **Plaintext never sits on disk in the app's storage** except transiently: picker/crop temp files and images received through share-in are deleted right after encryption (or when the add is cancelled), and decrypted share files go to a `share/` cache folder that is emptied at every launch and before every share.
+- **Plaintext never sits on disk in the app's storage** except transiently: picker/crop temp files, picked PDFs and their rendered pages, and images received through share-in are deleted right after encryption (or when the add is cancelled), and decrypted share files go to a `share/` cache folder that is emptied at every launch and before every share.
 - **Thumbnails.** A ~400px encrypted thumbnail of the front is stored per card so the list never decodes full-size images.
 - **Reminder cap.** iOS allows 64 pending local notifications per app. Reminders are re-planned from scratch after every change and at launch, scheduling only the soonest 60.
 - **Refunds.** The app doesn't contact the store on its own; it only talks to the store when the user taps Buy or Restore. A refunded unlock therefore isn't revoked automatically. Accepted for a one-time utility unlock.
