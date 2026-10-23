@@ -20,7 +20,7 @@ Each task is built by a fresh agent from its brief, then reviewed independently 
 | 12 | Add and edit a card (photo library + freeform crop) | ✅ Complete — 1 fix round (successful saves cannot duplicate; failed deletes stay visible) |
 | 13 | Counter view (zoom, flip, brightness, share) | ✅ Complete — now the card view, with icon buttons for delete, share and edit |
 | 14 | Home screen (pinned cards, search, filters, rosette) | ✅ Complete — the swipeable wallet stack replaces pinned tiles and drag-to-reorder; search, type filter, backup banner, rosette empty state, free-limit check and settings link added |
-| 15 | Settings, export, import and privacy screens | ⏳ Pending |
+| 15 | Settings, export, import and privacy screens | ✅ Complete — screen tests added for export, import and settings; closing the share sheet counts as an export |
 | 16 | One-time Unlimited purchase | ⏳ Pending |
 | 17 | App-switcher privacy | ⏳ Pending |
 | 18 | Share to CardHolder | ⏳ Pending |

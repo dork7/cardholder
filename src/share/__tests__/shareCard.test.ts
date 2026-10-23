@@ -1,7 +1,7 @@
 import * as Sharing from 'expo-sharing';
 import { makeCard } from '../../../test/fixtures';
 import { base64, utf8 } from '../../crypto/bytes';
-import { cardImageFileName, shareCardImage } from '../shareCard';
+import { backupFileName, cardImageFileName, shareBackupFile, shareCardImage } from '../shareCard';
 
 // A tiny in-memory stand-in for the cache directory: enough to see what was written and cleaned up.
 const mockDisk = new Map<string, Uint8Array>();
@@ -75,4 +75,29 @@ test('a card without a front photo shares nothing', async () => {
   (store.loadImage as jest.Mock).mockResolvedValue(null);
   await shareCardImage(store, makeCard());
   expect(shareAsync).not.toHaveBeenCalled();
+});
+
+test('backup files are named for the local date', () => {
+  expect(backupFileName(new Date(2026, 0, 5, 23, 30))).toBe('CardHolder-backup-2026-01-05.cardholder');
+});
+
+test('shares the backup bytes as a file, then removes the copy', async () => {
+  let shared: Uint8Array | undefined;
+  shareAsync.mockImplementation(async (uri: string) => {
+    shared = mockDisk.get(uri);
+  });
+  const bytes = utf8.encode('CHBK…');
+  await shareBackupFile(bytes, new Date(2026, 9, 23));
+  expect(shareAsync).toHaveBeenCalledWith('cache/share/CardHolder-backup-2026-10-23.cardholder', {
+    mimeType: 'application/octet-stream',
+    UTI: 'public.data',
+  });
+  expect(shared).toEqual(bytes);
+  expect(mockDisk.size).toBe(0);
+});
+
+test('the backup copy is removed even when sharing fails', async () => {
+  shareAsync.mockRejectedValue(new Error('no share sheet'));
+  await expect(shareBackupFile(utf8.encode('x'), new Date())).rejects.toThrow('no share sheet');
+  expect(mockDisk.size).toBe(0);
 });
