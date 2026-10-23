@@ -7,8 +7,9 @@ import { CardAnalysis, Guess, OcrResult, TextRecognizer } from './types';
 
 // Below this, a field stays empty instead of showing a guess.
 export const SUGGEST_THRESHOLD = 0.5;
-// Lines OCR itself isn't sure of are noise for the rules.
-const MIN_LINE_CONFIDENCE = 0.3;
+// Lines OCR itself isn't sure of are noise for the rules. Vision rates its guesses 0.3 (e.g. Arabic
+// read with the wrong script), and lines it could read 0.5 or more.
+const MIN_LINE_CONFIDENCE = 0.4;
 // A slow phone shouldn't leave the form waiting; the user can always type.
 const TIMEOUT_MS = 10_000;
 
@@ -17,7 +18,7 @@ const keep = <T>(g: Guess<T> | undefined) => (g && g.confidence >= SUGGEST_THRES
 export function analyzeText(result: OcrResult, today: string): CardAnalysis {
   // Reading order: top to bottom, then left to right within a row.
   const lines = result.lines
-    .filter((l) => l.text.trim() !== '' && l.confidence >= MIN_LINE_CONFIDENCE)
+    .filter((l) => l.text.trim() !== '' && l.confidence > MIN_LINE_CONFIDENCE)
     .sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
   const mrz = findMrz(lines.map((l) => l.text));
   return {

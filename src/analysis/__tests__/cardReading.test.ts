@@ -122,6 +122,55 @@ describe('reading a card', () => {
     const shaky: OcrResult = { lines: [{ ...ocr(['Expiry 01/01/2030']).lines[0], confidence: 0.1 }] };
     expect(analyzeText(shaky, TODAY).expiresOn).toBeUndefined();
   });
+
+  test('Arabic read as Latin junk gets the guess confidence (0.3) and is ignored', () => {
+    const junk: OcrResult = { lines: [{ ...ocr([{ text: 'aладнaцl)', big: true }]).lines[0], confidence: 0.3 }] };
+    expect(analyzeText(junk, TODAY).name).toBeUndefined();
+  });
+
+  test('the Arabic country header is not the card name', () => {
+    expect(analyzeText(ocr([{ text: 'الإمارات العربية المتحدة', big: true }]), TODAY).name).toBeUndefined();
+  });
+});
+
+// A UAE vehicle licence (mulkiya): English labels on the left, their values beside them, and the
+// registration date on the right of the expiry's row. OCR reads each as its own line.
+function mulkiya(): OcrResult {
+  const at = (text: string, x: number, y: number, height = 0.03): OcrLine => ({
+    text,
+    confidence: 0.5,
+    box: { x, y, width: 0.1, height },
+  });
+  return {
+    lines: [
+      at('UNITED ARAB EMIRATES', 0.3, 0.11),
+      at('الإمارات العربية المتحدة', 0.3, 0.1, 0.05),
+      at('Vehicle License', 0.35, 0.17),
+      at('Owner', 0.09, 0.46),
+      at('COMFORT DRIVE L.L.C', 0.22, 0.46),
+      at('Exp. Date', 0.09, 0.561),
+      at('22-05-2026', 0.22, 0.559),
+      at('Reg. Date', 0.5, 0.557),
+      at('23-05-2016', 0.64, 0.557),
+      at('Ins. Exp.', 0.08, 0.609),
+      at('30-06-2027', 0.22, 0.607),
+    ],
+  };
+}
+
+describe('reading a vehicle licence', () => {
+  test('is named after the document', () => {
+    expect(analyzeText(mulkiya(), TODAY).name).toEqual({ value: 'Vehicle License', confidence: 0.85 });
+  });
+
+  test('takes the date beside "Exp. Date", even though it has passed', () => {
+    expect(analyzeText(mulkiya(), TODAY).expiresOn).toEqual({ value: '2026-05-22', confidence: 0.85 });
+  });
+
+  test('the insurance expiry is not the licence expiry', () => {
+    const lines = mulkiya().lines.filter((l) => !['Exp. Date', '22-05-2026'].includes(l.text));
+    expect(analyzeText({ lines }, TODAY).expiresOn?.value).not.toBe('2027-06-30');
+  });
 });
 
 describe('analyzeImage', () => {

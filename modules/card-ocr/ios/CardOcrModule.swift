@@ -40,6 +40,9 @@ public class CardOcrModule: Module {
         promise.resolve(["lines": lines])
       }
       request.recognitionLevel = .accurate
+      // UAE cards print Arabic beside English. Vision reads with the first language's script model,
+      // and its Arabic model also reads Latin text; English first turns the Arabic into junk.
+      request.recognitionLanguages = ["ar-SA", "en-US"]
       // Card numbers, dates and codes aren't dictionary words; correction would "fix" them.
       request.usesLanguageCorrection = false
 
