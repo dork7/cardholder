@@ -2,7 +2,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from './theme';
 
-export type IconName = 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present';
+export type IconName = 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'send';
 
 // 24 × 24 line icons in the app's stroke style.
 const PATHS: Record<IconName, string[]> = {
@@ -10,6 +10,8 @@ const PATHS: Record<IconName, string[]> = {
   share: ['M12 3v12', 'M7 8l5-5 5 5', 'M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6'],
   edit: ['M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z', 'M13.5 6.5l4 4'],
   pin: ['M9 3h6', 'M10 3v6l-3 4h10l-3-4V3', 'M12 13v8'],
+  // A QR code.
+  send: ['M4 4h6v6H4z', 'M14 4h6v6h-6z', 'M4 14h6v6H4z', 'M14 14h2v2h-2z', 'M18 18h2v2h-2z', 'M14 20h2', 'M20 14v2'],
   // A hand holding out a card.
   present: ['M3 14h4l3 2h5a1.5 1.5 0 0 1 0 3H9', 'M3 21h11l6-4a1.6 1.6 0 0 0-2-2.5l-3 2', 'M9 4h11v7H9z'],
   unpin: ['M9 3h6', 'M10 3v6l-3 4h10l-3-4V3', 'M12 13v8', 'M3 3l18 18'],

@@ -73,6 +73,19 @@ export default function CardView() {
     }
   };
 
+  // An ID gets the same second thought as sharing it: anyone filming the codes gets a copy.
+  const sendToPhone = () => {
+    const go = () => router.push(`/send/${card.id}`);
+    if (card.category === 'id') {
+      Alert.alert(strings.transfer.sendIdTitle, strings.transfer.sendIdBody, [
+        { text: strings.common.cancel, style: 'cancel' },
+        { text: strings.transfer.send, onPress: go },
+      ]);
+    } else {
+      go();
+    }
+  };
+
   const confirmDelete = () =>
     Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
       { text: strings.common.cancel, style: 'cancel' },
@@ -145,6 +158,13 @@ export default function CardView() {
       <View style={styles.actions}>
         <IconButton icon="trash" variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} testID="delete-card" />
         <IconButton icon="share" label={strings.card.share} onPress={share} testID="share-card" />
+        <IconButton
+          icon="send"
+          label={strings.transfer.send}
+          hint={strings.transfer.sendHint}
+          onPress={sendToPhone}
+          testID="send-card"
+        />
         <IconButton
           icon={card.pinned ? 'unpin' : 'pin'}
           label={card.pinned ? strings.card.unpin : strings.card.pin}
@@ -219,6 +239,7 @@ const styles = StyleSheet.create({
   side: { flex: 1, gap: 4 },
   frame: { flex: 1 },
   footer: { gap: 12, padding: 12 },
-  actions: { flexDirection: 'row', gap: 12 },
+  // Six icon buttons: an 8 pt gap keeps each at least 44 pt wide on a 375 pt phone.
+  actions: { flexDirection: 'row', gap: 8 },
   hint: { fontSize: TYPE.secondary, textAlign: 'center' },
 });

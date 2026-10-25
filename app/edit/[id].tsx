@@ -23,6 +23,7 @@ import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { pickImage } from '../../src/images/capture';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
+import { askReplace } from '../../src/ui/askReplace';
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { CategoryChips } from '../../src/ui/CategoryChips';
@@ -333,21 +334,6 @@ export default function EditCard() {
         </View>
       </KeyboardAvoidingView>
     </Screen>
-  );
-}
-
-function askReplace(name: string): Promise<'replace' | 'keep' | 'cancel'> {
-  return new Promise((resolve) =>
-    Alert.alert(
-      strings.edit.duplicateTitle(name),
-      strings.edit.duplicateBody,
-      [
-        { text: strings.common.cancel, style: 'cancel', onPress: () => resolve('cancel') },
-        { text: strings.edit.keepBoth, onPress: () => resolve('keep') },
-        { text: strings.edit.replace, onPress: () => resolve('replace') },
-      ],
-      { cancelable: true, onDismiss: () => resolve('cancel') },
-    ),
   );
 }
 

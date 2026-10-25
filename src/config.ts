@@ -32,3 +32,8 @@ export const BACKUP_SNOOZE_MS = 7 * DAY_MS;
 export const IMAGE_MAX_EDGE = 1600;
 export const IMAGE_QUALITY = 0.8;
 export const THUMB_WIDTH = 400;
+
+// Sending a card to another phone over QR codes (src/transfer/).
+export const TRANSFER_MAX_EDGE = 1000;
+export const TRANSFER_QUALITY = 0.6;
+export const TRANSFER_FPS = 8;

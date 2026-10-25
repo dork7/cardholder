@@ -200,3 +200,19 @@ describe('show to staff', () => {
     expect(mockScreenOptions.gestureEnabled).toBe(true);
   });
 });
+
+test('Send to phone opens the code screen; for an ID it asks first', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  mockCards = [makeCard({ id: 'card1', category: 'membership' })];
+  await render(<CardView />);
+  await fireEvent.press(screen.getByRole('button', { name: strings.transfer.send }));
+  expect(mockPush).toHaveBeenCalledWith('/send/card1');
+
+  mockPush.mockClear();
+  mockCards = [makeCard({ id: 'card1', category: 'id' })];
+  await render(<CardView />);
+  await fireEvent.press(screen.getByRole('button', { name: strings.transfer.send }));
+  expect(mockPush).not.toHaveBeenCalled();
+  expect(alert).toHaveBeenCalledWith(strings.transfer.sendIdTitle, strings.transfer.sendIdBody, expect.any(Array));
+  alert.mockRestore();
+});

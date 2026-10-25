@@ -24,7 +24,7 @@
       "package": "com.hamza.cardholder",
       "allowBackup": false,
       "blockedPermissions": [
-        "android.permission.CAMERA"
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -51,6 +51,15 @@
       "react-native-quick-crypto",
       "expo-notifications",
       "expo-quick-actions",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "CardHolder uses the camera only to read the codes another phone shows when it sends you a card.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
       [
         "expo-local-authentication",
         {

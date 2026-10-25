@@ -64,6 +64,10 @@ export default function SettingsScreen() {
             />
           </View>
         </Section>
+        <Section title={strings.settings.sharing}>
+          <Text style={[styles.caption, { color: theme.muted }]}>{strings.transfer.receiveHint}</Text>
+          <Button label={strings.transfer.receive} onPress={() => router.push('/receive')} testID="open-receive" />
+        </Section>
         <Section title={strings.settings.backup}>
           <Text style={[styles.body, { color: theme.muted }]} testID="last-backup">
             {lastExportAt === null
