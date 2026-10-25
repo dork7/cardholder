@@ -35,3 +35,8 @@ test('filter by category, combined with query', () => {
 test('blank query and no category returns everything', () => {
   expect(filterCards(cards, { query: '  ', category: null })).toHaveLength(5);
 });
+
+test('search matches tags as well as names', () => {
+  const cards = [makeCard({ id: 'a', name: 'Daman', tags: ['Health', 'Work'] }), makeCard({ id: 'b', name: 'Gym' })];
+  expect(filterCards(cards, { query: 'heal', category: null }).map((c) => c.id)).toEqual(['a']);
+});

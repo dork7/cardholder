@@ -6,8 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
+import { useLaunchLinks } from '../src/app/useLaunchLinks';
 import { useBackupNudge } from '../src/backup/useBackupNudge';
-import { filterCards } from '../src/cards/listing';
+import { filterCards, splitPinned } from '../src/cards/listing';
 import { CATEGORIES, Category } from '../src/cards/types';
 import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
@@ -17,6 +18,7 @@ import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { CategoryChips } from '../src/ui/CategoryChips';
 import { Fab } from '../src/ui/Fab';
 import { Rosette } from '../src/ui/Rosette';
+import { PinnedStrip } from '../src/ui/PinnedStrip';
 import { Panel, Screen } from '../src/ui/Surface';
 import { TYPE, useTheme } from '../src/ui/theme';
 
@@ -29,12 +31,14 @@ export default function Home() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const nudge = useBackupNudge();
+  useLaunchLinks();
   const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState<Category | null>(null);
   // Only offer types the user actually has; if the chosen type's last card goes, fall back to All.
   const present = CATEGORIES.filter((c) => cards.some((card) => card.category === c));
   const category = chosen && present.includes(chosen) ? chosen : null;
   const shown = filterCards(cards, { query, category });
+  const { pinned } = splitPinned(cards);
 
   // "Import backup" on the recovery screen lands here first, then opens the import flow.
   useEffect(() => {
@@ -71,6 +75,8 @@ export default function Home() {
         </Panel>
         {nudge.visible && <BackupBanner onBackup={() => router.push('/export')} onDismiss={nudge.snooze} />}
         {cards.length > 1 && <SearchField value={query} onChange={setQuery} />}
+        {/* Pinned cards stay put while searching or filtering: they're the shortcut, the stack is the browse. */}
+        <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
       </Animated.View>
 
       {/* The stack and filter sit centred; the add button floats in the thumb zone below them. */}

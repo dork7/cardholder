@@ -19,6 +19,6 @@ export function filterCards(cards: Card[], filter: { query: string; category: Ca
   return cards.filter((card) => {
     if (filter.category && card.category !== filter.category) return false;
     if (query === '') return true;
-    return displayName(card).toLowerCase().includes(query);
+    return displayName(card).toLowerCase().includes(query) || card.tags.some((t) => t.toLowerCase().includes(query));
   });
 }

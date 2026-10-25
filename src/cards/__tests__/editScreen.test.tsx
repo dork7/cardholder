@@ -162,22 +162,26 @@ test('Close leaves the add-card modal without writing anything', async () => {
 });
 
 describe('reading the card from its photo', () => {
+  const KEY = 'a'.repeat(64);
   const emiratesId = {
     name: { value: 'Emirates ID', confidence: 0.9 },
     expiresOn: { value: '2030-11-09', confidence: 0.85 },
     category: { value: 'id', confidence: 0.95 },
+    tags: { value: ['Government'], confidence: 0.7 },
+    documentKey: KEY,
   };
 
-  test('a picked photo fills name, expiry and category, marked as suggested, and they are saved', async () => {
+  test('a picked photo fills name, expiry, category and tags, marked as suggested, and they are saved', async () => {
     mockAnalyze.mockResolvedValue({ ...emiratesId, category: { value: 'insurance', confidence: 0.8 } });
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-library'));
     expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64);
     expect(screen.getByTestId('card-name').props.value).toBe('Emirates ID');
-    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(4);
+    expect(screen.getByLabelText(strings.edit.removeTag('Government'))).toBeTruthy();
     await save();
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09' },
+      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', tags: ['Government'], documentKey: KEY },
       expect.anything(),
     );
   });
@@ -192,7 +196,7 @@ describe('reading the card from its photo', () => {
     await act(async () => finish(emiratesId));
     expect(screen.getByTestId('card-name').props.value).toBe('My ID');
     expect(screen.queryByText(strings.edit.reading)).toBeNull();
-    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(2); // expiry and category only
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3); // expiry, category and tags
   });
 
   test('editing an existing card keeps its saved name and category', async () => {
@@ -205,7 +209,7 @@ describe('reading the card from its photo', () => {
     await save();
     expect(mockUpdate).toHaveBeenCalledWith(
       'c1',
-      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09' }, // only the blank expiry is filled
+      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: ['Government'], documentKey: KEY }, // blanks filled, tags added
       expect.anything(),
     );
   });
@@ -217,5 +221,61 @@ describe('reading the card from its photo', () => {
     expect(screen.getByTestId('card-name').props.value).toBe('');
     expect(screen.queryByText(strings.edit.suggested)).toBeNull();
     expect(alert).not.toHaveBeenCalled();
+  });
+});
+
+describe('a new card that looks like one already saved', () => {
+  const KEY = 'b'.repeat(64);
+  beforeEach(() => {
+    mockCards = [makeCard({ id: 'old', name: 'Emirates ID', category: 'id', documentKey: KEY, pinned: true, hasBack: true, backAspect: 1.586 })];
+    mockAnalyze.mockResolvedValue({ documentKey: KEY });
+  });
+
+  // Answers the duplicate prompt with the button labelled `label` as soon as it is shown.
+  const answer = (label: string) =>
+    alert.mockImplementation((_title, _body, buttons?: { text: string; onPress?: () => void }[]) =>
+      buttons?.find((b) => b.text === label)?.onPress?.(),
+    );
+
+  test('asks whether to replace it; Replace puts the new photos and details on the old card', async () => {
+    answer(strings.edit.replace);
+    await fillNewCard();
+    await save();
+    expect(alert).toHaveBeenCalledWith(strings.edit.duplicateTitle('Emirates ID'), strings.edit.duplicateBody, expect.any(Array), expect.anything());
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'old',
+      expect.objectContaining({ name: 'Gym', documentKey: KEY }),
+      { front: frontImage('picked'), back: null }, // the old back belonged to the old card
+    );
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  test('Keep both adds it as a new card', async () => {
+    answer(strings.edit.keepBoth);
+    await fillNewCard();
+    await save();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  test('Cancel saves nothing and leaves the form open for another try', async () => {
+    answer(strings.common.cancel);
+    await fillNewCard();
+    await save();
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
+    alert.mockClear();
+    await save();
+    expect(alert).toHaveBeenCalledTimes(1);
+  });
+
+  test('editing an existing card never asks', async () => {
+    mockParams = { id: 'old' };
+    await render(<EditCard />);
+    await save();
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
   });
 });

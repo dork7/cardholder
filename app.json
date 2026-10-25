@@ -50,6 +50,13 @@
       ],
       "react-native-quick-crypto",
       "expo-notifications",
+      "expo-quick-actions",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "CardHolder uses Face ID to unlock your cards."
+        }
+      ],
       "expo-sqlite",
       "expo-secure-store",
       [

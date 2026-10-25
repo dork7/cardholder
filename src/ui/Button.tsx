@@ -5,13 +5,14 @@ import { TYPE, useTheme } from './theme';
 export interface ButtonProps {
   label: string;
   onPress: () => void;
+  onLongPress?: () => void; // e.g. an action that must be held, so a stray tap can't trigger it
   variant?: 'primary' | 'secondary' | 'danger';
   disabled?: boolean;
   testID?: string;
   accessibilityHint?: string;
 }
 
-export function Button({ label, onPress, variant = 'primary', disabled = false, testID, accessibilityHint }: ButtonProps) {
+export function Button({ label, onPress, onLongPress, variant = 'primary', disabled = false, testID, accessibilityHint }: ButtonProps) {
   const theme = useTheme();
   const primary = variant === 'primary';
   // Green is for the primary action only; a secondary button is white text in a grey outline.
@@ -27,6 +28,8 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={800}
       testID={testID}
       style={({ pressed }) => [
         styles.base,

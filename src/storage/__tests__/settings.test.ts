@@ -14,7 +14,7 @@ test('migrate creates tables and is idempotent', async () => {
   await migrate(db);
   await migrate(db);
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-  expect(version?.user_version).toBe(1);
+  expect(version?.user_version).toBe(2);
   const tables = await db.getAllAsync<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
     [],
@@ -71,5 +71,24 @@ test('a failed migration rolls back its schema change and leaves user_version un
 
   await migrate(flaky);
   const after = await real.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-  expect(after?.user_version).toBe(1);
+  expect(after?.user_version).toBe(2);
+});
+
+test('upgrading unpins every card: no pin before it was chosen by the user', async () => {
+  const db = memoryDb();
+  let firstOnly = true;
+  // Stop after the first migration, as an older app would have left the database.
+  await migrate({
+    ...db,
+    async withTransactionAsync(fn) {
+      if (!firstOnly) return;
+      firstOnly = false;
+      await db.withTransactionAsync(fn);
+    },
+  });
+  await db.runAsync('INSERT INTO cards (id, pinned, position, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [
+    'a', 1, 3, new Uint8Array([1]), 1, 1,
+  ]);
+  await migrate(db);
+  expect(await db.getFirstAsync('SELECT pinned, position FROM cards', [])).toEqual({ pinned: 0, position: 0 });
 });

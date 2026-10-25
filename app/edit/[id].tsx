@@ -4,7 +4,9 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInpu
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
-import { applyAnalysis, editField, EditDraft, formFor, planSave, SaveError } from '../../src/cards/editForm';
+import { displayName } from '../../src/cards/display';
+import { findDuplicate } from '../../src/cards/duplicates';
+import { applyAnalysis, editField, EditDraft, formFor, planSave, SaveError, SavePlan } from '../../src/cards/editForm';
 import { NAME_MAX_LENGTH } from '../../src/config';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { pickImage } from '../../src/images/capture';
@@ -16,6 +18,7 @@ import { ExpiryField } from '../../src/ui/ExpiryField';
 import { Field, useInputStyle } from '../../src/ui/Field';
 import { ImageField } from '../../src/ui/ImageField';
 import { Panel, Screen } from '../../src/ui/Surface';
+import { TagEditor } from '../../src/ui/Tags';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 
@@ -89,7 +92,7 @@ export default function EditCard() {
 
   const save = async () => {
     if (writing.current) return;
-    const plan = planSave(draft, { existing, cardCount: cards.length, unlocked });
+    let plan = planSave(draft, { existing, cardCount: cards.length, unlocked });
     if (plan.kind === 'invalid') {
       setErrors(plan.errors);
       return;
@@ -99,6 +102,21 @@ export default function EditCard() {
       return;
     }
     writing.current = true;
+    // A new card that looks like one already saved: offer to replace the old one instead.
+    const duplicate = plan.kind === 'create' ? findDuplicate(plan.fields, cards) : null;
+    if (duplicate && plan.kind === 'create') {
+      const choice = await askReplace(displayName(duplicate));
+      if (choice === 'cancel') {
+        writing.current = false;
+        return;
+      }
+      // The new photos take over the old card; a back the new card doesn't have is removed.
+      if (choice === 'replace') plan = { kind: 'update', id: duplicate.id, fields: plan.fields, changes: { ...plan.images } };
+    }
+    await write(plan);
+  };
+
+  const write = async (plan: Extract<SavePlan, { kind: 'create' | 'update' }>) => {
     setSaving(true);
     // The store write is the only step that can fail the save. Once it has succeeded the card exists,
     // so `saving` stays true (Save can't write it again) and the follow-ups below are best-effort.
@@ -186,6 +204,9 @@ export default function EditCard() {
             <Field label={strings.edit.category} error={errorText('bad-category')} hint={suggestedHint('category')}>
               <CategoryChips value={draft.category} onChange={(category) => category && update({ category })} />
             </Field>
+            <Field label={strings.edit.tags} error={errorText('bad-tags')} hint={suggestedHint('tags')}>
+              <TagEditor value={draft.tags} onChange={(tags) => update({ tags })} />
+            </Field>
           </Panel>
           <Panel style={styles.group}>
             <ExpiryField
@@ -223,6 +244,21 @@ export default function EditCard() {
         </View>
       </KeyboardAvoidingView>
     </Screen>
+  );
+}
+
+function askReplace(name: string): Promise<'replace' | 'keep' | 'cancel'> {
+  return new Promise((resolve) =>
+    Alert.alert(
+      strings.edit.duplicateTitle(name),
+      strings.edit.duplicateBody,
+      [
+        { text: strings.common.cancel, style: 'cancel', onPress: () => resolve('cancel') },
+        { text: strings.edit.keepBoth, onPress: () => resolve('keep') },
+        { text: strings.edit.replace, onPress: () => resolve('replace') },
+      ],
+      { cancelable: true, onDismiss: () => resolve('cancel') },
+    ),
   );
 }
 

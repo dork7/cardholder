@@ -11,6 +11,8 @@ let mockCards = [
 ];
 
 const mockPush = jest.fn();
+jest.mock('expo-notifications', () => ({ useLastNotificationResponse: () => null }));
+jest.mock('expo-quick-actions/hooks', () => ({ useQuickActionCallback: () => {} }));
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
@@ -188,4 +190,27 @@ test('with no cards, home shows the empty state without search or filters', asyn
     expect(screen.queryByTestId('search')).toBeNull();
     expect(screen.queryByRole('radio')).toBeNull();
   });
+});
+
+test('pinned cards appear on the home page, stay put while searching, and open on tap', async () => {
+  await withCards(
+    [
+      makeCard({ id: 'a', name: 'Emirates ID', category: 'id', pinned: true }),
+      makeCard({ id: 'b', name: 'Gym', category: 'membership' }),
+    ],
+    async () => {
+      await renderHome();
+      expect(screen.getByTestId('pinned-a')).toBeTruthy();
+      expect(screen.queryByTestId('pinned-b')).toBeNull();
+      await fireEvent.changeText(screen.getByTestId('search'), 'gym');
+      expect(screen.getByTestId('pinned-a')).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('pinned-a'));
+      expect(mockPush).toHaveBeenCalledWith('/card/a');
+    },
+  );
+});
+
+test('nothing pinned, no pinned section', async () => {
+  await renderHome();
+  expect(screen.queryByTestId('pinned-strip')).toBeNull();
 });

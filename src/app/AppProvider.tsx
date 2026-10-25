@@ -3,6 +3,8 @@ import { Card } from '../cards/types';
 import { secureVault } from '../crypto/secureVault';
 import { isUnlocked } from '../purchases/entitlement';
 import { syncReminders } from '../reminders/scheduler';
+import { loadAppLock, saveAppLock } from '../security/appLock';
+import { syncShortcuts } from '../shortcuts/quickActions';
 import { AppearancePref, applyAppearance, loadAppearance, saveAppearance } from '../ui/appearance';
 import { createFileBlobStore } from '../storage/fileBlobStore';
 import { openDatabase } from '../storage/openDatabase';
@@ -31,6 +33,9 @@ export interface AppContextValue {
   clearOpenImport(): void;
   appearance: AppearancePref;
   setAppearance(pref: AppearancePref): Promise<void>;
+  appLock: boolean;
+  // Saves the choice only; the caller confirms with the device lock first.
+  setAppLock(on: boolean): Promise<void>;
 }
 
 const BootContext = createContext<BootContextValue | null>(null);
@@ -47,6 +52,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [unlocked, setUnlocked] = useState(false);
   const [openImportOnReady, setOpenImportOnReady] = useState(false);
   const [appearance, setAppearanceState] = useState<AppearancePref>('system');
+  const [appLock, setAppLockState] = useState(false);
   const depsRef = useRef<BootDeps | null>(null);
   const bootingRef = useRef(false);
   const phaseRef = useRef(phase);
@@ -60,16 +66,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCards(snapshot.cards);
         setUnlocked(snapshot.unlocked);
       },
-      syncReminders,
+      // Shortcuts follow the cards too; a failure there must not stop reminders being scheduled.
+      syncReminders: async (cards) => {
+        await syncShortcuts(cards).catch((e) => console.warn('Shortcut sync failed', e));
+        await syncReminders(cards);
+      },
       onSyncError: (e) => console.warn('Reminder sync failed', e),
     }),
   );
 
-  // The saved choice is applied before the first screen draws; reading it never blocks boot.
-  const restoreAppearance = useCallback(async (services: Services) => {
+  // Saved preferences are applied before the first screen draws; reading them never blocks boot.
+  const restorePreferences = useCallback(async (services: Services) => {
     const pref = await loadAppearance(services.settings).catch(() => 'system' as const);
     applyAppearance(pref);
     setAppearanceState(pref);
+    // Read before the first screen draws, so a locked app never shows a card first. A failed read
+    // means locked: the lock only ever errs towards asking.
+    setAppLockState(await loadAppLock(services.settings).catch(() => true));
   }, []);
 
   const runBoot = useCallback(async () => {
@@ -85,7 +98,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       await coordinator.load(() => readSnapshot(result.services));
-      await restoreAppearance(result.services);
+      await restorePreferences(result.services);
       setPhase({ status: 'ready', services: result.services });
     } catch (e) {
       // The raw error can carry native paths and codes: log it, show only localized copy.
@@ -94,7 +107,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       bootingRef.current = false;
     }
-  }, [coordinator, restoreAppearance]);
+  }, [coordinator, restorePreferences]);
 
   useEffect(() => {
     void runBoot();
@@ -110,11 +123,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!deps) return;
       const services = await bootFresh(deps);
       await coordinator.load(() => readSnapshot(services));
-      await restoreAppearance(services);
+      await restorePreferences(services);
       setOpenImportOnReady(thenImport);
       setPhase({ status: 'ready', services });
     },
-    [coordinator, restoreAppearance],
+    [coordinator, restorePreferences],
   );
 
   const services = phase.status === 'ready' ? phase.services : null;
@@ -132,14 +145,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [services],
   );
 
+  const setAppLock = useCallback(
+    async (on: boolean) => {
+      if (services) await saveAppLock(services.settings, on);
+      setAppLockState(on);
+    },
+    [services],
+  );
+
   const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
 
   const appValue = useMemo<AppContextValue | null>(
     () =>
       services
-        ? { services, cards, unlocked, refresh, openImportOnReady, clearOpenImport, appearance, setAppearance }
+        ? {
+            services,
+            cards,
+            unlocked,
+            refresh,
+            openImportOnReady,
+            clearOpenImport,
+            appearance,
+            setAppearance,
+            appLock,
+            setAppLock,
+          }
         : null,
-    [services, cards, unlocked, refresh, openImportOnReady, clearOpenImport, appearance, setAppearance],
+    [services, cards, unlocked, refresh, openImportOnReady, clearOpenImport, appearance, setAppearance, appLock, setAppLock],
   );
 
   return (

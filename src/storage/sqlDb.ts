@@ -23,6 +23,9 @@ const MIGRATIONS = [
      key TEXT PRIMARY KEY NOT NULL,
      value TEXT NOT NULL
    );`,
+  // Every card used to be pinned on creation and nothing could unpin it, so no pin was ever chosen.
+  // Pins are now the user's choice: start everyone with none.
+  `UPDATE cards SET pinned = 0, position = 0;`,
 ];
 
 export async function migrate(db: SqlDb): Promise<void> {

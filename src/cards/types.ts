@@ -14,6 +14,8 @@ export interface CardFields {
   name: string; // '' when the card has no name
   category: Category;
   expiresOn: string | null; // YYYY-MM-DD, local calendar day
+  tags: string[]; // free-form, deduplicated ignoring case; [] when there are none
+  documentKey: string | null; // hash of the document's own number, for spotting duplicates (src/analysis/documentKey.ts)
 }
 
 export interface CardImage {

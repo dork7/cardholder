@@ -26,8 +26,20 @@ describe('MRZ', () => {
   });
 
   test('reads an ID card (TD1) and a passport (TD3), expiry included', () => {
-    expect(findMrz(TD1)).toEqual({ format: 'td1', documentCode: 'I<', expiresOn: '2012-04-15' });
-    expect(findMrz(TD3)).toEqual({ format: 'td3', documentCode: 'P<', expiresOn: '2012-04-15' });
+    expect(findMrz(TD1)).toEqual({
+      format: 'td1',
+      documentCode: 'I<',
+      expiresOn: '2012-04-15',
+      documentNumber: 'D23145890',
+      optionalData: '',
+    });
+    expect(findMrz(TD3)).toEqual({
+      format: 'td3',
+      documentCode: 'P<',
+      expiresOn: '2012-04-15',
+      documentNumber: 'L898902C3',
+      optionalData: '',
+    });
   });
 
   test('copes with OCR spacing, « for <, and dropped trailing filler', () => {
@@ -37,7 +49,18 @@ describe('MRZ', () => {
 
   test('a misread expiry fails its check digit and is not used', () => {
     const misread = [TD1[0], '7408122F1204189UTO<<<<<<<<<<<6', TD1[2]];
-    expect(findMrz(misread)).toEqual({ format: 'td1', documentCode: 'I<', expiresOn: null });
+    expect(findMrz(misread)).toMatchObject({ format: 'td1', documentCode: 'I<', expiresOn: null });
+  });
+
+  test("reads an Emirates ID's back, whose first line has no filler", () => {
+    const eid = ['ILARE1234567897784199012345671', '7408122F1204159ARE<<<<<<<<<<<6', 'SMITH<<JANE<<<<<<<<<<<<<<<<<<<'];
+    expect(findMrz(eid)).toEqual({
+      format: 'td1',
+      documentCode: 'IL',
+      expiresOn: '2012-04-15',
+      documentNumber: '123456789',
+      optionalData: '784199012345671',
+    });
   });
 
   test('ordinary text is not an MRZ', () => {

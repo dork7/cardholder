@@ -23,6 +23,13 @@ export async function setupNotifications(): Promise<void> {
   }
 }
 
+// The card a tapped reminder is about, or null for any other notification.
+export function reminderCardId(response: Notifications.NotificationResponse | null): string | null {
+  if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return null;
+  const cardId = response.notification.request.content.data?.cardId;
+  return typeof cardId === 'string' ? cardId : null;
+}
+
 // Called when the user saves a card with an expiry date — never at launch.
 export async function requestReminderPermissionOnce(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();

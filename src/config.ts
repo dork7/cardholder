@@ -6,14 +6,24 @@ export const CARD_LIMIT_ENABLED = false;
 export const UNLOCK_PRODUCT_ID = 'cardholder.unlimited';
 
 export const NAME_MAX_LENGTH = 60;
+export const TAG_MAX_LENGTH = 24;
+export const MAX_TAGS = 8;
 
 export const MIN_PASSPHRASE_LENGTH = 8;
 export const PBKDF2_ITERATIONS = 600_000;
 
 export const REMINDER_DAYS_BEFORE = [30, 7] as const;
 export const REMINDER_HOUR = 9;
+// A card this close to expiry is flagged in the app; matches the first reminder.
+export const EXPIRY_SOON_DAYS = Math.max(...REMINDER_DAYS_BEFORE);
 // iOS keeps at most 64 pending local notifications per app.
 export const MAX_SCHEDULED_REMINDERS = 60;
+
+// iOS shows four home-screen quick actions; one is Add card.
+export const MAX_CARD_SHORTCUTS = 3;
+
+// With the app lock on, time in the background after which the app asks to be unlocked again.
+export const LOCK_AFTER_BACKGROUND_MS = 30_000;
 
 export const BACKUP_STALE_MS = 30 * DAY_MS;
 export const BACKUP_SNOOZE_MS = 7 * DAY_MS;

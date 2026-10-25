@@ -32,4 +32,6 @@ export interface CardAnalysis {
   name?: Guess<string>;
   expiresOn?: Guess<string>; // YYYY-MM-DD
   category?: Guess<Category>;
+  tags?: Guess<string[]>;
+  documentKey?: string; // see documentKey.ts; never shown, so not a guess
 }

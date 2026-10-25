@@ -41,12 +41,12 @@ const text = (b64: string | null) => (b64 === null ? null : utf8.decode(base64.d
 const INSERT =
   'INSERT INTO cards (id, pinned, position, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
 
-test('create stores fields, pins the card and appends it to the pinned order', async () => {
+test('create stores fields and tags, and leaves the card unpinned', async () => {
   const { store } = await makeStore();
-  const a = await store.create(fields({ name: 'Emirates ID', category: 'id' }), images('a'));
+  const a = await store.create(fields({ name: 'Emirates ID', category: 'id', tags: ['Government'] }), images('a'));
   const b = await store.create(fields({ name: 'Gym' }), images('b', true));
-  expect(a).toMatchObject({ id: 'card1', name: 'Emirates ID', category: 'id', pinned: true, position: 0, hasBack: false, backAspect: null });
-  expect(b).toMatchObject({ id: 'card2', pinned: true, position: 1, hasBack: true, backAspect: 1.586 });
+  expect(a).toMatchObject({ id: 'card1', name: 'Emirates ID', category: 'id', tags: ['Government'], pinned: false, position: 0, hasBack: false, backAspect: null });
+  expect(b).toMatchObject({ id: 'card2', tags: [], pinned: false, position: 0, hasBack: true, backAspect: 1.586 });
   expect(await store.get('card1')).toEqual(a);
   expect(await store.count()).toBe(2);
   expect((await store.ids()).sort()).toEqual(['card1', 'card2']);
@@ -126,8 +126,7 @@ test('unpinned cards sort alphabetically after pinned; re-pinning appends to the
   const a = await store.create(fields({ name: 'B card' }), images('a'));
   const b = await store.create(fields({ name: 'A card' }), images('b'));
   const c = await store.create(fields({ name: 'C card' }), images('c'));
-  await store.setPinned(a.id, false);
-  await store.setPinned(b.id, false);
+  await store.setPinned(c.id, true);
   expect((await store.list()).map((x) => x.id)).toEqual([c.id, b.id, a.id]);
   await store.setPinned(a.id, true);
   expect((await store.list()).map((x) => x.id)).toEqual([c.id, a.id, b.id]);
@@ -136,7 +135,9 @@ test('unpinned cards sort alphabetically after pinned; re-pinning appends to the
 test('setPinned to the current state does not move the card', async () => {
   const { store } = await makeStore();
   const a = await store.create(fields(), images('a'));
-  await store.create(fields(), images('b'));
+  const b = await store.create(fields(), images('b'));
+  await store.setPinned(a.id, true);
+  await store.setPinned(b.id, true);
   await store.setPinned(a.id, true);
   expect((await store.get(a.id))!.position).toBe(0);
 });
@@ -146,6 +147,7 @@ test('reorderPinned sets the pinned order', async () => {
   const a = await store.create(fields(), images('a'));
   const b = await store.create(fields(), images('b'));
   const c = await store.create(fields(), images('c'));
+  for (const card of [a, b, c]) await store.setPinned(card.id, true);
   await store.reorderPinned([c.id, a.id, b.id]);
   expect((await store.list()).map((x) => x.id)).toEqual([c.id, a.id, b.id]);
 });
@@ -174,6 +176,8 @@ describe('insertMany', () => {
     const { store } = await makeStore();
     const a = await store.create(fields({ name: 'Mine A' }), images('a'));
     const b = await store.create(fields({ name: 'Mine B' }), images('b'));
+    await store.setPinned(a.id, true);
+    await store.setPinned(b.id, true);
     await store.insertMany(
       [
         importEntry('imp1', { name: 'Imported 1', pinned: true, position: 5 }),
@@ -275,6 +279,8 @@ test('cards saved before number and notes were removed still load, without them'
     name: 'Coffee club',
     category: 'other',
     expiresOn: null,
+    tags: [], // saved before tags existed
+    documentKey: null,
     pinned: false,
     position: 0,
     hasBack: false,

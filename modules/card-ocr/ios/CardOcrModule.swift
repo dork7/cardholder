@@ -2,8 +2,9 @@ import ExpoModulesCore
 import UIKit
 import Vision
 
-// Turns a card photo into lines of text with positions. Nothing here decides what the text means;
-// that is TypeScript (src/analysis/), so it can be tested without a device.
+// Turns a card photo into lines of text with positions, and finds the card's edges for the crop.
+// Nothing here decides what the text means; that is TypeScript (src/analysis/), so it can be tested
+// without a device.
 //
 // The image arrives as the base64 JPEG the app already holds in memory, so no plaintext copy of the
 // card is written to disk for OCR.
@@ -52,6 +53,47 @@ public class CardOcrModule: Module {
           try handler.perform([request])
         } catch {
           if once.claim() { promise.reject("E_OCR", error.localizedDescription) }
+        }
+      }
+    }
+
+    // Finds the card's edges in a photo for the crop to start from. Resolves the bounding box of the
+    // most likely card-shaped rectangle, upright and normalised with the origin top left, or nil.
+    AsyncFunction("detectCard") { (uri: String, promise: Promise) in
+      let path = uri.hasPrefix("file://") ? String(uri.dropFirst("file://".count)) : uri
+      guard let image = UIImage(contentsOfFile: path), let cgImage = image.cgImage else {
+        promise.reject("E_IMAGE", "Could not read the image")
+        return
+      }
+
+      let once = Once()
+      let request = VNDetectRectanglesRequest { request, error in
+        guard once.claim() else { return }
+        if let error = error {
+          promise.reject("E_DETECT", error.localizedDescription)
+          return
+        }
+        guard let card = (request.results as? [VNRectangleObservation])?.first else {
+          promise.resolve(nil)
+          return
+        }
+        let box = card.boundingBox
+        promise.resolve(["x": box.minX, "y": 1 - box.maxY, "width": box.width, "height": box.height])
+      }
+      // An ID-1 card is 85.6 × 54 mm (short side / long side ≈ 0.63); allow for some perspective.
+      request.minimumAspectRatio = 0.45
+      request.maximumAspectRatio = 0.8
+      request.quadratureTolerance = 20
+      request.minimumSize = 0.25
+      request.minimumConfidence = 0.6
+      request.maximumObservations = 1
+
+      let handler = VNImageRequestHandler(cgImage: cgImage, orientation: CGImagePropertyOrientation(image.imageOrientation))
+      DispatchQueue.global(qos: .userInitiated).async {
+        do {
+          try handler.perform([request])
+        } catch {
+          if once.claim() { promise.reject("E_DETECT", error.localizedDescription) }
         }
       }
     }

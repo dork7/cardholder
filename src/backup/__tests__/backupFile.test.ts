@@ -134,3 +134,17 @@ test('older backups with a card number, notes and Loyalty still import', () => {
   expect(card).not.toHaveProperty('number');
   expect(card).not.toHaveProperty('notes');
 });
+
+test('tags survive the round trip; a backup from before tags loads with none', async () => {
+  const decoded = await decodeBackup(await encodeBackup(backupSnapshot(), 'correct horse', FAST), 'correct horse');
+  expect(decoded.cards[0].card.tags).toEqual(['Government']);
+  const old = rawSnapshot();
+  delete old.cards[0].card.tags;
+  expect(parseSnapshot(old).cards[0].card.tags).toEqual([]);
+});
+
+test('malformed tags make the backup invalid', async () => {
+  const bad = rawSnapshot();
+  bad.cards[0].card.tags = [42];
+  expect(await parseCode(bad)).toBe('invalid-contents');
+});

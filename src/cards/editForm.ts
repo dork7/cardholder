@@ -1,11 +1,14 @@
+import { MAX_TAGS } from '../config';
 import { canAddCard } from '../purchases/limits';
 import { Card, CardFields, CardImage, Category, FrontImage, ImageChanges, NewCardImages } from './types';
-import { FieldError, validateCardFields } from './validate';
+import { FieldError, normalizeTags, validateCardFields } from './validate';
 
 export interface EditDraft {
   name: string;
   category: Category;
   expiresOn: string | null;
+  tags: string[];
+  documentKey: string | null;
   front: FrontImage | null; // newly captured only
   back: CardImage | null; // newly captured only
   removeBack: boolean;
@@ -24,6 +27,8 @@ export function draftFor(card: Card | null): EditDraft {
     name: card?.name ?? '',
     category: card?.category ?? 'id',
     expiresOn: card?.expiresOn ?? null,
+    tags: card?.tags ?? [],
+    documentKey: card?.documentKey ?? null,
     front: null,
     back: null,
     removeBack: false,
@@ -54,7 +59,7 @@ export function planSave(
 
 // Suggestions from reading the card's photos (src/analysis/). They fill the form, never save it, and
 // never overwrite something the user chose.
-export const SUGGESTABLE = ['name', 'category', 'expiresOn'] as const;
+export const SUGGESTABLE = ['name', 'category', 'expiresOn', 'tags'] as const;
 export type Suggestable = (typeof SUGGESTABLE)[number];
 
 export interface FormState {
@@ -81,12 +86,22 @@ export function editField(state: FormState, patch: Partial<EditDraft>): FormStat
 
 export function applyAnalysis(
   state: FormState,
-  analysis: { [F in Suggestable]?: { value: EditDraft[F]; confidence: number } },
+  analysis: { [F in Suggestable]?: { value: EditDraft[F]; confidence: number } } & { documentKey?: string },
 ): FormState {
   let { draft, suggested } = state;
+  // Not a field anyone sees or edits: the newest photo that names its document wins.
+  if (analysis.documentKey) draft = { ...draft, documentKey: analysis.documentKey };
   for (const field of SUGGESTABLE) {
     const guess = analysis[field];
     if (!guess || state.touched.includes(field)) continue;
+    // Tags add up: the front and the back can each find some, and tags already there stay.
+    if (field === 'tags') {
+      const tags = normalizeTags([...draft.tags, ...(guess.value as string[])]).slice(0, MAX_TAGS);
+      if (tags.length === draft.tags.length) continue;
+      draft = { ...draft, tags };
+      suggested = { ...suggested, tags: Math.max(guess.confidence, suggested.tags ?? 0) };
+      continue;
+    }
     const held = suggested[field];
     // Fill a blank field, or replace an earlier, weaker suggestion (e.g. the back's MRZ beats a date
     // guessed from the front). Category is never blank, so it only takes the first or a stronger one.

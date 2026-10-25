@@ -14,8 +14,14 @@ export interface Decipher {
   setAuthTag(tag: Uint8Array): void;
 }
 
+export interface Hash {
+  update(data: Uint8Array | string): Hash;
+  digest(): Uint8Array;
+}
+
 export interface CryptoEngine {
   randomBytes(size: number): Uint8Array;
+  createHash(algorithm: 'sha256'): Hash;
   createCipheriv(algorithm: 'aes-256-gcm', key: Uint8Array, iv: Uint8Array): Cipher;
   createDecipheriv(algorithm: 'aes-256-gcm', key: Uint8Array, iv: Uint8Array): Decipher;
   pbkdf2(

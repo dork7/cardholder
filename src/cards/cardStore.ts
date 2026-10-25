@@ -71,6 +71,8 @@ export function createCardStore({
       name: card.name,
       category: card.category,
       expiresOn: card.expiresOn,
+      tags: card.tags,
+      documentKey: card.documentKey,
       hasBack: card.hasBack,
       frontAspect: card.frontAspect,
       backAspect: card.backAspect,
@@ -85,6 +87,8 @@ export function createCardStore({
       name: payload.name,
       category: toCategory(payload.category) ?? 'other',
       expiresOn: payload.expiresOn,
+      tags: Array.isArray(payload.tags) ? payload.tags : [], // cards saved before tags have none
+      documentKey: payload.documentKey ?? null,
       hasBack: payload.hasBack,
       frontAspect: payload.frontAspect,
       backAspect: payload.backAspect,
@@ -163,15 +167,16 @@ export function createCardStore({
       const card: Card = {
         ...fields,
         id,
-        pinned: true,
-        position: await nextPinnedPosition(),
+        // Pinning is the user's choice; a new card joins the unpinned, alphabetical rest.
+        pinned: false,
+        position: 0,
         hasBack: images.back !== null,
         frontAspect: images.front.aspect,
         backAspect: images.back?.aspect ?? null,
         createdAt: t,
         updatedAt: t,
       };
-      await db.runAsync(INSERT_SQL, [card.id, 1, card.position, seal(card), t, t]);
+      await db.runAsync(INSERT_SQL, [card.id, 0, card.position, seal(card), t, t]);
       return card;
     },
 

@@ -2,9 +2,10 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppProvider, useBoot } from '../src/app/AppProvider';
+import { AppProvider, useApp, useBoot } from '../src/app/AppProvider';
+import { AppLockGate } from '../src/security/AppLockGate';
 import { BootScreen } from '../src/app/BootScreen';
 import { setupNotifications } from '../src/reminders/scheduler';
 import { strings } from '../src/strings';
@@ -34,7 +35,7 @@ function RootNavigator() {
   const theme = useTheme();
   if (phase.status !== 'ready') return <BootScreen />;
   return (
-    <>
+    <LockedApp>
       <StatusBar style="auto" />
       <Stack
         screenOptions={{
@@ -51,6 +52,12 @@ function RootNavigator() {
          <Stack.Screen name="import" options={{ title: strings.import.title, presentation: 'modal' }} />
          <Stack.Screen name="privacy" options={{ title: strings.privacy.title }} />
        </Stack>
-    </>
+    </LockedApp>
   );
+}
+
+// useApp is only available once boot is ready, so the gate reads it here rather than in RootNavigator.
+function LockedApp({ children }: { children: ReactNode }) {
+  const { appLock } = useApp();
+  return <AppLockGate enabled={appLock}>{children}</AppLockGate>;
 }
