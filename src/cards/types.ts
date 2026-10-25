@@ -16,6 +16,14 @@ export interface CardFields {
   expiresOn: string | null; // YYYY-MM-DD, local calendar day
   tags: string[]; // free-form, deduplicated ignoring case; [] when there are none
   documentKey: string | null; // hash of the document's own number, for spotting duplicates (src/analysis/documentKey.ts)
+  folderId: string | null; // null when the card isn't in a folder
+}
+
+// A user-made group of cards. Its name is sealed like a card's; the id is random.
+export interface Folder {
+  id: string;
+  name: string;
+  createdAt: number;
 }
 
 export interface CardImage {

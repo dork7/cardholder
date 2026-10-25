@@ -64,3 +64,28 @@ test('a missing thumbnail falls back to the front image', async () => {
   const snapshot = await buildSnapshot(store, 1);
   expect(text(snapshot.cards[0].images.front.thumbJpegBase64)).toBe('JPEG:x');
 });
+
+test('folders and the cards in them travel with the backup', async () => {
+  const phoneA = await makeStore();
+  const health = await phoneA.store.createFolder('Health');
+  await phoneA.store.create(fields({ name: 'Daman', folderId: health.id }), images('daman'));
+
+  const snapshot = await decodeBackup(
+    await encodeBackup(await buildSnapshot(phoneA.store, 42), 'travel pass', { iterations: 1_000 }),
+    'travel pass',
+  );
+  expect(snapshot.folders).toEqual([health]);
+
+  const phoneB = await makeStore();
+  await applySnapshot(phoneB.store, snapshot, 'replace');
+  expect(await phoneB.store.listFolders()).toEqual([health]);
+  expect((await phoneB.store.list())[0].folderId).toBe(health.id);
+});
+
+test('merge adds the backup\'s folders even when every card is already on the phone', async () => {
+  const { store } = await makeStore();
+  await applySnapshot(store, backupSnapshot(), 'merge');
+  const snapshot = { ...backupSnapshot(), folders: [{ id: 'f1', name: 'Family', createdAt: 1 }] };
+  expect(await applySnapshot(store, snapshot, 'merge')).toEqual({ added: 0, skipped: 2 });
+  expect((await store.listFolders()).map((f) => f.name)).toEqual(['Family']);
+});

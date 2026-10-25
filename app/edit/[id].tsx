@@ -6,16 +6,30 @@ import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
 import { displayName } from '../../src/cards/display';
 import { findDuplicate } from '../../src/cards/duplicates';
-import { applyAnalysis, editField, EditDraft, formFor, planSave, SaveError, SavePlan } from '../../src/cards/editForm';
+import {
+  acceptFolderOffer,
+  applyAnalysis,
+  applyFolderSuggestion,
+  editField,
+  EditDraft,
+  formFor,
+  planSave,
+  SaveError,
+  SavePlan,
+} from '../../src/cards/editForm';
 import { NAME_MAX_LENGTH } from '../../src/config';
+import { findFolderNamed } from '../../src/folders/names';
+import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { pickImage } from '../../src/images/capture';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { CategoryChips } from '../../src/ui/CategoryChips';
+import { Chip, ChipRow } from '../../src/ui/ChipRow';
 import { ExpiryField } from '../../src/ui/ExpiryField';
 import { Field, useInputStyle } from '../../src/ui/Field';
+import { FolderNameInput } from '../../src/ui/FolderNameInput';
 import { ImageField } from '../../src/ui/ImageField';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { TagEditor } from '../../src/ui/Tags';
@@ -25,7 +39,7 @@ import { useTheme } from '../../src/ui/theme';
 export default function EditCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
-  const { services, cards, unlocked, refresh } = useApp();
+  const { services, cards, folders, unlocked, refresh } = useApp();
   const existing = isNew ? null : (cards.find((c) => c.id === id) ?? null);
   const router = useRouter();
   const theme = useTheme();
@@ -40,6 +54,7 @@ export default function EditCard() {
   const reads = useRef({ front: 0, back: 0 });
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
+  const [namingFolder, setNamingFolder] = useState(false);
   const writing = useRef(false); // synchronous guard: state updates land a render too late for a fast double tap
   const existingFront = useCardImage(existing ?? undefined, 'front');
   const existingBack = useCardImage(existing?.hasBack ? existing : undefined, 'back');
@@ -79,7 +94,8 @@ export default function EditCard() {
     setReading((n) => n + 1);
     analyzeImage(jpegBase64)
       .then((analysis) => {
-        if (reads.current[side] === read) setForm((f) => applyAnalysis(f, analysis));
+        if (reads.current[side] !== read) return;
+        setForm((f) => applyFolderSuggestion(applyAnalysis(f, analysis), suggestFolder(analysis, folders)));
       })
       .catch((e) => console.warn('Reading the card failed', e))
       .finally(() => setReading((n) => n - 1));
@@ -92,7 +108,7 @@ export default function EditCard() {
 
   const save = async () => {
     if (writing.current) return;
-    let plan = planSave(draft, { existing, cardCount: cards.length, unlocked });
+    const plan = planSave(draft, { existing, cardCount: cards.length, unlocked });
     if (plan.kind === 'invalid') {
       setErrors(plan.errors);
       return;
@@ -110,8 +126,19 @@ export default function EditCard() {
         writing.current = false;
         return;
       }
-      // The new photos take over the old card; a back the new card doesn't have is removed.
-      if (choice === 'replace') plan = { kind: 'update', id: duplicate.id, fields: plan.fields, changes: { ...plan.images } };
+      if (choice === 'replace') {
+        // The new photos take over the old card; a back the new card doesn't have is removed. The card
+        // stays in its folder unless a folder was chosen for the new one.
+        const folderId = plan.fields.folderId ?? (plan.newFolder ? null : duplicate.folderId);
+        await write({
+          kind: 'update',
+          id: duplicate.id,
+          fields: { ...plan.fields, folderId },
+          changes: { ...plan.images },
+          newFolder: plan.newFolder,
+        });
+        return;
+      }
     }
     await write(plan);
   };
@@ -121,8 +148,16 @@ export default function EditCard() {
     // The store write is the only step that can fail the save. Once it has succeeded the card exists,
     // so `saving` stays true (Save can't write it again) and the follow-ups below are best-effort.
     try {
-      if (plan.kind === 'create') await services.store.create(plan.fields, plan.images);
-      else await services.store.update(plan.id, plan.fields, plan.changes);
+      let fields = plan.fields;
+      if (plan.newFolder) {
+        // Reuse a folder of that name, e.g. one made by an earlier attempt whose card write then failed.
+        const folder =
+          findFolderNamed(await services.store.listFolders(), plan.newFolder) ??
+          (await services.store.createFolder(plan.newFolder));
+        fields = { ...fields, folderId: folder.id };
+      }
+      if (plan.kind === 'create') await services.store.create(fields, plan.images);
+      else await services.store.update(plan.id, fields, plan.changes);
     } catch (e) {
       console.warn('Save failed', e);
       writing.current = false;
@@ -157,6 +192,27 @@ export default function EditCard() {
         },
       },
     ]);
+
+  const folderChips: Chip[] = [
+    {
+      key: 'none',
+      label: strings.folders.none,
+      selected: draft.folderId === null && draft.newFolderName === null,
+      onPress: () => update({ folderId: null, newFolderName: null }),
+      testID: 'folder-none',
+    },
+    ...folders.map((f) => ({
+      key: f.id,
+      label: f.name,
+      selected: draft.folderId === f.id,
+      onPress: () => update({ folderId: f.id, newFolderName: null }),
+      testID: `folder-${f.id}`,
+    })),
+    ...(draft.newFolderName
+      ? [{ key: 'pending', label: strings.folders.pendingNew(draft.newFolderName), selected: true, onPress: () => {} }]
+      : []),
+    { key: 'add', label: `+ ${strings.folders.newFolder}`, onPress: () => setNamingFolder(true), testID: 'folder-add' },
+  ];
 
   const frontUri = draft.front ? dataUri(draft.front.jpegBase64) : existingFront;
   const backUri = draft.back ? dataUri(draft.back.jpegBase64) : draft.removeBack ? null : existingBack;
@@ -206,6 +262,39 @@ export default function EditCard() {
             </Field>
             <Field label={strings.edit.tags} error={errorText('bad-tags')} hint={suggestedHint('tags')}>
               <TagEditor value={draft.tags} onChange={(tags) => update({ tags })} />
+            </Field>
+            <Field label={strings.folders.folder} hint={form.folderSuggested ? strings.edit.suggested : undefined}>
+              {form.folderOffer && !namingFolder && (
+                <View style={[styles.offer, { backgroundColor: theme.bannerBg }]} testID="folder-offer">
+                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>
+                    {strings.folders.suggestNewTitle}
+                  </Text>
+                  <Text style={{ color: theme.muted, fontSize: 16 }}>
+                    {strings.folders.suggestNewBody(form.folderOffer)}
+                  </Text>
+                  <Button
+                    variant="secondary"
+                    label={strings.folders.suggestNewAction(form.folderOffer)}
+                    onPress={() => setForm(acceptFolderOffer)}
+                    testID="accept-folder-offer"
+                  />
+                </View>
+              )}
+              {namingFolder ? (
+                <FolderNameInput
+                  folders={folders}
+                  submitLabel={strings.folders.create}
+                  onSubmit={(name) => {
+                    // Made on save, with the card: backing out of the form leaves no empty folder behind.
+                    update({ folderId: null, newFolderName: name });
+                    setNamingFolder(false);
+                  }}
+                  onCancel={() => setNamingFolder(false)}
+                  testIDPrefix="new-folder"
+                />
+              ) : (
+                <ChipRow chips={folderChips} accessibilityLabel={strings.folders.folder} />
+              )}
             </Field>
           </Panel>
           <Panel style={styles.group}>
@@ -266,6 +355,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   group: { padding: 16, gap: 20 },
   danger: { marginTop: 28 },
+  offer: { gap: 8, padding: 16, borderRadius: 16 },
   inset: { paddingHorizontal: 16, paddingTop: 8 },
   bar: { flexDirection: 'row', gap: 12, padding: 8 },
   action: { flex: 1 },

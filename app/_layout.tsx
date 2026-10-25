@@ -48,6 +48,7 @@ function RootNavigator() {
          <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
          <Stack.Screen name="card/[id]" options={{ presentation: 'transparentModal', headerShown: false }} />
          <Stack.Screen name="settings" options={{ title: strings.settings.title }} />
+         <Stack.Screen name="folders" options={{ title: strings.folders.title }} />
          <Stack.Screen name="export" options={{ title: strings.export.title, presentation: 'modal' }} />
          <Stack.Screen name="import" options={{ title: strings.import.title, presentation: 'modal' }} />
          <Stack.Screen name="privacy" options={{ title: strings.privacy.title }} />

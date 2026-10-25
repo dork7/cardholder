@@ -1,4 +1,5 @@
 import { MAX_TAGS } from '../config';
+import { FolderSuggestion } from '../folders/suggest';
 import { canAddCard } from '../purchases/limits';
 import { Card, CardFields, CardImage, Category, FrontImage, ImageChanges, NewCardImages } from './types';
 import { FieldError, normalizeTags, validateCardFields } from './validate';
@@ -9,6 +10,8 @@ export interface EditDraft {
   expiresOn: string | null;
   tags: string[];
   documentKey: string | null;
+  folderId: string | null;
+  newFolderName: string | null; // a folder to create on save and put the card in; folderId is then null
   front: FrontImage | null; // newly captured only
   back: CardImage | null; // newly captured only
   removeBack: boolean;
@@ -19,8 +22,8 @@ export type SaveError = FieldError | 'front-required';
 export type SavePlan =
   | { kind: 'invalid'; errors: SaveError[] }
   | { kind: 'limit-reached' }
-  | { kind: 'create'; fields: CardFields; images: NewCardImages }
-  | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges };
+  | { kind: 'create'; fields: CardFields; images: NewCardImages; newFolder: string | null }
+  | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges; newFolder: string | null };
 
 export function draftFor(card: Card | null): EditDraft {
   return {
@@ -29,6 +32,8 @@ export function draftFor(card: Card | null): EditDraft {
     expiresOn: card?.expiresOn ?? null,
     tags: card?.tags ?? [],
     documentKey: card?.documentKey ?? null,
+    folderId: card?.folderId ?? null,
+    newFolderName: null,
     front: null,
     back: null,
     removeBack: false,
@@ -49,12 +54,17 @@ export function planSave(
     if (draft.front) changes.front = draft.front;
     if (draft.back) changes.back = draft.back;
     else if (draft.removeBack) changes.back = null;
-    return { kind: 'update', id: ctx.existing.id, fields: validation.value, changes };
+    return { kind: 'update', id: ctx.existing.id, fields: validation.value, changes, newFolder: draft.newFolderName };
   }
 
   if (!canAddCard(ctx.cardCount, ctx.unlocked)) return { kind: 'limit-reached' };
   // front is non-null here: a missing front was reported as 'front-required' above.
-  return { kind: 'create', fields: validation.value, images: { front: draft.front as FrontImage, back: draft.back } };
+  return {
+    kind: 'create',
+    fields: validation.value,
+    images: { front: draft.front as FrontImage, back: draft.back },
+    newFolder: draft.newFolderName,
+  };
 }
 
 // Suggestions from reading the card's photos (src/analysis/). They fill the form, never save it, and
@@ -62,26 +72,65 @@ export function planSave(
 export const SUGGESTABLE = ['name', 'category', 'expiresOn', 'tags'] as const;
 export type Suggestable = (typeof SUGGESTABLE)[number];
 
+type Touchable = Suggestable | 'folder';
+
 export interface FormState {
   draft: EditDraft;
   suggested: Partial<Record<Suggestable, number>>; // field → confidence of the suggestion it holds
-  touched: Suggestable[]; // fields the user set; suggestions leave them alone
+  touched: Touchable[]; // fields the user set; suggestions leave them alone
+  folderSuggested: boolean; // draft.folderId was picked from the photo
+  folderOffer: string | null; // no folder fits: the name of one the user can create for the card
 }
 
 export function formFor(card: Card | null): FormState {
-  // An existing card's category was chosen by the user; its name and expiry may still be blank.
-  return { draft: draftFor(card), suggested: {}, touched: card ? ['category'] : [] };
+  // An existing card's category was chosen by the user, and so was its folder if it has one; its
+  // name and expiry may still be blank.
+  const touched: Touchable[] = card ? ['category'] : [];
+  if (card?.folderId) touched.push('folder');
+  return { draft: draftFor(card), suggested: {}, touched, folderSuggested: false, folderOffer: null };
 }
 
 const isSuggestable = (key: string): key is Suggestable => (SUGGESTABLE as readonly string[]).includes(key);
 
 // A user edit: marks the field as theirs and drops its "Suggested" tag.
 export function editField(state: FormState, patch: Partial<EditDraft>): FormState {
-  const fields = Object.keys(patch).filter(isSuggestable);
+  const fields: Touchable[] = Object.keys(patch).filter(isSuggestable);
   const suggested = { ...state.suggested };
-  for (const f of fields) delete suggested[f];
+  for (const f of fields) delete suggested[f as Suggestable];
+  const folderChanged = 'folderId' in patch || 'newFolderName' in patch;
+  if (folderChanged) fields.push('folder');
   const touched = [...state.touched, ...fields.filter((f) => !state.touched.includes(f))];
-  return { draft: { ...state.draft, ...patch }, suggested, touched };
+  return {
+    ...state,
+    draft: { ...state.draft, ...patch },
+    suggested,
+    touched,
+    folderSuggested: folderChanged ? false : state.folderSuggested,
+    folderOffer: folderChanged ? null : state.folderOffer,
+  };
+}
+
+// Puts the card in the folder its photo fits, or offers to create one. Like the other suggestions it
+// never overrides the user's own pick; a later, clearer read (e.g. the back) may replace it.
+export function applyFolderSuggestion(state: FormState, suggestion: FolderSuggestion): FormState {
+  if (state.touched.includes('folder') || suggestion.kind === 'none') return state;
+  if (suggestion.kind === 'existing') {
+    return {
+      ...state,
+      draft: { ...state.draft, folderId: suggestion.folderId, newFolderName: null },
+      folderSuggested: true,
+      folderOffer: null,
+    };
+  }
+  // An earlier read already routed it to a folder that exists; keep that over a new one.
+  if (state.draft.folderId !== null) return state;
+  return { ...state, folderOffer: suggestion.name };
+}
+
+// The user took the offer: the folder is created when the card is saved.
+export function acceptFolderOffer(state: FormState): FormState {
+  if (!state.folderOffer) return state;
+  return editField(state, { folderId: null, newFolderName: state.folderOffer });
 }
 
 export function applyAnalysis(

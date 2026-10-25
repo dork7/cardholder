@@ -16,6 +16,7 @@ import { BackupBanner } from '../src/ui/BackupBanner';
 import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { CategoryChips } from '../src/ui/CategoryChips';
+import { ChipRow } from '../src/ui/ChipRow';
 import { Fab } from '../src/ui/Fab';
 import { Rosette } from '../src/ui/Rosette';
 import { PinnedStrip } from '../src/ui/PinnedStrip';
@@ -26,7 +27,7 @@ import { TYPE, useTheme } from '../src/ui/theme';
 const ENTER = 360;
 
 export default function Home() {
-  const { cards, unlocked, openImportOnReady, clearOpenImport } = useApp();
+  const { cards, folders, unlocked, openImportOnReady, clearOpenImport } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -37,7 +38,10 @@ export default function Home() {
   // Only offer types the user actually has; if the chosen type's last card goes, fall back to All.
   const present = CATEGORIES.filter((c) => cards.some((card) => card.category === c));
   const category = chosen && present.includes(chosen) ? chosen : null;
-  const shown = filterCards(cards, { query, category });
+  const [chosenFolder, setChosenFolder] = useState<string | null>(null);
+  // Falls back to all cards if the chosen folder is deleted.
+  const folderId = chosenFolder && folders.some((f) => f.id === chosenFolder) ? chosenFolder : null;
+  const shown = filterCards(cards, { query, category, folderId });
   const { pinned } = splitPinned(cards);
 
   // "Import backup" on the recovery screen lands here first, then opens the import flow.
@@ -98,9 +102,31 @@ export default function Home() {
             ) : (
               // Keyed by filter so the stack starts from its first card instead of carrying motion over.
               <CardStack
-                key={`${category ?? 'all'}|${query.trim().toLowerCase()}`}
+                key={`${category ?? 'all'}|${folderId ?? 'all'}|${query.trim().toLowerCase()}`}
                 cards={shown}
                 onOpen={(card) => router.push(`/card/${card.id}`)}
+              />
+            )}
+            {folders.length > 0 && (
+              <ChipRow
+                accessibilityLabel={strings.folders.title}
+                chips={[
+                  {
+                    key: 'all',
+                    label: strings.folders.all,
+                    selected: folderId === null,
+                    onPress: () => setChosenFolder(null),
+                    testID: 'folder-filter-all',
+                  },
+                  ...folders.map((f) => ({
+                    key: f.id,
+                    label: f.name,
+                    selected: folderId === f.id,
+                    onPress: () => setChosenFolder(f.id),
+                    testID: `folder-filter-${f.id}`,
+                  })),
+                  { key: 'manage', label: strings.folders.manage, onPress: () => router.push('/folders') },
+                ]}
               />
             )}
             {/* With a single type, "All" and that type show the same cards, so there's nothing to filter. */}

@@ -119,6 +119,37 @@ describe('parseSnapshot', () => {
     expect(await parseCode(raw)).toBe('invalid-contents');
   });
 
+  test('backups made before folders read as having none', () => {
+    const raw = rawSnapshot();
+    delete raw.folders;
+    expect(parseSnapshot(raw).folders).toEqual([]);
+  });
+
+  test('a card in a folder the file does not hold is kept, outside any folder', () => {
+    const raw = rawSnapshot();
+    raw.folders = [{ id: 'f1', name: 'Family', createdAt: 1 }];
+    raw.cards[0].card.folderId = 'f1';
+    raw.cards[1].card.folderId = 'gone';
+    const parsed = parseSnapshot(raw);
+    expect(parsed.cards.map((c) => c.card.folderId)).toEqual(['f1', null]);
+  });
+
+  test('rejects bad folders', async () => {
+    for (const folders of [
+      'nope',
+      [{ id: '../x', name: 'A', createdAt: 1 }],
+      [{ id: 'f1', name: '  ', createdAt: 1 }],
+      [{ id: 'f1', name: 'x'.repeat(31), createdAt: 1 }],
+      [{ id: 'f1', name: 'A' }],
+      [
+        { id: 'f1', name: 'A', createdAt: 1 },
+        { id: 'F1', name: 'B', createdAt: 1 },
+      ],
+    ]) {
+      expect(await parseCode({ ...rawSnapshot(), folders })).toBe('invalid-contents');
+    }
+  });
+
   test('rejects non-objects', async () => {
     expect(await parseCode(null)).toBe('invalid-contents');
     expect(await parseCode([])).toBe('invalid-contents');

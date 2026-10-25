@@ -23,6 +23,14 @@ const MIGRATIONS = [
      key TEXT PRIMARY KEY NOT NULL,
      value TEXT NOT NULL
    );`,
+  // Folders. A card's folder is a plain column, like its pin, so deleting a folder can empty it in one
+  // statement; the folder's name stays sealed in its payload.
+  `CREATE TABLE folders (
+     id TEXT PRIMARY KEY NOT NULL,
+     payload BLOB NOT NULL,
+     created_at INTEGER NOT NULL
+   );
+   ALTER TABLE cards ADD COLUMN folder_id TEXT;`,
   // Every card used to be pinned on creation and nothing could unpin it, so no pin was ever chosen.
   // Pins are now the user's choice: start everyone with none.
   `UPDATE cards SET pinned = 0, position = 0;`,

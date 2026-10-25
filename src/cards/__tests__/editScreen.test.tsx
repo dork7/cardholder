@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { frontImage, makeCard } from '../../../test/fixtures';
 import EditCard from '../../../app/edit/[id]';
+import { Folder } from '../types';
 import { strings } from '../../strings';
 
 let mockParams: { id: string } = { id: 'new' };
@@ -11,9 +12,12 @@ const mockReplace = jest.fn();
 const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
 const mockRemove = jest.fn();
+const mockCreateFolder = jest.fn();
+const mockListFolders = jest.fn();
 const mockRefresh = jest.fn();
 const mockPermission = jest.fn();
 let mockCards: ReturnType<typeof makeCard>[] = [];
+let mockFolders: Folder[] = [];
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
@@ -27,10 +31,13 @@ jest.mock('../../app/AppProvider', () => ({
         create: (...a: unknown[]) => mockCreate(...a),
         update: (...a: unknown[]) => mockUpdate(...a),
         remove: (...a: unknown[]) => mockRemove(...a),
+        createFolder: (...a: unknown[]) => mockCreateFolder(...a),
+        listFolders: () => mockListFolders(),
         loadImage: () => Promise.resolve(null),
       },
     },
     cards: mockCards,
+    folders: mockFolders,
     unlocked: false,
     refresh: () => mockRefresh(),
   }),
@@ -52,9 +59,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockParams = { id: 'new' };
   mockCards = [];
+  mockFolders = [];
   mockCreate.mockResolvedValue(makeCard());
   mockUpdate.mockResolvedValue(makeCard());
   mockRemove.mockResolvedValue(undefined);
+  mockCreateFolder.mockImplementation((name: string) => Promise.resolve({ id: 'made', name, createdAt: 1 }));
+  mockListFolders.mockImplementation(() => Promise.resolve(mockFolders));
   mockRefresh.mockResolvedValue(undefined);
   mockPermission.mockResolvedValue(true);
   mockAnalyze.mockResolvedValue({});
@@ -181,7 +191,7 @@ describe('reading the card from its photo', () => {
     expect(screen.getByLabelText(strings.edit.removeTag('Government'))).toBeTruthy();
     await save();
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', tags: ['Government'], documentKey: KEY },
+      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', tags: ['Government'], documentKey: KEY, folderId: null },
       expect.anything(),
     );
   });
@@ -209,7 +219,7 @@ describe('reading the card from its photo', () => {
     await save();
     expect(mockUpdate).toHaveBeenCalledWith(
       'c1',
-      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: ['Government'], documentKey: KEY }, // blanks filled, tags added
+      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: ['Government'], documentKey: KEY, folderId: null }, // blanks filled, tags added
       expect.anything(),
     );
   });
@@ -251,6 +261,14 @@ describe('a new card that looks like one already saved', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
+  test('a replaced card stays in its folder unless one was picked for the new card', async () => {
+    mockCards = [makeCard({ id: 'old', name: 'Emirates ID', category: 'id', documentKey: KEY, folderId: 'fam' })];
+    answer(strings.edit.replace);
+    await fillNewCard();
+    await save();
+    expect(mockUpdate).toHaveBeenCalledWith('old', expect.objectContaining({ folderId: 'fam' }), expect.anything());
+  });
+
   test('Keep both adds it as a new card', async () => {
     answer(strings.edit.keepBoth);
     await fillNewCard();
@@ -277,5 +295,83 @@ describe('a new card that looks like one already saved', () => {
     await save();
     expect(alert).not.toHaveBeenCalled();
     expect(mockUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('folders', () => {
+  const daman = {
+    name: { value: 'Daman', confidence: 0.8 },
+    category: { value: 'insurance', confidence: 0.8 },
+    text: 'DAMAN\nHealth Insurance',
+  };
+
+  test('a card that fits a folder is put in it, marked as suggested, and saved there', async () => {
+    mockFolders = [
+      { id: 'fam', name: 'Family', createdAt: 1 },
+      { id: 'ins', name: 'Insurance', createdAt: 1 },
+    ];
+    mockAnalyze.mockResolvedValue(daman);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByTestId('folder-ins').props.accessibilityState).toEqual({ checked: true });
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3); // name, category, folder
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'ins' }), expect.anything());
+    expect(mockCreateFolder).not.toHaveBeenCalled();
+  });
+
+  test('when no folder fits, a new one is offered and only made when the card is saved', async () => {
+    mockFolders = [{ id: 'fam', name: 'Family', createdAt: 1 }];
+    mockAnalyze.mockResolvedValue(daman);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByText(strings.folders.suggestNewBody('Insurance'))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('accept-folder-offer'));
+    expect(screen.queryByTestId('folder-offer')).toBeNull();
+    expect(screen.getByText(strings.folders.pendingNew('Insurance'))).toBeTruthy();
+    expect(mockCreateFolder).not.toHaveBeenCalled();
+    await save();
+    expect(mockCreateFolder).toHaveBeenCalledWith('Insurance');
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'made' }), expect.anything());
+  });
+
+  test('an offer that is not taken leaves the card outside any folder', async () => {
+    mockAnalyze.mockResolvedValue(daman);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByTestId('folder-offer')).toBeTruthy();
+    await save();
+    expect(mockCreateFolder).not.toHaveBeenCalled();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: null }), expect.anything());
+  });
+
+  test('the folder the user picked is kept over a suggestion', async () => {
+    mockFolders = [
+      { id: 'fam', name: 'Family', createdAt: 1 },
+      { id: 'ins', name: 'Insurance', createdAt: 1 },
+    ];
+    let finish: (a: unknown) => void = () => {};
+    mockAnalyze.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    await fireEvent.press(screen.getByTestId('folder-fam'));
+    await act(async () => finish(daman));
+    expect(screen.getByTestId('folder-fam').props.accessibilityState).toEqual({ checked: true });
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'fam' }), expect.anything());
+  });
+
+  test('a folder typed in the form is made on save, and a duplicate name is refused', async () => {
+    mockFolders = [{ id: 'fam', name: 'Family', createdAt: 1 }];
+    await fillNewCard();
+    await fireEvent.press(screen.getByTestId('folder-add'));
+    await fireEvent.changeText(screen.getByTestId('new-folder-name'), 'family');
+    await fireEvent.press(screen.getByTestId('new-folder-submit'));
+    expect(screen.getByText(strings.folders.errors.duplicate)).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('new-folder-name'), 'Work');
+    await fireEvent.press(screen.getByTestId('new-folder-submit'));
+    await save();
+    expect(mockCreateFolder).toHaveBeenCalledWith('Work');
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'made' }), expect.anything());
   });
 });

@@ -26,6 +26,7 @@ Each task is built by a fresh agent from its brief, then reviewed independently 
 | 18 | Share to CardHolder | ⏳ Pending |
 | 19 | End-to-end test with Maestro | ⏳ Pending |
 | 20 | Release preparation | ⏳ Pending |
+| 21 | Folders and smart sorting | ✅ Complete — folders (create, rename, delete, filter on home); a read photo routes the card to a fitting folder or offers a new one, created on save; folders travel in backups |
 
 ## Steps left for you
 

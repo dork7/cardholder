@@ -8,6 +8,7 @@ export const UNLOCK_PRODUCT_ID = 'cardholder.unlimited';
 export const NAME_MAX_LENGTH = 60;
 export const TAG_MAX_LENGTH = 24;
 export const MAX_TAGS = 8;
+export const FOLDER_NAME_MAX_LENGTH = 30;
 
 export const MIN_PASSPHRASE_LENGTH = 8;
 export const PBKDF2_ITERATIONS = 600_000;

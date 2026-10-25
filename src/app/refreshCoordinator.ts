@@ -1,7 +1,8 @@
-import { Card } from '../cards/types';
+import { Card, Folder } from '../cards/types';
 
 export interface AppSnapshot {
   cards: Card[];
+  folders: Folder[];
   unlocked: boolean;
 }
 

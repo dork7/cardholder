@@ -35,6 +35,7 @@ export function analyzeText(result: OcrResult, today: string): CardAnalysis {
     category: keep(classifyCard(text, mrz)),
     tags: keep(suggestTags(text, mrz)),
     documentKey: documentKeyOf(text, mrz),
+    text,
   };
 }
 

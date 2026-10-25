@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Card } from '../cards/types';
+import { Card, Folder } from '../cards/types';
 import { secureVault } from '../crypto/secureVault';
 import { isUnlocked } from '../purchases/entitlement';
 import { syncReminders } from '../reminders/scheduler';
@@ -27,6 +27,7 @@ interface BootContextValue {
 export interface AppContextValue {
   services: Services;
   cards: Card[];
+  folders: Folder[];
   unlocked: boolean;
   refresh(): Promise<void>;
   openImportOnReady: boolean;
@@ -42,13 +43,18 @@ const BootContext = createContext<BootContextValue | null>(null);
 const AppContext = createContext<AppContextValue | null>(null);
 
 async function readSnapshot(services: Services): Promise<AppSnapshot> {
-  const [cards, unlocked] = await Promise.all([services.store.list(), isUnlocked(services.settings)]);
-  return { cards, unlocked };
+  const [cards, folders, unlocked] = await Promise.all([
+    services.store.list(),
+    services.store.listFolders(),
+    isUnlocked(services.settings),
+  ]);
+  return { cards, folders, unlocked };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<BootPhase>({ status: 'loading' });
   const [cards, setCards] = useState<Card[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [unlocked, setUnlocked] = useState(false);
   const [openImportOnReady, setOpenImportOnReady] = useState(false);
   const [appearance, setAppearanceState] = useState<AppearancePref>('system');
@@ -64,6 +70,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createRefreshCoordinator({
       apply: (snapshot) => {
         setCards(snapshot.cards);
+        setFolders(snapshot.folders);
         setUnlocked(snapshot.unlocked);
       },
       // Shortcuts follow the cards too; a failure there must not stop reminders being scheduled.
@@ -161,6 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? {
             services,
             cards,
+            folders,
             unlocked,
             refresh,
             openImportOnReady,
@@ -171,7 +179,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setAppLock,
           }
         : null,
-    [services, cards, unlocked, refresh, openImportOnReady, clearOpenImport, appearance, setAppearance, appLock, setAppLock],
+    [
+      services,
+      cards,
+      folders,
+      unlocked,
+      refresh,
+      openImportOnReady,
+      clearOpenImport,
+      appearance,
+      setAppearance,
+      appLock,
+      setAppLock,
+    ],
   );
 
   return (
