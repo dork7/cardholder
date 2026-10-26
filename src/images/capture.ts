@@ -1,3 +1,5 @@
+import { requireOptionalNativeModule } from 'expo';
+import { getDocumentAsync } from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import ImagePicker, { Image as PickedImage } from 'react-native-image-crop-picker';
@@ -83,6 +85,37 @@ async function cutAroundCard(uri: string): Promise<string | null> {
     return null;
   } finally {
     for (const ref of decoded) ref.release();
+  }
+}
+
+interface CardPdfModule {
+  renderPage(uri: string, page: number, maxEdge: number): Promise<{ uri: string; pageCount: number }>;
+}
+
+// modules/card-pdf; missing in builds made before it was added, which then hide the PDF option.
+const cardPdf = requireOptionalNativeModule<CardPdfModule>('CardPdf');
+export const canPickPdf = cardPdf !== null;
+
+export const isPdfLocked = (e: unknown) => (e as { code?: string }).code === 'E_PDF_LOCKED';
+
+// A PDF from Files → one page rendered → the same freeform crop. `page` is zero-based and clamped to
+// the last page. Returns null when the user cancels. The picked copy and the rendered page are
+// plaintext temp files, deleted before returning.
+export async function pickPdfPage(page: number): Promise<FrontImage | null> {
+  if (!cardPdf) throw new Error('PDF rendering is not available in this build');
+  const picked = await getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+  if (picked.canceled) return null;
+  const pdfUri = picked.assets[0].uri;
+  try {
+    // Twice the saved size, so cropping in to the card still leaves enough pixels.
+    const rendered = await cardPdf.renderPage(pdfUri, page, IMAGE_MAX_EDGE * 2);
+    try {
+      return await cropSharedImage(rendered.uri);
+    } finally {
+      discardFile(rendered.uri);
+    }
+  } finally {
+    discardFile(pdfUri);
   }
 }
 

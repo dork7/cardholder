@@ -71,6 +71,7 @@ export const strings = {
     addPhoto: 'Add photo',
     changePhoto: 'Change photo',
     removeBack: 'Remove back',
+    fromPdf: 'Use a PDF',
     name: 'Name (optional)',
     namePlaceholder: 'e.g. Emirates ID',
     category: 'Category',
@@ -95,6 +96,8 @@ export const strings = {
     deleteConfirmTitle: 'Delete this card?',
     deleteConfirmBody: 'Its photos are removed from this phone immediately.',
     captureFailed: "Couldn't open that photo. Check CardHolder's photo access in Settings.",
+    pdfFailed: "Couldn't open that PDF.",
+    pdfLocked: 'That PDF is password protected. Save an unlocked copy and try again.',
     notFound: 'This card no longer exists.',
     errors: {
       'name-too-long': 'Keep the name to 60 characters or fewer.',

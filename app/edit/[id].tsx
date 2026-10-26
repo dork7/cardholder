@@ -21,7 +21,7 @@ import { NAME_MAX_LENGTH } from '../../src/config';
 import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
-import { pickImage } from '../../src/images/capture';
+import { canPickPdf, isPdfLocked, pickImage, pickPdfPage } from '../../src/images/capture';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { askReplace } from '../../src/ui/askReplace';
 import { strings } from '../../src/strings';
@@ -75,16 +75,18 @@ export default function EditCard() {
     );
   }
 
-  const capture = async (side: 'front' | 'back') => {
+  const capture = async (side: 'front' | 'back', source: 'library' | 'pdf' = 'library') => {
     try {
-      const captured = await pickImage();
+      // A card saved as a PDF usually has the front on page 1 and the back on page 2.
+      const captured = source === 'pdf' ? await pickPdfPage(side === 'front' ? 0 : 1) : await pickImage();
       if (!captured) return;
       if (side === 'front') update({ front: captured });
       else update({ back: captured, removeBack: false });
       readCard(side, captured.jpegBase64);
     } catch (e) {
       console.warn('Capture failed', e);
-      Alert.alert(strings.edit.captureFailed);
+      if (source === 'library') Alert.alert(strings.edit.captureFailed);
+      else Alert.alert(isPdfLocked(e) ? strings.edit.pdfLocked : strings.edit.pdfFailed);
     }
   };
 
@@ -229,6 +231,7 @@ export default function EditCard() {
               label={strings.edit.front}
               uri={frontUri}
               onLibrary={() => capture('front')}
+              onPdf={canPickPdf ? () => capture('front', 'pdf') : undefined}
               error={errorText('front-required')}
               testIDPrefix="front"
             />
@@ -236,6 +239,7 @@ export default function EditCard() {
               label={strings.edit.back}
               uri={backUri}
               onLibrary={() => capture('back')}
+              onPdf={canPickPdf ? () => capture('back', 'pdf') : undefined}
               onRemove={backUri ? removeBack : undefined}
               testIDPrefix="back"
             />

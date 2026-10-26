@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["CardPdfModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.cardpdf.CardPdfModule"]
+  }
+}
