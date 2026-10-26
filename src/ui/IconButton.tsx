@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from './theme';
+import { useTooltip } from './Tooltip';
 
 export type IconName = 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'send';
 
@@ -31,12 +32,15 @@ export function IconButton({ icon, label, hint, onPress, variant = 'secondary', 
   const theme = useTheme();
   const color = variant === 'danger' ? theme.danger : theme.text;
   const outline = variant === 'danger' ? theme.danger : theme.rosette;
+  const { ref, onLongPress, tooltip } = useTooltip(label);
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
       onPress={onPress}
+      onLongPress={onLongPress}
       testID={testID}
       hitSlop={4}
       style={({ pressed }) => [styles.base, { borderColor: outline, opacity: pressed ? 0.7 : 1 }]}
@@ -46,6 +50,7 @@ export function IconButton({ icon, label, hint, onPress, variant = 'secondary', 
           <Path key={d} d={d} stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
         ))}
       </Svg>
+      {tooltip}
     </Pressable>
   );
 }

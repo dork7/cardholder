@@ -23,6 +23,7 @@ import { Rosette } from '../src/ui/Rosette';
 import { PinnedStrip } from '../src/ui/PinnedStrip';
 import { Panel, Screen } from '../src/ui/Surface';
 import { TYPE, useTheme } from '../src/ui/theme';
+import { useTooltip } from '../src/ui/Tooltip';
 
 // Panels settle in from just off their resting place; Reanimated skips this under Reduce Motion.
 const ENTER = 360;
@@ -154,6 +155,7 @@ export default function Home() {
 function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const theme = useTheme();
   const stroke = { stroke: theme.muted, strokeWidth: 2, strokeLinecap: 'round' as const };
+  const clear = useTooltip(strings.home.clearSearch);
   return (
     <View style={[styles.search, { backgroundColor: theme.bannerBg, borderColor: theme.rosette }]}>
       <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -174,7 +176,9 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
       />
       {value !== '' && (
         <Pressable
+          ref={clear.ref}
           onPress={() => onChange('')}
+          onLongPress={clear.onLongPress}
           accessibilityRole="button"
           accessibilityLabel={strings.home.clearSearch}
           hitSlop={8}
@@ -183,6 +187,7 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
             <Path d="M6 6l12 12M18 6L6 18" {...stroke} stroke={theme.text} />
           </Svg>
+          {clear.tooltip}
         </Pressable>
       )}
     </View>
@@ -192,9 +197,12 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
 function SettingsButton({ onPress }: { onPress: () => void }) {
   const theme = useTheme();
   const stroke = { stroke: theme.text, strokeWidth: 2, strokeLinecap: 'round' as const };
+  const { ref, onLongPress, tooltip } = useTooltip(strings.home.settings);
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
+      onLongPress={onLongPress}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={strings.home.settings}
@@ -206,6 +214,7 @@ function SettingsButton({ onPress }: { onPress: () => void }) {
         <Circle cx={15} cy={7} r={2} {...stroke} />
         <Circle cx={9} cy={17} r={2} {...stroke} />
       </Svg>
+      {tooltip}
     </Pressable>
   );
 }
