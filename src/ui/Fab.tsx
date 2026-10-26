@@ -2,6 +2,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { SHADOW, useTheme } from './theme';
+import { useTooltip } from './Tooltip';
 
 export interface FabProps {
   label: string;
@@ -13,8 +14,11 @@ export interface FabProps {
 export function Fab({ label, onPress, testID }: FabProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { ref, onLongPress, tooltip } = useTooltip(label);
   return (
     <Pressable
+      ref={ref}
+      onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
@@ -28,6 +32,7 @@ export function Fab({ label, onPress, testID }: FabProps) {
       <Svg width={24} height={24} viewBox="0 0 24 24">
         <Path d="M12 4v16M4 12h16" stroke={theme.onAccent} strokeWidth={2.5} strokeLinecap="round" />
       </Svg>
+      {tooltip}
     </Pressable>
   );
 }

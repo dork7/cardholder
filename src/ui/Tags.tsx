@@ -7,6 +7,7 @@ import { strings } from '../strings';
 import { useInputStyle } from './Field';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
+import { useTooltip } from './Tooltip';
 
 // Read-only tags, as small dark pills: metadata, so they stay achromatic.
 export function TagList({ tags }: { tags: readonly string[] }) {
@@ -43,17 +44,7 @@ export function TagEditor({ value, onChange }: { value: string[]; onChange: (tag
           {value.map((tag) => (
             <View key={tag} style={[styles.tag, styles.editable, { backgroundColor: theme.bannerBg }]}>
               <Text style={[styles.tagText, { color: theme.text }]}>{tag}</Text>
-              <Pressable
-                onPress={() => onChange(value.filter((t) => t !== tag))}
-                accessibilityRole="button"
-                accessibilityLabel={strings.edit.removeTag(tag)}
-                hitSlop={8}
-                style={({ pressed }) => [styles.remove, { opacity: pressed ? 0.6 : 1 }]}
-              >
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                  <Path d="M6 6l12 12M18 6L6 18" stroke={theme.muted} strokeWidth={2.4} strokeLinecap="round" />
-                </Svg>
-              </Pressable>
+              <RemoveTag tag={tag} onPress={() => onChange(value.filter((t) => t !== tag))} />
             </View>
           ))}
         </View>
@@ -78,6 +69,28 @@ export function TagEditor({ value, onChange }: { value: string[]; onChange: (tag
         />
       )}
     </View>
+  );
+}
+
+function RemoveTag({ tag, onPress }: { tag: string; onPress: () => void }) {
+  const theme = useTheme();
+  const label = strings.edit.removeTag(tag);
+  const { ref, onLongPress, tooltip } = useTooltip(label);
+  return (
+    <Pressable
+      ref={ref}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
+      style={({ pressed }) => [styles.remove, { opacity: pressed ? 0.6 : 1 }]}
+    >
+      <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+        <Path d="M6 6l12 12M18 6L6 18" stroke={theme.muted} strokeWidth={2.4} strokeLinecap="round" />
+      </Svg>
+      {tooltip}
+    </Pressable>
   );
 }
 

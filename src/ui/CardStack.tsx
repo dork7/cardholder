@@ -36,6 +36,7 @@ import {
 import { Panel } from './Surface';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
+import { useTooltip } from './Tooltip';
 
 const EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
 const DURATION = 380;
@@ -232,9 +233,11 @@ export function CardStack({ cards, onOpen }: Props) {
     opacity: steps.value === 0 && pull.value === 0 ? 1 : Math.max(0, 1 - f.value * 4 - Math.abs(pull.value) / 20),
   }));
 
+  const flipLabel = flipped ? strings.home.showFront : strings.home.showBack;
+  const flipTip = useTooltip(flipLabel);
+
   const front = cards[active];
   if (!front) return null;
-  const flipLabel = flipped ? strings.home.showFront : strings.home.showBack;
 
   return (
     <View onLayout={onLayout} testID="card-stack-frame">
@@ -278,13 +281,16 @@ export function CardStack({ cards, onOpen }: Props) {
           pointerEvents="box-none"
         >
           <Pressable
+            ref={flipTip.ref}
             onPress={toggleFlip}
+            onLongPress={flipTip.onLongPress}
             accessibilityRole="button"
             accessibilityLabel={flipLabel}
             testID="flip-card"
             style={({ pressed }) => [styles.flipButton, { opacity: pressed ? 0.7 : 1 }]}
           >
             <FlipIcon />
+            {flipTip.tooltip}
           </Pressable>
         </Animated.View>
       )}
