@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Folder } from '../cards/types';
 import { secureVault } from '../crypto/secureVault';
+import { DEFAULT_HOME_FOLDERS, HomeFolderOptions, loadHomeFolders, saveHomeFolders } from '../folders/homeOptions';
 import { isUnlocked } from '../purchases/entitlement';
 import { syncReminders } from '../reminders/scheduler';
 import { loadAppLock, saveAppLock } from '../security/appLock';
@@ -37,6 +38,8 @@ export interface AppContextValue {
   appLock: boolean;
   // Saves the choice only; the caller confirms with the device lock first.
   setAppLock(on: boolean): Promise<void>;
+  homeFolders: HomeFolderOptions;
+  setHomeFolders(options: HomeFolderOptions): Promise<void>;
 }
 
 const BootContext = createContext<BootContextValue | null>(null);
@@ -59,6 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [openImportOnReady, setOpenImportOnReady] = useState(false);
   const [appearance, setAppearanceState] = useState<AppearancePref>('system');
   const [appLock, setAppLockState] = useState(false);
+  const [homeFolders, setHomeFoldersState] = useState<HomeFolderOptions>(DEFAULT_HOME_FOLDERS);
   const depsRef = useRef<BootDeps | null>(null);
   const bootingRef = useRef(false);
   const phaseRef = useRef(phase);
@@ -90,6 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Read before the first screen draws, so a locked app never shows a card first. A failed read
     // means locked: the lock only ever errs towards asking.
     setAppLockState(await loadAppLock(services.settings).catch(() => true));
+    setHomeFoldersState(await loadHomeFolders(services.settings).catch(() => DEFAULT_HOME_FOLDERS));
   }, []);
 
   const runBoot = useCallback(async () => {
@@ -160,6 +165,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [services],
   );
 
+  const setHomeFolders = useCallback(
+    async (options: HomeFolderOptions) => {
+      // Shown at once; a failed save only means it isn't remembered.
+      setHomeFoldersState(options);
+      if (services) await saveHomeFolders(services.settings, options);
+    },
+    [services],
+  );
+
   const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
 
   const appValue = useMemo<AppContextValue | null>(
@@ -177,6 +191,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setAppearance,
             appLock,
             setAppLock,
+            homeFolders,
+            setHomeFolders,
           }
         : null,
     [
@@ -191,6 +207,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAppearance,
       appLock,
       setAppLock,
+      homeFolders,
+      setHomeFolders,
     ],
   );
 

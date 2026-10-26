@@ -12,6 +12,13 @@ let mockCards = [
 ];
 
 const mockPush = jest.fn();
+// Folders are hidden in the app for now (FOLDERS_ENABLED); these tests cover both ways.
+let mockFoldersEnabled = true;
+jest.mock('../../config', () =>
+  Object.defineProperty({ ...jest.requireActual('../../config') }, 'FOLDERS_ENABLED', {
+    get: () => mockFoldersEnabled,
+  }),
+);
 jest.mock('expo-notifications', () => ({ useLastNotificationResponse: () => null }));
 jest.mock('expo-quick-actions/hooks', () => ({ useQuickActionCallback: () => {} }));
 jest.mock('expo-router', () => {
@@ -32,6 +39,7 @@ jest.mock('react-native-gesture-handler', () => ({
 const mockSetAppearance = jest.fn(() => Promise.resolve());
 let mockUnlocked = false;
 let mockFolders: Folder[] = [];
+let mockHomeFolders = { filter: true, manage: true };
 let mockLastExportAt: string | null = null;
 const mockSettingsSet = jest.fn(() => Promise.resolve());
 // Stable across renders, as the real provider's services are.
@@ -56,6 +64,7 @@ jest.mock('../../app/AppProvider', () => ({
     clearOpenImport: () => {},
     appearance: 'system',
     setAppearance: mockSetAppearance,
+    homeFolders: mockHomeFolders,
   }),
 }));
 
@@ -64,6 +73,8 @@ beforeEach(() => {
   mockSettingsSet.mockClear();
   mockUnlocked = false;
   mockFolders = [];
+  mockHomeFolders = { filter: true, manage: true };
+  mockFoldersEnabled = true;
   mockLastExportAt = String(Date.now());
 });
 
@@ -128,6 +139,27 @@ test('choosing a folder narrows the stack to its cards', async () => {
   expect(stack.props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 1) });
   await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.folders.manage })));
   expect(mockPush).toHaveBeenCalledWith('/folders');
+});
+
+test('with folders hidden there is no folder row', async () => {
+  mockFoldersEnabled = false;
+  mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
+  await renderHome();
+  expect(screen.queryByTestId('folder-filter-f1')).toBeNull();
+  expect(screen.queryByRole('button', { name: strings.folders.manage })).toBeNull();
+});
+
+test('settings can hide the folder filter and the manage shortcut separately', async () => {
+  mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
+  mockHomeFolders = { filter: false, manage: true };
+  await renderHome();
+  expect(screen.queryByTestId('folder-filter-f1')).toBeNull();
+  expect(screen.getByRole('button', { name: strings.folders.manage })).toBeTruthy();
+
+  mockHomeFolders = { filter: true, manage: false };
+  await renderHome();
+  expect(screen.getByTestId('folder-filter-f1')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: strings.folders.manage })).toBeNull();
 });
 
 test('types with no cards are not offered', async () => {

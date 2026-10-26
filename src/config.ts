@@ -9,6 +9,8 @@ export const NAME_MAX_LENGTH = 60;
 export const TAG_MAX_LENGTH = 24;
 export const MAX_TAGS = 8;
 export const FOLDER_NAME_MAX_LENGTH = 30;
+// Hidden for now: no folder UI anywhere, and new cards aren't sorted into folders. Saved folders are kept.
+export const FOLDERS_ENABLED = false;
 
 export const MIN_PASSPHRASE_LENGTH = 8;
 export const PBKDF2_ITERATIONS = 600_000;

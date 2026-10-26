@@ -10,6 +10,7 @@ import { useLaunchLinks } from '../src/app/useLaunchLinks';
 import { useBackupNudge } from '../src/backup/useBackupNudge';
 import { filterCards, splitPinned } from '../src/cards/listing';
 import { CATEGORIES, Category } from '../src/cards/types';
+import { FOLDERS_ENABLED } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
 import { BackupBanner } from '../src/ui/BackupBanner';
@@ -27,7 +28,7 @@ import { TYPE, useTheme } from '../src/ui/theme';
 const ENTER = 360;
 
 export default function Home() {
-  const { cards, folders, unlocked, openImportOnReady, clearOpenImport } = useApp();
+  const { cards, folders, unlocked, openImportOnReady, clearOpenImport, homeFolders } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -39,8 +40,33 @@ export default function Home() {
   const present = CATEGORIES.filter((c) => cards.some((card) => card.category === c));
   const category = chosen && present.includes(chosen) ? chosen : null;
   const [chosenFolder, setChosenFolder] = useState<string | null>(null);
-  // Falls back to all cards if the chosen folder is deleted.
-  const folderId = chosenFolder && folders.some((f) => f.id === chosenFolder) ? chosenFolder : null;
+  // Falls back to all cards if the chosen folder is deleted, or the filter is hidden.
+  const folderId =
+    FOLDERS_ENABLED &&
+    homeFolders.filter && chosenFolder && folders.some((f) => f.id === chosenFolder) ? chosenFolder : null;
+  const folderChips = [
+    ...(homeFolders.filter
+      ? [
+          {
+            key: 'all',
+            label: strings.folders.all,
+            selected: folderId === null,
+            onPress: () => setChosenFolder(null),
+            testID: 'folder-filter-all',
+          },
+          ...folders.map((f) => ({
+            key: f.id,
+            label: f.name,
+            selected: folderId === f.id,
+            onPress: () => setChosenFolder(f.id),
+            testID: `folder-filter-${f.id}`,
+          })),
+        ]
+      : []),
+    ...(homeFolders.manage
+      ? [{ key: 'manage', label: strings.folders.manage, onPress: () => router.push('/folders') }]
+      : []),
+  ];
   const shown = filterCards(cards, { query, category, folderId });
   const { pinned } = splitPinned(cards);
 
@@ -107,27 +133,9 @@ export default function Home() {
                 onOpen={(card) => router.push(`/card/${card.id}`)}
               />
             )}
-            {folders.length > 0 && (
-              <ChipRow
-                accessibilityLabel={strings.folders.title}
-                chips={[
-                  {
-                    key: 'all',
-                    label: strings.folders.all,
-                    selected: folderId === null,
-                    onPress: () => setChosenFolder(null),
-                    testID: 'folder-filter-all',
-                  },
-                  ...folders.map((f) => ({
-                    key: f.id,
-                    label: f.name,
-                    selected: folderId === f.id,
-                    onPress: () => setChosenFolder(f.id),
-                    testID: `folder-filter-${f.id}`,
-                  })),
-                  { key: 'manage', label: strings.folders.manage, onPress: () => router.push('/folders') },
-                ]}
-              />
+            {/* Which parts of the folder row show is chosen in settings. */}
+            {FOLDERS_ENABLED && folders.length > 0 && folderChips.length > 0 && (
+              <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} />
             )}
             {/* With a single type, "All" and that type show the same cards, so there's nothing to filter. */}
             {present.length > 1 && (

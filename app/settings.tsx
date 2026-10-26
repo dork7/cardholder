@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
+import { FOLDERS_ENABLED } from '../src/config';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
 import { strings } from '../src/strings';
 import { formatAgo } from '../src/time/dates';
@@ -12,7 +13,7 @@ import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 
 export default function SettingsScreen() {
-  const { services, appLock, setAppLock } = useApp();
+  const { services, appLock, setAppLock, homeFolders, setHomeFolders } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const [lastExportAt, setLastExportAt] = useState<number | null>(null);
@@ -48,21 +49,14 @@ export default function SettingsScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <Section title={strings.settings.security}>
-          <View style={styles.row}>
-            <View style={styles.rowText}>
-              <Text style={[styles.body, { color: theme.text }]}>{strings.settings.appLock}</Text>
-              <Text style={[styles.caption, { color: theme.muted }]}>{strings.settings.appLockHint}</Text>
-            </View>
-            <Switch
-              value={appLock}
-              onValueChange={(on) => void toggleLock(on)}
-              disabled={changingLock}
-              trackColor={{ true: theme.accent, false: theme.rosette }}
-              accessibilityLabel={strings.settings.appLock}
-              accessibilityHint={strings.settings.appLockHint}
-              testID="app-lock-switch"
-            />
-          </View>
+          <SwitchRow
+            label={strings.settings.appLock}
+            hint={strings.settings.appLockHint}
+            value={appLock}
+            onChange={(on) => void toggleLock(on)}
+            disabled={changingLock}
+            testID="app-lock-switch"
+          />
         </Section>
         <Section title={strings.settings.sharing}>
           <Text style={[styles.caption, { color: theme.muted }]}>{strings.transfer.receiveHint}</Text>
@@ -77,9 +71,29 @@ export default function SettingsScreen() {
           <Button label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
           <Button variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
         </Section>
-        <Section title={strings.folders.title}>
-          <Button variant="secondary" label={strings.folders.manage} onPress={() => router.push('/folders')} testID="manage-folders" />
-        </Section>
+        {FOLDERS_ENABLED && (
+          <>
+          <Section title={strings.settings.home}>
+            <SwitchRow
+              label={strings.settings.folderFilter}
+              hint={strings.settings.folderFilterHint}
+              value={homeFolders.filter}
+              onChange={(filter) => void setHomeFolders({ ...homeFolders, filter }).catch(() => {})}
+              testID="home-folder-filter-switch"
+            />
+            <SwitchRow
+              label={strings.settings.manageShortcut}
+              hint={strings.settings.manageShortcutHint}
+              value={homeFolders.manage}
+              onChange={(manage) => void setHomeFolders({ ...homeFolders, manage }).catch(() => {})}
+              testID="home-manage-folders-switch"
+            />
+          </Section>
+          <Section title={strings.folders.title}>
+            <Button variant="secondary" label={strings.folders.manage} onPress={() => router.push('/folders')} testID="manage-folders" />
+          </Section>
+          </>
+        )}
         <Section title={strings.settings.about}>
           <Text style={[styles.body, { color: theme.text }]}>{strings.promise}</Text>
           <Button variant="secondary" label={strings.settings.privacyPolicy} onPress={() => router.push('/privacy')} />
@@ -101,6 +115,34 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       </Text>
       {children}
     </Panel>
+  );
+}
+
+function SwitchRow(props: {
+  label: string;
+  hint: string;
+  value: boolean;
+  onChange: (on: boolean) => void;
+  disabled?: boolean;
+  testID: string;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowText}>
+        <Text style={[styles.body, { color: theme.text }]}>{props.label}</Text>
+        <Text style={[styles.caption, { color: theme.muted }]}>{props.hint}</Text>
+      </View>
+      <Switch
+        value={props.value}
+        onValueChange={props.onChange}
+        disabled={props.disabled}
+        trackColor={{ true: theme.accent, false: theme.rosette }}
+        accessibilityLabel={props.label}
+        accessibilityHint={props.hint}
+        testID={props.testID}
+      />
+    </View>
   );
 }
 

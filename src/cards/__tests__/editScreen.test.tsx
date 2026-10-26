@@ -19,6 +19,13 @@ const mockPermission = jest.fn();
 let mockCards: ReturnType<typeof makeCard>[] = [];
 let mockFolders: Folder[] = [];
 
+// Folders are hidden in the app for now (FOLDERS_ENABLED); these tests cover both ways.
+let mockFoldersEnabled = true;
+jest.mock('../../config', () =>
+  Object.defineProperty({ ...jest.requireActual('../../config') }, 'FOLDERS_ENABLED', {
+    get: () => mockFoldersEnabled,
+  }),
+);
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   useLocalSearchParams: () => mockParams,
@@ -61,6 +68,7 @@ let alert: jest.SpyInstance;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFoldersEnabled = true;
   mockParams = { id: 'new' };
   mockCards = [];
   mockFolders = [];
@@ -376,6 +384,18 @@ describe('folders', () => {
     await save();
     expect(mockCreateFolder).toHaveBeenCalledWith('Insurance');
     expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'made' }), expect.anything());
+  });
+
+  test('with folders hidden there is no folder picker, and a card that fits one is not put in it', async () => {
+    mockFoldersEnabled = false;
+    mockFolders = [{ id: 'ins', name: 'Insurance', createdAt: 1 }];
+    mockAnalyze.mockResolvedValue(daman);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.queryByTestId('folder-ins')).toBeNull();
+    expect(screen.queryByTestId('folder-offer')).toBeNull();
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: null }), expect.anything());
   });
 
   test('an offer that is not taken leaves the card outside any folder', async () => {

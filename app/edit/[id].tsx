@@ -17,7 +17,7 @@ import {
   SaveError,
   SavePlan,
 } from '../../src/cards/editForm';
-import { NAME_MAX_LENGTH } from '../../src/config';
+import { FOLDERS_ENABLED, NAME_MAX_LENGTH } from '../../src/config';
 import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
@@ -98,7 +98,10 @@ export default function EditCard() {
     analyzeImage(jpegBase64)
       .then((analysis) => {
         if (reads.current[side] !== read) return;
-        setForm((f) => applyFolderSuggestion(applyAnalysis(f, analysis), suggestFolder(analysis, folders)));
+        setForm((f) => {
+          const read = applyAnalysis(f, analysis);
+          return FOLDERS_ENABLED ? applyFolderSuggestion(read, suggestFolder(analysis, folders)) : read;
+        });
       })
       .catch((e) => console.warn('Reading the card failed', e))
       .finally(() => setReading((n) => n - 1));
@@ -268,39 +271,41 @@ export default function EditCard() {
             <Field label={strings.edit.tags} error={errorText('bad-tags')} hint={suggestedHint('tags')}>
               <TagEditor value={draft.tags} onChange={(tags) => update({ tags })} />
             </Field>
-            <Field label={strings.folders.folder} hint={form.folderSuggested ? strings.edit.suggested : undefined}>
-              {form.folderOffer && !namingFolder && (
-                <View style={[styles.offer, { backgroundColor: theme.bannerBg }]} testID="folder-offer">
-                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>
-                    {strings.folders.suggestNewTitle}
-                  </Text>
-                  <Text style={{ color: theme.muted, fontSize: 16 }}>
-                    {strings.folders.suggestNewBody(form.folderOffer)}
-                  </Text>
-                  <Button
-                    variant="secondary"
-                    label={strings.folders.suggestNewAction(form.folderOffer)}
-                    onPress={() => setForm(acceptFolderOffer)}
-                    testID="accept-folder-offer"
+            {FOLDERS_ENABLED && (
+              <Field label={strings.folders.folder} hint={form.folderSuggested ? strings.edit.suggested : undefined}>
+                {form.folderOffer && !namingFolder && (
+                  <View style={[styles.offer, { backgroundColor: theme.bannerBg }]} testID="folder-offer">
+                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>
+                      {strings.folders.suggestNewTitle}
+                    </Text>
+                    <Text style={{ color: theme.muted, fontSize: 16 }}>
+                      {strings.folders.suggestNewBody(form.folderOffer)}
+                    </Text>
+                    <Button
+                      variant="secondary"
+                      label={strings.folders.suggestNewAction(form.folderOffer)}
+                      onPress={() => setForm(acceptFolderOffer)}
+                      testID="accept-folder-offer"
+                    />
+                  </View>
+                )}
+                {namingFolder ? (
+                  <FolderNameInput
+                    folders={folders}
+                    submitLabel={strings.folders.create}
+                    onSubmit={(name) => {
+                      // Made on save, with the card: backing out of the form leaves no empty folder behind.
+                      update({ folderId: null, newFolderName: name });
+                      setNamingFolder(false);
+                    }}
+                    onCancel={() => setNamingFolder(false)}
+                    testIDPrefix="new-folder"
                   />
-                </View>
-              )}
-              {namingFolder ? (
-                <FolderNameInput
-                  folders={folders}
-                  submitLabel={strings.folders.create}
-                  onSubmit={(name) => {
-                    // Made on save, with the card: backing out of the form leaves no empty folder behind.
-                    update({ folderId: null, newFolderName: name });
-                    setNamingFolder(false);
-                  }}
-                  onCancel={() => setNamingFolder(false)}
-                  testIDPrefix="new-folder"
-                />
-              ) : (
-                <ChipRow chips={folderChips} accessibilityLabel={strings.folders.folder} />
-              )}
-            </Field>
+                ) : (
+                  <ChipRow chips={folderChips} accessibilityLabel={strings.folders.folder} />
+                )}
+              </Field>
+            )}
           </Panel>
           <Panel style={styles.group}>
             <ExpiryField
