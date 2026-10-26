@@ -27,7 +27,9 @@ const mockServices = {
     remove: async (key: string) => void mockSettings.delete(key),
   },
 };
-jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, refresh: mockRefresh }) }));
+jest.mock('../../app/AppProvider', () => ({
+  useApp: () => ({ services: mockServices, refresh: mockRefresh, homeFolders: { filter: true, manage: true } }),
+}));
 
 const mockEncode = jest.fn(async () => new Uint8Array([1, 2, 3]));
 const mockDecode = jest.fn();
