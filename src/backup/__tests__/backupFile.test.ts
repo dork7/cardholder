@@ -115,7 +115,7 @@ describe('parseSnapshot', () => {
 
   test('rejects invalid card fields', async () => {
     const raw = rawSnapshot();
-    raw.cards[0].card.category = 'passport';
+    raw.cards[0].card.category = 'x'.repeat(25); // a typed category, but longer than one can be
     expect(await parseCode(raw)).toBe('invalid-contents');
   });
 

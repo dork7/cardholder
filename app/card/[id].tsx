@@ -12,10 +12,11 @@ import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { TYPE, useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
+import { useCardPdf } from '../../src/hooks/usePdf';
+import { PdfPager } from '../../src/ui/PdfPager';
 import { displayName } from '../../src/cards/display';
 import { expiryLabel, expiryStatus } from '../../src/cards/expiry';
-import { TagList } from '../../src/ui/Tags';
-import { shareCardImage } from '../../src/share/shareCard';
+import { shareCard } from '../../src/share/shareCard';
 import { strings } from '../../src/strings';
 
 export default function CardView() {
@@ -44,6 +45,7 @@ export default function CardView() {
   // Hooks run on every render; a missing card or back just loads nothing.
   const frontUri = useCardImage(card, 'front');
   const backUri = useCardImage(card?.hasBack ? card : undefined, 'back');
+  const pdf = useCardPdf(card);
 
   if (!card) {
     return (
@@ -58,7 +60,7 @@ export default function CardView() {
 
   const share = () => {
     const go = () =>
-      shareCardImage(services.store, card).catch((e) => {
+      shareCard(services.store, card).catch((e) => {
         console.warn('Share failed', e);
         Alert.alert(strings.common.error);
       });
@@ -67,19 +69,6 @@ export default function CardView() {
       Alert.alert(strings.card.shareIdTitle, strings.card.shareIdBody, [
         { text: strings.common.cancel, style: 'cancel' },
         { text: strings.card.share, onPress: go },
-      ]);
-    } else {
-      go();
-    }
-  };
-
-  // An ID gets the same second thought as sharing it: anyone filming the codes gets a copy.
-  const sendToPhone = () => {
-    const go = () => router.push(`/send/${card.id}`);
-    if (card.category === 'id') {
-      Alert.alert(strings.transfer.sendIdTitle, strings.transfer.sendIdBody, [
-        { text: strings.common.cancel, style: 'cancel' },
-        { text: strings.transfer.send, onPress: go },
       ]);
     } else {
       go();
@@ -157,14 +146,7 @@ export default function CardView() {
     <Panel style={styles.footer} radius={28}>
       <View style={styles.actions}>
         <IconButton icon="trash" variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} testID="delete-card" />
-        <IconButton icon="share" label={strings.card.share} onPress={share} testID="share-card" />
-        <IconButton
-          icon="send"
-          label={strings.transfer.send}
-          hint={strings.transfer.sendHint}
-          onPress={sendToPhone}
-          testID="send-card"
-        />
+        <IconButton icon="share" label={strings.card.share} hint={strings.card.shareHint} onPress={share} testID="share-card" />
         <IconButton
           icon={card.pinned ? 'unpin' : 'pin'}
           label={card.pinned ? strings.card.unpin : strings.card.pin}
@@ -205,7 +187,6 @@ export default function CardView() {
             <Text style={[styles.meta, { color: expiryColor }]} testID="card-expiry">
               {expiryLabel(card, now)}
             </Text>
-            <TagList tags={card.tags} />
           </Panel>
         </View>
       )}
@@ -213,7 +194,9 @@ export default function CardView() {
       {/* The photos sit straight on the page: the card is the card, panels are only the chrome.
           In landscape the front and back sit side by side, for staff who need to see both. */}
       <View style={[styles.inset, styles.sides, landscape && styles.sidesRow]} testID="card-sides">
-        {sides.map((side) => (
+        {card.pdf ? (
+          <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} />
+        ) : sides.map((side) => (
           <View key={side.label} style={styles.side}>
             <Text style={{ fontSize: 14, color: theme.muted, textAlign: 'center' }}>{side.label}</Text>
             <View style={styles.frame}>
@@ -239,7 +222,7 @@ const styles = StyleSheet.create({
   side: { flex: 1, gap: 4 },
   frame: { flex: 1 },
   footer: { gap: 12, padding: 12 },
-  // Six icon buttons: an 8 pt gap keeps each at least 44 pt wide on a 375 pt phone.
+  // Five icon buttons: an 8 pt gap keeps each well over 44 pt wide on a 375 pt phone.
   actions: { flexDirection: 'row', gap: 8 },
   hint: { fontSize: TYPE.secondary, textAlign: 'center' },
 });

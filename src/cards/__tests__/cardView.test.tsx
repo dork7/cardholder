@@ -34,12 +34,25 @@ jest.mock('react-native-gesture-handler', () => ({
   useTapGesture: () => ({}),
   useSimultaneousGestures: () => ({}),
 }));
+// Draws page n as "page-n"; the real renderer needs the native PDF module.
+jest.mock('../../images/pdf', () => ({
+  renderPages: async (
+    pdf: { pageCount: number },
+    _edge: number,
+    onPage: (i: number, img: { jpegBase64: string; aspect: number }) => void,
+  ) => {
+    for (let i = 0; i < pdf.pageCount; i++) onPage(i, { jpegBase64: `page-${i}`, aspect: 0.7 });
+  },
+}));
+const mockShareCard = jest.fn((..._a: unknown[]) => Promise.resolve());
+jest.mock('../../share/shareCard', () => ({ shareCard: (...a: unknown[]) => mockShareCard(...a) }));
 // Stable like the real provider's memoised value; a fresh object per render would reload images forever.
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
 const mockServices = {
   store: {
     loadImage: (id: string, side: string) => mockLoadImage(id, side),
+    loadPdf: (id: string) => Promise.resolve(`${id}-pdf`),
     remove: (id: string) => mockRemove(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
   },
@@ -113,6 +126,27 @@ describe('actions', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
+  test('Quick share hands the whole card to the share sheet; an ID asks first', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    expect(mockShareCard).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+    expect(alert).not.toHaveBeenCalled();
+
+    mockShareCard.mockClear();
+    mockCards = [makeCard({ id: 'card1', category: 'id' })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
+    expect(mockShareCard).not.toHaveBeenCalled();
+    await pressInAlert(strings.card.share);
+    expect(mockShareCard).toHaveBeenCalled();
+  });
+
+  test('there is no QR send any more', async () => {
+    await render(<CardView />);
+    expect(screen.queryByTestId('send-card')).toBeNull();
+  });
+
   test('cancelling the delete keeps the card', async () => {
     await render(<CardView />);
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
@@ -135,14 +169,12 @@ test('Pin puts the card on the home page; a pinned card offers Unpin', async () 
   expect(mockSetPinned).toHaveBeenCalledWith('card1', false);
 });
 
-test('shows how close the expiry is, and the tags on the card', async () => {
+test('shows how close the expiry is', async () => {
   jest.useFakeTimers({ now: new Date(2026, 9, 25, 12, 0), doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
   try {
-    mockCards = [makeCard({ id: 'card1', expiresOn: '2026-10-30', tags: ['Health', 'Work'] })];
+    mockCards = [makeCard({ id: 'card1', expiresOn: '2026-10-30' })];
     await render(<CardView />);
     expect(screen.getByTestId('card-expiry').props.children).toBe(strings.card.expiresIn(5));
-    expect(screen.getByText('Health')).toBeTruthy();
-    expect(screen.getByText('Work')).toBeTruthy();
   } finally {
     jest.useRealTimers();
   }
@@ -201,18 +233,18 @@ describe('show to staff', () => {
   });
 });
 
-test('Send to phone opens the code screen; for an ID it asks first', async () => {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  mockCards = [makeCard({ id: 'card1', category: 'membership' })];
-  await render(<CardView />);
-  await fireEvent.press(screen.getByRole('button', { name: strings.transfer.send }));
-  expect(mockPush).toHaveBeenCalledWith('/send/card1');
+describe('a PDF card', () => {
+  const pdfCard = () => makeCard({ id: 'card1', name: 'Policy', pdf: { pageCount: 3, coverPage: 1 } });
 
-  mockPush.mockClear();
-  mockCards = [makeCard({ id: 'card1', category: 'id' })];
-  await render(<CardView />);
-  await fireEvent.press(screen.getByRole('button', { name: strings.transfer.send }));
-  expect(mockPush).not.toHaveBeenCalled();
-  expect(alert).toHaveBeenCalledWith(strings.transfer.sendIdTitle, strings.transfer.sendIdBody, expect.any(Array));
-  alert.mockRestore();
+  test('shows every page of the PDF instead of a front and back', async () => {
+    mockCards = [pdfCard()];
+    await render(<CardView />);
+    const page = (n: number) => strings.card.imageLabel('Policy', strings.card.page(n, 3));
+    await fireEvent(screen.getByTestId('pdf-pager'), 'layout', { nativeEvent: { layout: { width: 300, height: 500 } } });
+    await waitFor(() => expect(imageUri(page(1))).toBe('data:image/jpeg;base64,page-0'));
+    expect(imageUri(page(3))).toBe('data:image/jpeg;base64,page-2');
+    expect(screen.getByText(strings.card.page(1, 3))).toBeTruthy();
+    expect(screen.queryByLabelText(strings.card.imageLabel('Policy', strings.card.front))).toBeNull();
+  });
+
 });

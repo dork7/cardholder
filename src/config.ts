@@ -9,6 +9,7 @@ export const NAME_MAX_LENGTH = 60;
 export const TAG_MAX_LENGTH = 24;
 export const MAX_TAGS = 8;
 export const FOLDER_NAME_MAX_LENGTH = 30;
+export const CATEGORY_MAX_LENGTH = 24;
 // Hidden for now: no folder UI anywhere, and new cards aren't sorted into folders. Saved folders are kept.
 export const FOLDERS_ENABLED = false;
 
@@ -34,8 +35,8 @@ export const BACKUP_SNOOZE_MS = 7 * DAY_MS;
 export const IMAGE_MAX_EDGE = 1600;
 export const IMAGE_QUALITY = 0.8;
 export const THUMB_WIDTH = 400;
+// A PDF card keeps the whole file, inside every backup too.
+export const PDF_MAX_BYTES = 10 * 1024 * 1024;
+// Page previews in the page picker.
+export const PDF_PICKER_EDGE = 320;
 
-// Sending a card to another phone over QR codes (src/transfer/).
-export const TRANSFER_MAX_EDGE = 1000;
-export const TRANSFER_QUALITY = 0.6;
-export const TRANSFER_FPS = 8;

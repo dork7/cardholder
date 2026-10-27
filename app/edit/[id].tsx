@@ -17,48 +17,54 @@ import {
   SaveError,
   SavePlan,
 } from '../../src/cards/editForm';
-import { FOLDERS_ENABLED, NAME_MAX_LENGTH } from '../../src/config';
+import { FOLDERS_ENABLED, NAME_MAX_LENGTH, PDF_MAX_BYTES } from '../../src/config';
 import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
-import { canPickPdf, isPdfLocked, pickImage, pickPdfPage } from '../../src/images/capture';
+import { useCardPdf } from '../../src/hooks/usePdf';
+import { pickImage } from '../../src/images/capture';
+import { canPickPdf, isPdfLocked, PdfTooLargeError, pickPdf, renderCover } from '../../src/images/pdf';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { askReplace } from '../../src/ui/askReplace';
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { CategoryChips } from '../../src/ui/CategoryChips';
+import { CategoryNameInput } from '../../src/ui/CategoryNameInput';
 import { Chip, ChipRow } from '../../src/ui/ChipRow';
 import { ExpiryField } from '../../src/ui/ExpiryField';
 import { Field, useInputStyle } from '../../src/ui/Field';
 import { FolderNameInput } from '../../src/ui/FolderNameInput';
 import { ImageField } from '../../src/ui/ImageField';
+import { PdfPagePicker } from '../../src/ui/PdfPagePicker';
 import { Panel, Screen } from '../../src/ui/Surface';
-import { TagEditor } from '../../src/ui/Tags';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 
 export default function EditCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
-  const { services, cards, folders, unlocked, refresh } = useApp();
+  const { services, cards, folders, categories, unlocked, refresh } = useApp();
   const existing = isNew ? null : (cards.find((c) => c.id === id) ?? null);
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
   const insets = useSafeAreaInsets();
 
-  const [form, setForm] = useState(() => formFor(existing));
+  const [form, setForm] = useState(() => formFor(existing, categories[0]));
   const draft = form.draft;
   // How many photos are being read right now, and which read is current for each side: a result for a
   // photo that has since been replaced or removed is dropped.
   const [reading, setReading] = useState(0);
   const reads = useRef({ front: 0, back: 0 });
+  const covers = useRef(0); // which cover render is current: a slower, earlier tap is dropped
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
   const [namingFolder, setNamingFolder] = useState(false);
+  const [namingCategory, setNamingCategory] = useState(false);
   const writing = useRef(false); // synchronous guard: state updates land a render too late for a fast double tap
   const existingFront = useCardImage(existing ?? undefined, 'front');
   const existingBack = useCardImage(existing?.hasBack ? existing : undefined, 'back');
+  const existingPdf = useCardPdf(existing?.pdf && !draft.removePdf ? existing : undefined);
 
   const update = (patch: Partial<EditDraft>) => setForm((f) => editField(f, patch));
   const suggestedHint = (field: keyof typeof form.suggested) =>
@@ -75,18 +81,53 @@ export default function EditCard() {
     );
   }
 
-  const capture = async (side: 'front' | 'back', source: 'library' | 'pdf' = 'library') => {
+  const capture = async (side: 'front' | 'back') => {
     try {
-      // A card saved as a PDF usually has the front on page 1 and the back on page 2.
-      const captured = source === 'pdf' ? await pickPdfPage(side === 'front' ? 0 : 1) : await pickImage();
+      const captured = await pickImage();
       if (!captured) return;
-      if (side === 'front') update({ front: captured });
+      // A photo of the front replaces a PDF: the card becomes a photo card again.
+      if (side === 'front') update({ front: captured, pdf: null, removePdf: !!existing?.pdf });
       else update({ back: captured, removeBack: false });
+      covers.current++;
       readCard(side, captured.jpegBase64);
     } catch (e) {
       console.warn('Capture failed', e);
-      if (source === 'library') Alert.alert(strings.edit.captureFailed);
+      Alert.alert(strings.edit.captureFailed);
+    }
+  };
+
+  // The whole PDF is kept. Its first page is the card's picture until another is chosen, and its
+  // pages take the place of a back photo.
+  const attachPdf = async () => {
+    try {
+      const pdf = await pickPdf();
+      if (!pdf) return;
+      const cover = ++covers.current;
+      const front = await renderCover(pdf);
+      if (covers.current !== cover) return;
+      reads.current.back++; // drop a read of the back photo being removed
+      update({ pdf, front, back: null, removeBack: !!existing?.hasBack, removePdf: false });
+      readCard('front', front.jpegBase64);
+    } catch (e) {
+      console.warn('PDF failed', e);
+      if (e instanceof PdfTooLargeError) Alert.alert(strings.edit.pdfTooLarge(PDF_MAX_BYTES / 1024 / 1024));
       else Alert.alert(isPdfLocked(e) ? strings.edit.pdfLocked : strings.edit.pdfFailed);
+    }
+  };
+
+  const chooseCoverPage = async (page: number) => {
+    const pdf = currentPdf();
+    if (!pdf || page === pdf.coverPage) return;
+    const next = { ...pdf, coverPage: page };
+    const cover = ++covers.current;
+    try {
+      const front = await renderCover(next);
+      if (covers.current !== cover) return;
+      update({ pdf: next, front });
+      readCard('front', front.jpegBase64);
+    } catch (e) {
+      console.warn('Rendering the cover page failed', e);
+      Alert.alert(strings.edit.pdfFailed);
     }
   };
 
@@ -98,6 +139,8 @@ export default function EditCard() {
     analyzeImage(jpegBase64)
       .then((analysis) => {
         if (reads.current[side] !== read) return;
+        // A category the user has deleted isn't suggested back.
+        if (analysis.category && !categories.includes(analysis.category.value)) analysis = { ...analysis, category: undefined };
         setForm((f) => {
           const read = applyAnalysis(f, analysis);
           return FOLDERS_ENABLED ? applyFolderSuggestion(read, suggestFolder(analysis, folders)) : read;
@@ -106,6 +149,11 @@ export default function EditCard() {
       .catch((e) => console.warn('Reading the card failed', e))
       .finally(() => setReading((n) => n - 1));
   };
+
+  // The PDF on screen: one just picked, else the saved one once it has loaded.
+  const currentPdf = () =>
+    draft.pdf ?? (existing?.pdf && existingPdf && !draft.removePdf ? { ...existing.pdf, pdfBase64: existingPdf } : null);
+  const pdfInfo = draft.pdf ?? (draft.removePdf ? null : (existing?.pdf ?? null));
 
   const removeBack = () => {
     reads.current.back++; // drop a read of the photo being removed
@@ -140,7 +188,8 @@ export default function EditCard() {
           kind: 'update',
           id: duplicate.id,
           fields: { ...plan.fields, folderId },
-          changes: { ...plan.images },
+          // A photo card taking over a PDF card drops the PDF.
+          changes: { ...plan.images, pdf: plan.images.pdf ?? null },
           newFolder: plan.newFolder,
         });
         return;
@@ -162,6 +211,7 @@ export default function EditCard() {
           (await services.store.createFolder(plan.newFolder));
         fields = { ...fields, folderId: folder.id };
       }
+      await services.store.addCategory(fields.category);
       if (plan.kind === 'create') await services.store.create(fields, plan.images);
       else await services.store.update(plan.id, fields, plan.changes);
     } catch (e) {
@@ -231,21 +281,30 @@ export default function EditCard() {
           {/* Three panels, not one per field: photos, details, expiry. */}
           <Panel style={styles.group}>
             <ImageField
-              label={strings.edit.front}
+              label={pdfInfo ? strings.edit.pdfFront : strings.edit.front}
               uri={frontUri}
               onLibrary={() => capture('front')}
-              onPdf={canPickPdf ? () => capture('front', 'pdf') : undefined}
+              onPdf={canPickPdf ? attachPdf : undefined}
+              pdfLabel={pdfInfo ? strings.edit.replacePdf : undefined}
               error={errorText('front-required')}
               testIDPrefix="front"
             />
-            <ImageField
-              label={strings.edit.back}
-              uri={backUri}
-              onLibrary={() => capture('back')}
-              onPdf={canPickPdf ? () => capture('back', 'pdf') : undefined}
-              onRemove={backUri ? removeBack : undefined}
-              testIDPrefix="back"
-            />
+            {pdfInfo ? (
+              <PdfPagePicker
+                pdfBase64={draft.pdf?.pdfBase64 ?? existingPdf}
+                pageCount={pdfInfo.pageCount}
+                coverPage={pdfInfo.coverPage}
+                onChange={chooseCoverPage}
+              />
+            ) : (
+              <ImageField
+                label={strings.edit.back}
+                uri={backUri}
+                onLibrary={() => capture('back')}
+                onRemove={backUri ? removeBack : undefined}
+                testIDPrefix="back"
+              />
+            )}
             {reading > 0 && (
               <Text style={{ color: theme.muted, fontSize: 16 }} accessibilityLiveRegion="polite" testID="reading-card">
                 {strings.edit.reading}
@@ -266,10 +325,24 @@ export default function EditCard() {
               />
             </Field>
             <Field label={strings.edit.category} error={errorText('bad-category')} hint={suggestedHint('category')}>
-              <CategoryChips value={draft.category} onChange={(category) => category && update({ category })} />
-            </Field>
-            <Field label={strings.edit.tags} error={errorText('bad-tags')} hint={suggestedHint('tags')}>
-              <TagEditor value={draft.tags} onChange={(tags) => update({ tags })} />
+              {namingCategory ? (
+                <CategoryNameInput
+                  categories={categories}
+                  onSubmit={(category) => {
+                    // Saved to the list with the card, so backing out leaves no unused category behind.
+                    update({ category });
+                    setNamingCategory(false);
+                  }}
+                  onCancel={() => setNamingCategory(false)}
+                />
+              ) : (
+                <CategoryChips
+                  value={draft.category}
+                  onChange={(category) => category && update({ category })}
+                  categories={categories.includes(draft.category) ? categories : [...categories, draft.category]}
+                  onAddNew={() => setNamingCategory(true)}
+                />
+              )}
             </Field>
             {FOLDERS_ENABLED && (
               <Field label={strings.folders.folder} hint={form.folderSuggested ? strings.edit.suggested : undefined}>

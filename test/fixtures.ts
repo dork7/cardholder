@@ -21,6 +21,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
     hasBack: false,
     frontAspect: 1.586,
     backAspect: null,
+    pdf: null,
     createdAt: 1_000,
     updatedAt: 1_000,
     ...overrides,

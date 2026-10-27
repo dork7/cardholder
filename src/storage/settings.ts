@@ -7,7 +7,8 @@ export type SettingKey =
   | 'backupSnoozedUntil' | 'appearance'
   | 'appLock'
   | 'homeFolderFilter'
-  | 'homeManageFolders';
+  | 'homeManageFolders'
+  | 'categories'; // written by the card store, sealed
 
 export interface Settings {
   get(key: SettingKey): Promise<string | null>;

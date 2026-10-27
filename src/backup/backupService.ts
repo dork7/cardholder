@@ -15,11 +15,14 @@ export async function buildSnapshot(store: CardStore, now: number): Promise<Back
     if (!front) throw new Error(`Card ${card.id} has no front image`);
     const thumb = (await store.loadImage(card.id, 'thumb')) ?? front;
     const back = card.hasBack && card.backAspect ? await store.loadImage(card.id, 'back') : null;
+    // A PDF whose file has gone is kept as a photo card of its cover page.
+    const pdf = card.pdf ? await store.loadPdf(card.id) : null;
     cards.push({
-      card: { ...card, hasBack: back !== null, backAspect: back ? card.backAspect : null },
+      card: { ...card, hasBack: back !== null, backAspect: back ? card.backAspect : null, pdf: pdf ? card.pdf : null },
       images: {
         front: { jpegBase64: front, aspect: card.frontAspect, thumbJpegBase64: thumb },
         back: back && card.backAspect ? { jpegBase64: back, aspect: card.backAspect } : null,
+        pdf: pdf && card.pdf ? { ...card.pdf, pdfBase64: pdf } : null,
       },
     });
   }

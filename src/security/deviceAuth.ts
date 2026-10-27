@@ -1,7 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 
 // The phone's own lock: Face ID, Touch ID or fingerprint, falling back to the device passcode, PIN,
-// pattern or password. CardHolder never sees or stores any of it.
+// pattern or password. Doc Keeper never sees or stores any of it.
 
 export async function deviceLockAvailable(): Promise<boolean> {
   return (await LocalAuthentication.getEnrolledLevelAsync()) !== LocalAuthentication.SecurityLevel.NONE;

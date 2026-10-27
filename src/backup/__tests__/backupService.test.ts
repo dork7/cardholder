@@ -89,3 +89,38 @@ test('merge adds the backup\'s folders even when every card is already on the ph
   expect(await applySnapshot(store, snapshot, 'merge')).toEqual({ added: 0, skipped: 2 });
   expect((await store.listFolders()).map((f) => f.name)).toEqual(['Family']);
 });
+
+test('a PDF card travels with its whole PDF and cover page', async () => {
+  const phoneA = await makeStore();
+  const pdfBase64 = base64.encode(utf8.encode('%PDF-1.7 policy'));
+  await phoneA.store.create(fields({ name: 'Policy' }), { ...images('cover'), pdf: { pdfBase64, pageCount: 4, coverPage: 2 } });
+
+  const snapshot = await decodeBackup(await encodeBackup(await buildSnapshot(phoneA.store, 1), 'travel pass', { iterations: 1_000 }), 'travel pass');
+  const phoneB = await makeStore();
+  await applySnapshot(phoneB.store, snapshot, 'replace');
+  expect((await phoneB.store.get('card1'))?.pdf).toEqual({ pageCount: 4, coverPage: 2 });
+  expect(text(await phoneB.store.loadPdf('card1'))).toBe('%PDF-1.7 policy');
+});
+
+test('a PDF card whose PDF is missing exports as a photo card of its cover', async () => {
+  const phoneA = await makeStore();
+  const pdfBase64 = base64.encode(utf8.encode('%PDF-1.7 policy'));
+  await phoneA.store.create(fields(), { ...images('cover'), pdf: { pdfBase64, pageCount: 4, coverPage: 2 } });
+  await phoneA.blobs.remove(blobName('card1', 'pdf'));
+  const snapshot = await buildSnapshot(phoneA.store, 1);
+  expect(snapshot.cards[0].card.pdf).toBeNull();
+  expect(snapshot.cards[0].images.pdf).toBeNull();
+});
+
+test('a backup PDF that is not a PDF, or whose cover page is out of range, is invalid', () => {
+  const entry = (pdf: unknown) => {
+    const snap = JSON.parse(JSON.stringify(backupSnapshot()));
+    snap.cards[0].images.pdf = pdf;
+    return () => parseSnapshot(snap);
+  };
+  const real = base64.encode(utf8.encode('%PDF-1.7 x'));
+  expect(entry({ pdfBase64: real, pageCount: 2, coverPage: 1 })).not.toThrow();
+  expect(entry({ pdfBase64: base64.encode(utf8.encode('JPEG:x')), pageCount: 2, coverPage: 1 })).toThrow('invalid-contents');
+  expect(entry({ pdfBase64: real, pageCount: 2, coverPage: 2 })).toThrow('invalid-contents');
+  expect(entry({ pdfBase64: real, pageCount: 0, coverPage: 0 })).toThrow('invalid-contents');
+});

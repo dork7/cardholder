@@ -23,7 +23,7 @@ test('keeps a trimmed expiry date', () => {
 });
 
 test('reports every problem at once', () => {
-  expect(validateCardFields({ name: 'x'.repeat(61), category: 'passport', expiresOn: '2027-02-30' })).toEqual({
+  expect(validateCardFields({ name: 'x'.repeat(61), category: 'x'.repeat(25), expiresOn: '2027-02-30' })).toEqual({
     ok: false,
     errors: ['name-too-long', 'bad-category', 'bad-expiry'],
   });
@@ -43,7 +43,7 @@ test('cards saved as Loyalty become Other', () => {
 
 test('non-string input (e.g. from a tampered backup) is handled', () => {
   expect(validateCardFields({ name: 42, category: null })).toEqual({ ok: false, errors: ['bad-category'] });
-  expect(validateCardFields({ name: 'Gym', category: 'toString' })).toEqual({ ok: false, errors: ['bad-category'] });
+  expect(validateCardFields({ name: 'Gym', category: '   ' })).toEqual({ ok: false, errors: ['bad-category'] });
 });
 
 describe('tags', () => {
@@ -65,4 +65,10 @@ describe('tags', () => {
       expect(validateCardFields({ ...base, tags })).toEqual({ ok: false, errors: ['bad-tags'] });
     }
   });
+});
+
+test('a typed category is kept, tidied; a built-in key stays a key', () => {
+  expect(validateCardFields({ category: '  Vehicle   papers ' })).toMatchObject({ ok: true, value: { category: 'Vehicle papers' } });
+  expect(validateCardFields({ category: 'insurance' })).toMatchObject({ ok: true, value: { category: 'insurance' } });
+  expect(validateCardFields({ category: 'loyalty' })).toMatchObject({ ok: true, value: { category: 'other' } });
 });

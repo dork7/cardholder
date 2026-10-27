@@ -2,8 +2,8 @@ import ExpoModulesCore
 import PDFKit
 import UIKit
 
-// Renders one page of a PDF to a JPEG in the caches folder, so a card that arrives as a PDF (a digital
-// insurance card, an e-ID) goes through the same crop as a photo. The caller deletes the JPEG.
+// Renders one page of a PDF to a JPEG in the caches folder: the page a PDF card shows as its picture,
+// and the pages of the card view and the page picker. The caller deletes the JPEG.
 public class CardPdfModule: Module {
   public func definition() -> ModuleDefinition {
     Name("CardPdf")
@@ -55,7 +55,34 @@ public class CardPdfModule: Module {
           promise.reject("E_PDF", error.localizedDescription)
           return
         }
-        promise.resolve(["uri": out.absoluteString, "pageCount": document.pageCount])
+        promise.resolve([
+          "uri": out.absoluteString,
+          "pageCount": document.pageCount,
+          "width": Int(size.width),
+          "height": Int(size.height),
+        ])
+      }
+    }
+
+    // JPEGs → one PDF, a page per image, in the caches folder: a card's front and back shared as a
+    // single file. The caller deletes it.
+    AsyncFunction("imagesToPdf") { (uris: [String], promise: Promise) in
+      DispatchQueue.global(qos: .userInitiated).async {
+        let document = PDFDocument()
+        for (index, uri) in uris.enumerated() {
+          guard let url = URL(string: uri), let image = UIImage(contentsOfFile: url.path), let page = PDFPage(image: image) else {
+            promise.reject("E_PDF", "Could not read an image")
+            return
+          }
+          document.insert(page, at: index)
+        }
+        let out = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+          .appendingPathComponent("pdf-\(UUID().uuidString).pdf")
+        guard document.write(to: out) else {
+          promise.reject("E_PDF", "Could not write the PDF")
+          return
+        }
+        promise.resolve(out.absoluteString)
       }
     }
   }

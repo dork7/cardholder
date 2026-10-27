@@ -9,7 +9,7 @@ import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
 import { useBackupNudge } from '../src/backup/useBackupNudge';
 import { filterCards, splitPinned } from '../src/cards/listing';
-import { CATEGORIES, Category } from '../src/cards/types';
+import { CardCategory } from '../src/cards/types';
 import { FOLDERS_ENABLED } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
@@ -29,16 +29,16 @@ import { useTooltip } from '../src/ui/Tooltip';
 const ENTER = 360;
 
 export default function Home() {
-  const { cards, folders, unlocked, openImportOnReady, clearOpenImport, homeFolders } = useApp();
+  const { cards, folders, categories, unlocked, openImportOnReady, clearOpenImport, homeFolders } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const nudge = useBackupNudge();
   useLaunchLinks();
   const [query, setQuery] = useState('');
-  const [chosen, setChosen] = useState<Category | null>(null);
+  const [chosen, setChosen] = useState<CardCategory | null>(null);
   // Only offer types the user actually has; if the chosen type's last card goes, fall back to All.
-  const present = CATEGORIES.filter((c) => cards.some((card) => card.category === c));
+  const present = categories.filter((c) => cards.some((card) => card.category === c));
   const category = chosen && present.includes(chosen) ? chosen : null;
   const [chosenFolder, setChosenFolder] = useState<string | null>(null);
   // Falls back to all cards if the chosen folder is deleted, or the filter is hidden.

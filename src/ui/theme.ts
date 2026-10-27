@@ -1,7 +1,7 @@
 import { useColorScheme } from 'react-native';
 
 // Spotify-inspired (.claude/skills/spotify-design): near-black surfaces where the card photos are
-// the only colour, one functional green for primary actions and active states, announcement blue
+// the only colour, one functional amber (our own, not Spotify's green) for primary actions and active states, announcement blue
 // reserved for selection, and negative red for anything destructive.
 export interface Theme {
   bg: string; // the page
@@ -19,14 +19,14 @@ export interface Theme {
   photoDim: string; // veil over card thumbnails so white plastic doesn't glare in the dark; never on the counter view
 }
 
-// The style is dark-first; light keeps the same geometry. Spotify Green doesn't reach 3:1 on white,
-// so light mode uses a deeper green with white labels.
+// The style is dark-first; light keeps the same geometry. The dark amber doesn't reach 3:1 on white,
+// so light mode uses a deeper amber with white labels.
 const light: Theme = {
   bg: '#FFFFFF',
   surface: '#F4F4F4',
   text: '#121212',
   muted: '#5E5E5E',
-  accent: '#117A37',
+  accent: '#8A5A00',
   onAccent: '#FFFFFF',
   selection: '#1F6FD0',
   danger: '#C2283A',
@@ -43,7 +43,7 @@ const dark: Theme = {
   surface: '#181818',
   text: '#FDFDFD',
   muted: '#B3B3B3',
-  accent: '#1ED760',
+  accent: '#F5B83D',
   onAccent: '#000000',
   selection: '#539DF5',
   danger: '#F3727F',

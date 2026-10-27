@@ -16,6 +16,8 @@ const mockCreateFolder = jest.fn();
 const mockListFolders = jest.fn();
 const mockRefresh = jest.fn();
 const mockPermission = jest.fn();
+const mockAddCategory = jest.fn((_c: string) => Promise.resolve());
+let mockCategories: string[] = ['id', 'insurance', 'membership', 'other'];
 let mockCards: ReturnType<typeof makeCard>[] = [];
 let mockFolders: Folder[] = [];
 
@@ -31,20 +33,25 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
   useRouter: () => ({ back: mockBack, dismissAll: mockDismissAll, replace: mockReplace }),
 }));
+// Stable like the real provider's memoised value; a fresh object per render would reload the PDF forever.
+const mockServices = {
+  store: {
+    create: (...a: unknown[]) => mockCreate(...a),
+    update: (...a: unknown[]) => mockUpdate(...a),
+    remove: (...a: unknown[]) => mockRemove(...a),
+    createFolder: (...a: unknown[]) => mockCreateFolder(...a),
+    listFolders: () => mockListFolders(),
+    loadImage: () => Promise.resolve(null),
+    loadPdf: (id: string) => Promise.resolve(`${id}-pdf`),
+    addCategory: (c: string) => mockAddCategory(c),
+  },
+};
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
-    services: {
-      store: {
-        create: (...a: unknown[]) => mockCreate(...a),
-        update: (...a: unknown[]) => mockUpdate(...a),
-        remove: (...a: unknown[]) => mockRemove(...a),
-        createFolder: (...a: unknown[]) => mockCreateFolder(...a),
-        listFolders: () => mockListFolders(),
-        loadImage: () => Promise.resolve(null),
-      },
-    },
+    services: mockServices,
     cards: mockCards,
     folders: mockFolders,
+    categories: mockCategories,
     unlocked: false,
     refresh: () => mockRefresh(),
   }),
@@ -53,13 +60,22 @@ jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({
 jest.mock('../../reminders/scheduler', () => ({
   requestReminderPermissionOnce: () => mockPermission(),
 }));
-const mockPickPdfPage = jest.fn();
 jest.mock('../../images/capture', () => ({
   pickImage: () => Promise.resolve(require('../../../test/fixtures').frontImage('picked')),
-  canPickPdf: true,
-  pickPdfPage: (...a: unknown[]) => mockPickPdfPage(...a),
-  isPdfLocked: (e: { code?: string }) => e.code === 'E_PDF_LOCKED',
 }));
+const mockPickPdf = jest.fn();
+const mockRenderCover = jest.fn();
+jest.mock('../../images/pdf', () => {
+  class PdfTooLargeError extends Error {}
+  return {
+    canPickPdf: true,
+    pickPdf: () => mockPickPdf(),
+    renderCover: (...a: unknown[]) => mockRenderCover(...a),
+    renderPages: () => Promise.resolve(),
+    isPdfLocked: (e: { code?: string }) => e.code === 'E_PDF_LOCKED',
+    PdfTooLargeError,
+  };
+});
 const mockAnalyze = jest.fn();
 jest.mock('../../analysis/analyze', () => ({ analyzeImage: (...a: unknown[]) => mockAnalyze(...a) }));
 
@@ -72,6 +88,7 @@ beforeEach(() => {
   mockParams = { id: 'new' };
   mockCards = [];
   mockFolders = [];
+  mockCategories = ['id', 'insurance', 'membership', 'other'];
   mockCreate.mockResolvedValue(makeCard());
   mockUpdate.mockResolvedValue(makeCard());
   mockRemove.mockResolvedValue(undefined);
@@ -80,7 +97,8 @@ beforeEach(() => {
   mockRefresh.mockResolvedValue(undefined);
   mockPermission.mockResolvedValue(true);
   mockAnalyze.mockResolvedValue({});
-  mockPickPdfPage.mockResolvedValue(frontImage('pdf'));
+  mockPickPdf.mockResolvedValue(pdfDoc());
+  mockRenderCover.mockImplementation((pdf: { coverPage: number }) => Promise.resolve(frontImage(`page${pdf.coverPage}`)));
   warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
@@ -88,6 +106,8 @@ afterEach(() => {
   warn.mockRestore();
   alert.mockRestore();
 });
+
+const pdfDoc = (coverPage = 0) => ({ pdfBase64: 'JVBERi0x', pageCount: 3, coverPage });
 
 async function fillNewCard() {
   await render(<EditCard />);
@@ -147,21 +167,69 @@ describe('saving', () => {
 });
 
 describe('adding from a PDF', () => {
-  test('the front comes from page 1 and the back from page 2, and both are read', async () => {
+  test('keeps the whole PDF, shows its first page as the thumbnail, and reads that page', async () => {
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-pdf'));
-    await fireEvent.press(screen.getByTestId('back-pdf'));
-    expect(mockPickPdfPage.mock.calls).toEqual([[0], [1]]);
-    expect(mockAnalyze).toHaveBeenCalledTimes(2);
+    expect(mockRenderCover).toHaveBeenCalledWith(pdfDoc(0));
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64);
+    // The PDF's pages take the place of a back photo.
+    expect(screen.queryByTestId('back-library')).toBeNull();
+    expect(screen.getByTestId('pdf-page-0').props.accessibilityState).toMatchObject({ selected: true });
     await save();
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ front: frontImage('pdf'), back: frontImage('pdf') }),
-    );
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page0'), back: null, pdf: pdfDoc(0) });
+  });
+
+  test('choosing another page makes it the thumbnail', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    await fireEvent.press(screen.getByTestId('pdf-page-2'));
+    expect(mockRenderCover).toHaveBeenLastCalledWith(pdfDoc(2));
+    expect(screen.getByTestId('pdf-page-2').props.accessibilityState).toMatchObject({ selected: true });
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page2'), back: null, pdf: pdfDoc(2) });
+  });
+
+  test('a photo of the front replaces the PDF', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.queryByTestId('pdf-pages')).toBeNull();
+    expect(screen.getByTestId('back-library')).toBeTruthy();
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('picked'), back: null });
+  });
+
+  test("on a saved PDF card, a new thumbnail page is drawn from the stored PDF", async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard({ pdf: { pageCount: 3, coverPage: 0 } })];
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('pdf-page-1'));
+    const stored = { pdfBase64: 'card1-pdf', pageCount: 3, coverPage: 1 };
+    expect(mockRenderCover).toHaveBeenCalledWith(stored);
+    await save();
+    expect(mockUpdate).toHaveBeenCalledWith('card1', expect.anything(), { front: frontImage('page1'), pdf: stored });
+  });
+
+  test('a PDF on a card with a back photo removes the back', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard({ hasBack: true, backAspect: 1.586 })];
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    await save();
+    expect(mockUpdate).toHaveBeenCalledWith('card1', expect.anything(), { front: frontImage('page0'), back: null, pdf: pdfDoc(0) });
+  });
+
+  test('a photo replacing a saved PDF removes it', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard({ pdf: { pageCount: 3, coverPage: 0 } })];
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    await save();
+    expect(mockUpdate).toHaveBeenCalledWith('card1', expect.anything(), { front: frontImage('picked'), pdf: null });
   });
 
   test('a cancelled pick changes nothing', async () => {
-    mockPickPdfPage.mockResolvedValue(null);
+    mockPickPdf.mockResolvedValue(null);
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-pdf'));
     await save();
@@ -170,17 +238,70 @@ describe('adding from a PDF', () => {
   });
 
   test('a password-protected PDF says so', async () => {
-    mockPickPdfPage.mockRejectedValue(Object.assign(new Error('locked'), { code: 'E_PDF_LOCKED' }));
+    mockPickPdf.mockRejectedValue(Object.assign(new Error('locked'), { code: 'E_PDF_LOCKED' }));
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-pdf'));
     expect(alert).toHaveBeenCalledWith(strings.edit.pdfLocked);
   });
 
+  test('a PDF over the size limit says so', async () => {
+    const { PdfTooLargeError } = jest.requireMock('../../images/pdf');
+    mockPickPdf.mockRejectedValue(new PdfTooLargeError());
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    expect(alert).toHaveBeenCalledWith(strings.edit.pdfTooLarge(10));
+  });
+
   test('any other failure shows the PDF error', async () => {
-    mockPickPdfPage.mockRejectedValue(new Error('bad file'));
+    mockPickPdf.mockRejectedValue(new Error('bad file'));
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-pdf'));
     expect(alert).toHaveBeenCalledWith(strings.edit.pdfFailed);
+  });
+});
+
+describe('a category that is not in the list', () => {
+  test('typing it adds it as a new category, saved with the card', async () => {
+    await fillNewCard();
+    await fireEvent.press(screen.getByTestId('category-add'));
+    await fireEvent.changeText(screen.getByTestId('new-category-name'), ' vehicle ');
+    await fireEvent.press(screen.getByTestId('new-category-submit'));
+    expect(screen.getByRole('radio', { name: 'Vehicle' }).props.accessibilityState).toMatchObject({ checked: true });
+    await save();
+    expect(mockAddCategory).toHaveBeenCalledWith('Vehicle');
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ category: 'Vehicle' }), expect.anything());
+  });
+
+  test('typing one that exists picks it instead of making a copy', async () => {
+    mockCategories = ['id', 'insurance', 'membership', 'other', 'Vehicle'];
+    await fillNewCard();
+    await fireEvent.press(screen.getByTestId('category-add'));
+    await fireEvent.changeText(screen.getByTestId('new-category-name'), 'INSURANCE');
+    await fireEvent.press(screen.getByTestId('new-category-submit'));
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ category: 'insurance' }), expect.anything());
+  });
+
+  test('a blank name says so and adds nothing', async () => {
+    await fillNewCard();
+    await fireEvent.press(screen.getByTestId('category-add'));
+    await fireEvent.press(screen.getByTestId('new-category-submit'));
+    expect(screen.getByText(strings.edit.categoryNameError)).toBeTruthy();
+  });
+
+  test('a new card starts in the first category offered, as built-ins can be deleted', async () => {
+    mockCategories = ['Vehicle', 'other'];
+    await fillNewCard();
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ category: 'Vehicle' }), expect.anything());
+  });
+
+  test('a deleted category is not suggested back from the photo', async () => {
+    mockCategories = ['id', 'other'];
+    mockAnalyze.mockResolvedValue({ category: { value: 'insurance', confidence: 0.9 } });
+    await fillNewCard();
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ category: 'id' }), expect.anything());
   });
 });
 
@@ -228,21 +349,19 @@ describe('reading the card from its photo', () => {
     name: { value: 'Emirates ID', confidence: 0.9 },
     expiresOn: { value: '2030-11-09', confidence: 0.85 },
     category: { value: 'id', confidence: 0.95 },
-    tags: { value: ['Government'], confidence: 0.7 },
     documentKey: KEY,
   };
 
-  test('a picked photo fills name, expiry, category and tags, marked as suggested, and they are saved', async () => {
+  test('a picked photo fills name, expiry and category, marked as suggested, and they are saved', async () => {
     mockAnalyze.mockResolvedValue({ ...emiratesId, category: { value: 'insurance', confidence: 0.8 } });
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-library'));
     expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64);
     expect(screen.getByTestId('card-name').props.value).toBe('Emirates ID');
-    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(4);
-    expect(screen.getByLabelText(strings.edit.removeTag('Government'))).toBeTruthy();
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
     await save();
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', tags: ['Government'], documentKey: KEY, folderId: null },
+      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', tags: [], documentKey: KEY, folderId: null },
       expect.anything(),
     );
   });
@@ -257,7 +376,7 @@ describe('reading the card from its photo', () => {
     await act(async () => finish(emiratesId));
     expect(screen.getByTestId('card-name').props.value).toBe('My ID');
     expect(screen.queryByText(strings.edit.reading)).toBeNull();
-    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3); // expiry, category and tags
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(2); // expiry and category
   });
 
   test('editing an existing card keeps its saved name and category', async () => {
@@ -270,7 +389,7 @@ describe('reading the card from its photo', () => {
     await save();
     expect(mockUpdate).toHaveBeenCalledWith(
       'c1',
-      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: ['Government'], documentKey: KEY, folderId: null }, // blanks filled, tags added
+      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: [], documentKey: KEY, folderId: null }, // blanks filled
       expect.anything(),
     );
   });
@@ -306,7 +425,7 @@ describe('a new card that looks like one already saved', () => {
     expect(mockUpdate).toHaveBeenCalledWith(
       'old',
       expect.objectContaining({ name: 'Gym', documentKey: KEY }),
-      { front: frontImage('picked'), back: null }, // the old back belonged to the old card
+      { front: frontImage('picked'), back: null, pdf: null }, // the old back (or PDF) belonged to the old card
     );
     expect(mockCreate).not.toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();

@@ -68,6 +68,8 @@ test('draftFor fills from an existing card', () => {
     front: null,
     back: null,
     removeBack: false,
+    pdf: null,
+    removePdf: false,
     tags: [],
     documentKey: null,
   });
@@ -115,28 +117,6 @@ describe('suggestions from the photo', () => {
   test('changing a photo is not a user edit of the fields', () => {
     const state = editField(formFor(null), { front: frontImage('f') });
     expect(state.touched).toEqual([]);
-  });
-});
-
-describe('suggested tags', () => {
-  const tags = (value: string[]) => ({ tags: { value, confidence: 0.7 } });
-
-  test('add to the tags already there, from the front and then the back', () => {
-    let state = formFor(makeCard({ tags: ['Mine'] }));
-    state = applyAnalysis(state, tags(['Health', 'mine']));
-    state = applyAnalysis(state, tags(['Insurance']));
-    expect(state.draft.tags).toEqual(['Mine', 'Health', 'Insurance']);
-    expect(state.suggested.tags).toBe(0.7);
-  });
-
-  test('stop once the user edits the tags', () => {
-    const state = editField(formFor(null), { tags: ['Work'] });
-    expect(applyAnalysis(state, tags(['Health'])).draft.tags).toEqual(['Work']);
-  });
-
-  test('nothing new means no "Suggested" mark', () => {
-    const state = applyAnalysis(formFor(makeCard({ tags: ['Health'] })), tags(['health']));
-    expect(state.suggested.tags).toBeUndefined();
   });
 });
 

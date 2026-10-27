@@ -10,12 +10,13 @@ interface Props {
   uri: string | null;
   onLibrary: () => void;
   onPdf?: () => void;
+  pdfLabel?: string; // defaults to "Use a PDF"
   onRemove?: () => void;
   error?: string;
   testIDPrefix: string;
 }
 
-export function ImageField({ label, uri, onLibrary, onPdf, onRemove, error, testIDPrefix }: Props) {
+export function ImageField({ label, uri, onLibrary, onPdf, pdfLabel, onRemove, error, testIDPrefix }: Props) {
   const theme = useTheme();
   return (
     <Field label={label} error={error}>
@@ -43,7 +44,7 @@ export function ImageField({ label, uri, onLibrary, onPdf, onRemove, error, test
           {onPdf && (
             <Button
               variant="secondary"
-              label={strings.edit.fromPdf}
+              label={pdfLabel ?? strings.edit.fromPdf}
               onPress={onPdf}
               accessibilityHint={label}
               testID={`${testIDPrefix}-pdf`}

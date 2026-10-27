@@ -3,7 +3,7 @@ import { memoryDb } from '../../../test/memoryDb';
 import { fields, frontImage, image, images, importEntry, makeStore } from '../../../test/fixtures';
 import { createAead, generateKey } from '../../crypto/aead';
 import { base64, utf8 } from '../../crypto/bytes';
-import { createCardStore, CardNotFoundError, FolderNotFoundError } from '../cardStore';
+import { createCardStore, CardNotFoundError, CategoryInUseError, FolderNotFoundError } from '../cardStore';
 import { migrate } from '../../storage/sqlDb';
 import { BlobStore } from '../../storage/blobStore';
 
@@ -287,6 +287,7 @@ test('cards saved before number and notes were removed still load, without them'
     hasBack: false,
     frontAspect: 1.586,
     backAspect: null,
+    pdf: null, // saved before PDF cards existed
     createdAt: 1,
     updatedAt: 1,
   });
@@ -341,5 +342,75 @@ describe('folders', () => {
 
     await store.insertMany([], { replace: true, folders: [{ id: 'f-only', name: 'Only', createdAt: 3 }] });
     expect((await store.listFolders()).map((f) => f.id)).toEqual(['f-only']);
+  });
+});
+
+describe('PDF cards', () => {
+  const pdf = (coverPage = 0) => ({ pdfBase64: base64.encode(utf8.encode('%PDF-1.7 secret')), pageCount: 3, coverPage });
+
+  test('keep the whole PDF, sealed, next to the cover page picture', async () => {
+    const { store, blobs } = await makeStore();
+    const card = await store.create(fields(), { ...images('cover'), pdf: pdf(1) });
+    expect(card.pdf).toEqual({ pageCount: 3, coverPage: 1 });
+    expect(await store.get(card.id)).toEqual(card);
+    expect(text(await store.loadPdf(card.id))).toBe('%PDF-1.7 secret');
+    const stored = [...blobs.raw.values()].map((b) => Buffer.from(b).toString('latin1'));
+    expect(stored.some((b) => b.includes('%PDF'))).toBe(false);
+  });
+
+  test('a photo card has no PDF', async () => {
+    const { store } = await makeStore();
+    const card = await store.create(fields(), images('a'));
+    expect(card.pdf).toBeNull();
+    expect(await store.loadPdf(card.id)).toBeNull();
+  });
+
+  test('update can change the cover page, and pdf: null turns it back into a photo card', async () => {
+    const { store } = await makeStore();
+    const card = await store.create(fields(), { ...images('cover'), pdf: pdf(0) });
+    const moved = await store.update(card.id, fields(), { front: frontImage('page2'), pdf: pdf(2) });
+    expect(moved.pdf).toEqual({ pageCount: 3, coverPage: 2 });
+    const photo = await store.update(card.id, fields(), { front: frontImage('photo'), pdf: null });
+    expect(photo.pdf).toBeNull();
+    expect(await store.loadPdf(card.id)).toBeNull();
+    expect(text(await store.loadImage(card.id, 'front'))).toBe('JPEG:photo');
+  });
+
+  test('remove deletes the PDF too', async () => {
+    const { store, blobs } = await makeStore();
+    const card = await store.create(fields(), { ...images('cover'), pdf: pdf() });
+    await store.remove(card.id);
+    expect(await blobs.list()).toEqual([]);
+  });
+});
+
+describe('categories', () => {
+  test('start as the built-ins; added ones are kept, sealed, in order', async () => {
+    const { store, db } = await makeStore();
+    expect(await store.listCategories()).toEqual(['id', 'insurance', 'membership', 'other']);
+    await store.addCategory('Vehicle');
+    await store.addCategory('Vehicle');
+    expect(await store.listCategories()).toEqual(['id', 'insurance', 'membership', 'other', 'Vehicle']);
+    const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'categories'", []);
+    expect(Buffer.from(row!.value, 'base64').toString('latin1')).not.toContain('Vehicle');
+  });
+
+  test('an unused category can be deleted, a built-in too', async () => {
+    const { store } = await makeStore();
+    await store.addCategory('Vehicle');
+    await store.removeCategory('Vehicle');
+    await store.removeCategory('membership');
+    expect(await store.listCategories()).toEqual(['id', 'insurance', 'other']);
+  });
+
+  test('a category a card uses cannot be deleted, and the error names the cards', async () => {
+    const { store } = await makeStore();
+    await store.addCategory('Vehicle');
+    await store.create(fields({ name: 'Mulkiya', category: 'Vehicle' }), images('a'));
+    await store.create(fields({ name: 'Boat', category: 'Vehicle' }), images('b'));
+    const error = await store.removeCategory('Vehicle').catch((e) => e);
+    expect(error).toBeInstanceOf(CategoryInUseError);
+    expect((error as CategoryInUseError).cards.map((c) => c.name)).toEqual(['Boat', 'Mulkiya']);
+    expect(await store.listCategories()).toContain('Vehicle');
   });
 });
