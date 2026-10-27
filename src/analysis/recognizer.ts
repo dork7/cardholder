@@ -10,6 +10,10 @@ interface CardOcrModule {
 // gets no suggestions.
 const native = requireOptionalNativeModule<CardOcrModule>('CardOcr');
 
+// Whether this phone reads the text on cards at all. The AI model works on that text, so it is only
+// offered where there is some.
+export const canReadText = Boolean(native?.recognize);
+
 export const cardTextRecognizer: TextRecognizer = {
   recognize: (jpegBase64) => (native?.recognize ? native.recognize(jpegBase64) : Promise.resolve({ lines: [] })),
 };

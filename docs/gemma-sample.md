@@ -4,7 +4,7 @@ A development-only test bench for phase 5 of the [on-device AI plan](superpowers
 
 - Code: `src/analysis/smartExtract.ts` (prompt, JSON schema, validation), `src/analysis/gemma.ts` (runs the model with `llama.rn`), `app/dev/gemma.tsx` (the screen).
 - Output is constrained to a JSON schema, then validated: a name's words and an expiry date's year must appear in the card text, or the field is dropped.
-- The screen only exists in development builds; release builds redirect it to home.
+- The screen only exists in development builds; release builds redirect it to home. In release builds the model is downloaded from Settings → AI suggestions, only after the user confirms (`src/analysis/modelDownload.ts`), and card reading uses it to fill fields the rules left empty (`fillGaps` in `src/analysis/analyze.ts`).
 
 ## Run it
 
