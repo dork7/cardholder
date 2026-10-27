@@ -1,7 +1,7 @@
 {
   "name": "card-ocr",
   "version": "0.1.0",
-  "description": "Reads the text on a card photo on the device (Apple Vision on iOS).",
+  "description": "Reads the text on a card photo and finds its edges, on the device (Apple Vision on iOS; edge finding only on Android).",
   "license": "UNLICENSED",
   "private": true
 }
