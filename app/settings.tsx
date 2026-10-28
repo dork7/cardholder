@@ -3,6 +3,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
+import { cancelModelDownload, removeModel, startModelDownload, useModelState } from '../src/analysis/modelDownload';
+import { canReadText } from '../src/analysis/recognizer';
 import { FOLDERS_ENABLED } from '../src/config';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
 import { strings } from '../src/strings';
@@ -58,6 +60,7 @@ export default function SettingsScreen() {
             testID="app-lock-switch"
           />
         </Section>
+        {canReadText && <AiSection />}
         <Section title={strings.categoriesScreen.title}>
           <Button
             variant="secondary"
@@ -107,6 +110,63 @@ export default function SettingsScreen() {
         </Section>
       </ScrollView>
     </Screen>
+  );
+}
+
+// The AI model is never downloaded without the user saying so here, after being told the size and
+// where it comes from.
+function AiSection() {
+  const theme = useTheme();
+  const model = useModelState();
+
+  const download = () =>
+    Alert.alert(strings.ai.confirmTitle, strings.ai.confirmMessage, [
+      { text: strings.common.cancel, style: 'cancel' },
+      { text: strings.ai.confirm, onPress: () => void startModelDownload() },
+    ]);
+
+  const remove = () =>
+    Alert.alert(strings.ai.removeTitle, strings.ai.removeMessage, [
+      { text: strings.common.cancel, style: 'cancel' },
+      {
+        text: strings.common.delete,
+        style: 'destructive',
+        onPress: () =>
+          void removeModel().catch((e) => {
+            console.warn('Deleting the AI model failed', e);
+            Alert.alert(strings.common.error);
+          }),
+      },
+    ]);
+
+  return (
+    <Section title={strings.ai.title}>
+      {model.status === 'present' ? (
+        <>
+          <Text style={[styles.body, { color: theme.text }]}>{strings.ai.ready}</Text>
+          <Button variant="danger" label={strings.ai.remove} onPress={remove} testID="delete-ai-model" />
+        </>
+      ) : model.status === 'downloading' ? (
+        <>
+          <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID="ai-model-progress">
+            {strings.ai.downloading(model.progress === null ? null : Math.round(model.progress * 100))}
+          </Text>
+          <Button variant="secondary" label={strings.ai.stop} onPress={cancelModelDownload} testID="stop-ai-model" />
+        </>
+      ) : (
+        <>
+          <Text style={[styles.body, { color: theme.text }]}>{strings.ai.about}</Text>
+          <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.sizeHint}</Text>
+          {model.failure && (
+            <Text style={[styles.caption, { color: theme.danger }]} accessibilityLiveRegion="polite" testID="ai-model-failed">
+              {strings.ai.failed[model.failure]}
+            </Text>
+          )}
+          <Button label={strings.ai.download} onPress={download} testID="download-ai-model" />
+        </>
+      )}
+      <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.license}</Text>
+    </Section>
   );
 }
 

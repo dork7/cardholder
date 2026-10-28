@@ -1,9 +1,10 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
+import { gemmaReader, releaseGemma } from '../../src/analysis/gemma';
 import { displayName } from '../../src/cards/display';
 import { findDuplicate } from '../../src/cards/duplicates';
 import {
@@ -57,6 +58,8 @@ export default function EditCard() {
   const [reading, setReading] = useState(0);
   const reads = useRef({ front: 0, back: 0 });
   const covers = useRef(0); // which cover render is current: a slower, earlier tap is dropped
+  // The AI model, if the user has downloaded it, takes ~300 MB while loaded: free it when the form closes.
+  useEffect(() => () => void releaseGemma().catch(() => {}), []);
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
   const [namingFolder, setNamingFolder] = useState(false);
@@ -136,7 +139,7 @@ export default function EditCard() {
   const readCard = (side: 'front' | 'back', jpegBase64: string) => {
     const read = ++reads.current[side];
     setReading((n) => n + 1);
-    analyzeImage(jpegBase64)
+    analyzeImage(jpegBase64, { smart: gemmaReader })
       .then((analysis) => {
         if (reads.current[side] !== read) return;
         // A category the user has deleted isn't suggested back.

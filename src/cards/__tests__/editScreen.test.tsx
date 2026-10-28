@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { frontImage, makeCard } from '../../../test/fixtures';
 import EditCard from '../../../app/edit/[id]';
+import { gemmaReader } from '../../analysis/gemma';
 import { Folder } from '../types';
 import { strings } from '../../strings';
 
@@ -171,7 +172,7 @@ describe('adding from a PDF', () => {
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-pdf'));
     expect(mockRenderCover).toHaveBeenCalledWith(pdfDoc(0));
-    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64);
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64, { smart: gemmaReader });
     // The PDF's pages take the place of a back photo.
     expect(screen.queryByTestId('back-library')).toBeNull();
     expect(screen.getByTestId('pdf-page-0').props.accessibilityState).toMatchObject({ selected: true });
@@ -356,7 +357,8 @@ describe('reading the card from its photo', () => {
     mockAnalyze.mockResolvedValue({ ...emiratesId, category: { value: 'insurance', confidence: 0.8 } });
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-library'));
-    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64);
+    // With the AI model's reader, which suggests nothing until the user has downloaded the model.
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64, { smart: gemmaReader });
     expect(screen.getByTestId('card-name').props.value).toBe('Emirates ID');
     expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
     await save();

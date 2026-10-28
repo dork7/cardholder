@@ -5,8 +5,8 @@ interface CardDetector {
   detectCard?(uri: string): Promise<OcrBox | null>;
 }
 
-// Part of the card-ocr module, iOS only for now. Elsewhere, and in builds made before it was added,
-// no card is found and the crop starts from the whole photo, as before.
+// Part of the card-ocr module: Vision on iOS, a small edge and line finder on Android. In builds made
+// before it was added, no card is found and the crop starts from the whole photo, as before.
 const native = requireOptionalNativeModule<CardDetector>('CardOcr');
 
 export async function detectCardBounds(uri: string): Promise<OcrBox | null> {
