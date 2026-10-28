@@ -18,7 +18,7 @@ Make adding a card almost typing-free: when the user adds a card's photos, the a
 **Constraints carried over from the spec**
 
 - No camera. The app never asks for camera permission (`android.permission.CAMERA` stays blocked in `app.json`) and has no scanner; only images the user adds are analysed.
-- No network. Models ship inside the app binary (or are fetched once in development); the app never downloads anything during regular use.
+- No network. Models ship inside the app binary; the one exception is Gemma 3 270M (~290 MB), which the user can choose to download once in Settings (pinned revision, SHA-256 checked). The app never downloads anything without that choice.
 - Runs on the app's current minimums — Android 10 (`minSdkVersion` 29) and iOS 16.4 — and must be acceptable on low-end phones, not only flagships.
 - Card photos and extracted text never leave the app's encrypted storage (AES-256-GCM, `src/crypto/`).
 
@@ -170,7 +170,7 @@ Each suggestion has a confidence score. Below a threshold, the field stays empty
 | Low RAM on older phones | No large model in the core; one analysis at a time; native models freed after use |
 | JS thread | OCR runs natively off the JS thread; only text crosses the bridge, so swipes and animations stay smooth |
 | App size | Small models only; ML Kit Latin bundled on Android, Vision built into iOS; the VLM as an optional pack |
-| No network | Models bundled in the binary; nothing fetched by the app |
+| No network | Models bundled in the binary; Gemma downloaded once only if the user asks for it in Settings |
 | Heat and battery | Analysis runs once per added image; re-analysis one card at a time, only when the app is idle |
 | Background limits | Analysis runs on the add/edit screen; re-analysis in the foreground, not in background tasks |
 | Device variety | CPU paths must be fast enough; GPU/NPU is a bonus, never required |

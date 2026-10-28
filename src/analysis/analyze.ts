@@ -4,7 +4,8 @@ import { documentId, documentKey } from './documentKey';
 import { extractExpiry, extractName } from './fields';
 import { findMrz } from './mrz';
 import { cardTextRecognizer } from './recognizer';
-import { CardAnalysis, Guess, OcrResult, TextRecognizer } from './types';
+import { SmartSuggestion } from './smartExtract';
+import { CardAnalysis, Guess, OcrResult, SmartReader, TextRecognizer } from './types';
 
 // Below this, a field stays empty instead of showing a guess.
 export const SUGGEST_THRESHOLD = 0.5;
@@ -37,17 +38,59 @@ export function analyzeText(result: OcrResult, today: string): CardAnalysis {
   };
 }
 
-export async function analyzeImage(
-  jpegBase64: string,
-  { recognizer = cardTextRecognizer, today = toIsoDate(new Date()), timeoutMs = TIMEOUT_MS } = {},
-): Promise<CardAnalysis> {
+// The language model only fills fields the rules left empty. The rules check a value against the
+// card's own structure (MRZ check digits, a labelled date); the model's answers are only checked
+// against the text, so where both have one the rules win. Shown as suggestions, like any other.
+export const SMART_CONFIDENCE = 0.6;
+// On top of TIMEOUT_MS: a low-end phone takes a few seconds to run the model.
+const SMART_TIMEOUT_MS = 8_000;
+
+export function fillGaps(analysis: CardAnalysis, smart: SmartSuggestion): CardAnalysis {
+  const guess = <T>(value: T | null): Guess<T> | undefined =>
+    value === null ? undefined : { value, confidence: SMART_CONFIDENCE };
+  return {
+    ...analysis,
+    name: analysis.name ?? guess(smart.name),
+    expiresOn: analysis.expiresOn ?? guess(smart.expiresOn),
+    category: analysis.category ?? guess(smart.category),
+  };
+}
+
+// Rejects once `ms` pass, and calls `onTimeout` (to stop the work) if it gets there first.
+async function within<T>(work: Promise<T>, ms: number, message: string, onTimeout?: () => void): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('Card reading timed out')), timeoutMs);
+    timer = setTimeout(() => {
+      onTimeout?.();
+      reject(new Error(message));
+    }, ms);
   });
   try {
-    return analyzeText(await Promise.race([recognizer.recognize(jpegBase64), timeout]), today);
+    return await Promise.race([work, timeout]);
   } finally {
     clearTimeout(timer);
+  }
+}
+
+export async function analyzeImage(
+  jpegBase64: string,
+  {
+    recognizer = cardTextRecognizer,
+    today = toIsoDate(new Date()),
+    timeoutMs = TIMEOUT_MS,
+    smart = null as SmartReader | null,
+    smartTimeoutMs = SMART_TIMEOUT_MS,
+  } = {},
+): Promise<CardAnalysis> {
+  const analysis = analyzeText(await within(recognizer.recognize(jpegBase64), timeoutMs, 'Card reading timed out'), today);
+  if (!smart || !analysis.text) return analysis;
+  // The model is extra: if it fails or is slow, the rules' answers still stand.
+  const stop = new AbortController();
+  try {
+    const suggestion = await within(smart.read(analysis.text, stop.signal), smartTimeoutMs, 'Smart reading timed out', () => stop.abort());
+    return suggestion ? fillGaps(analysis, suggestion) : analysis;
+  } catch (e) {
+    console.warn('Smart reading failed', e);
+    return analysis;
   }
 }

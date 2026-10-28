@@ -1,4 +1,5 @@
 import { Category } from '../cards/types';
+import { SmartSuggestion } from './smartExtract';
 
 // Box in 0–1 image coordinates, origin top left.
 export interface OcrBox {
@@ -21,6 +22,12 @@ export interface OcrResult {
 // Turns an image into text. The real one is the card-ocr native module; tests use a fake.
 export interface TextRecognizer {
   recognize(jpegBase64: string): Promise<OcrResult>;
+}
+
+// The optional language model (Gemma, once the user has downloaded it): card text → suggested fields,
+// already checked against the text. Null when it has nothing usable. Aborting stops it.
+export interface SmartReader {
+  read(cardText: string, signal: AbortSignal): Promise<SmartSuggestion | null>;
 }
 
 export interface Guess<T> {

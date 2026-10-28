@@ -7,7 +7,7 @@ Status: agreed 2026-10-19 (design grilling session). This is the source of truth
 A public iOS + Android app (Expo) that stores **image-based** cards — ID, insurance, membership, loyalty — and gets one on screen fast at a counter.
 
 - No barcodes. Cards are photos (front, optional back).
-- No accounts. **The app never touches the internet**; the only network traffic is the app stores' own purchase flow.
+- No accounts. **The app never touches the internet on its own**; the only network traffic is the app stores' own purchase flow and, if the user turns on AI suggestions in Settings, a one-time download of the AI model (see AI suggestions below).
 - Target gap: physical cards with no barcode (ID, insurance, membership) that Apple/Google Wallet don't cover.
 
 ## Cards
@@ -56,6 +56,7 @@ Tap a card → **counter view**:
 - Card data is **excluded from iCloud/Google device backups** (see Implementation notes for how this is achieved per platform).
 - The app is **blurred in the app switcher**. Screenshots are allowed.
 - **Quick share** on the card view sends the whole card through the system share sheet — AirDrop on iPhone, Quick Share on Android (Bluetooth and Wi-Fi, no internet), or any other app — as one file: a PDF card as its PDF, a card with a back as a two-page PDF made on the phone, a front-only card as its photo. For cards in the ID category, a one-line confirmation first: "This shares an unencrypted copy of the card." Sending a card over QR codes was removed, along with the camera permission (`android.permission.CAMERA` is blocked).
+- **AI suggestions (optional).** Card reading can also use Gemma 3 270M (`llama.rn`) on the card's text. The model (~290 MB) is not in the app: Settings offers it only on phones that read card text (iOS for now), and downloads it once from Hugging Face after a confirmation that states the size and source. The file is pinned to one revision and checked against its SHA-256 before use; Settings shows progress, can stop the download, and can delete the model. The model only fills fields the rules left empty and never sends anything; card text never leaves the phone.
 - No crash-reporting or analytics SDKs. Rely on the stores' own opt-in crash reports. Store privacy label: **Data Not Collected**.
 
 ## Backup
