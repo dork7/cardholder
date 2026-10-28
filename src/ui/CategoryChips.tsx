@@ -1,19 +1,21 @@
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Text } from './Text';
-import { CATEGORIES, Category } from '../cards/types';
+import { categoryLabel } from '../cards/categories';
+import { CardCategory } from '../cards/types';
 import { strings } from '../strings';
 import { TYPE, useTheme } from './theme';
 
 interface Props {
-  value: Category | null;
-  onChange: (value: Category | null) => void;
+  value: CardCategory | null;
+  onChange: (value: CardCategory | null) => void;
   includeAll?: boolean;
-  categories?: readonly Category[]; // defaults to every category
+  categories: readonly CardCategory[];
+  onAddNew?: () => void; // shows a last "+ New" chip
 }
 
-export function CategoryChips({ value, onChange, includeAll = false, categories = CATEGORIES }: Props) {
+export function CategoryChips({ value, onChange, includeAll = false, categories, onAddNew }: Props) {
   const theme = useTheme();
-  const options: (Category | null)[] = includeAll ? [null, ...categories] : [...categories];
+  const options: (CardCategory | null)[] = includeAll ? [null, ...categories] : [...categories];
   return (
     <ScrollView
       horizontal
@@ -24,7 +26,7 @@ export function CategoryChips({ value, onChange, includeAll = false, categories 
     >
       {options.map((option) => {
         const selected = option === value;
-        const label = option ? strings.categories[option] : strings.home.allCategories;
+        const label = option ? categoryLabel(option) : strings.home.allCategories;
         return (
           <Pressable
             key={option ?? 'all'}
@@ -43,6 +45,17 @@ export function CategoryChips({ value, onChange, includeAll = false, categories 
           </Pressable>
         );
       })}
+      {onAddNew && (
+        <Pressable
+          onPress={onAddNew}
+          accessibilityRole="button"
+          accessibilityLabel={strings.edit.newCategory}
+          testID="category-add"
+          style={[styles.chip, { backgroundColor: theme.bannerBg }]}
+        >
+          <Text style={[styles.text, { color: theme.text }]}>+ {strings.edit.newCategoryChip}</Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }

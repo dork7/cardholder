@@ -1,5 +1,5 @@
 import { displayName } from './display';
-import { Card, Category } from './types';
+import { Card, CardCategory } from './types';
 
 const byName = (a: Card, b: Card) =>
   displayName(a).localeCompare(displayName(b), 'en', { sensitivity: 'base' }) || a.id.localeCompare(b.id);
@@ -17,13 +17,13 @@ export function splitPinned(sorted: Card[]): { pinned: Card[]; others: Card[] } 
 // folderId: only that folder's cards; null or left out shows every card.
 export function filterCards(
   cards: Card[],
-  filter: { query: string; category: Category | null; folderId?: string | null },
+  filter: { query: string; category: CardCategory | null; folderId?: string | null },
 ): Card[] {
   const query = filter.query.trim().toLowerCase();
   return cards.filter((card) => {
     if (filter.category && card.category !== filter.category) return false;
     if (filter.folderId && card.folderId !== filter.folderId) return false;
     if (query === '') return true;
-    return displayName(card).toLowerCase().includes(query) || card.tags.some((t) => t.toLowerCase().includes(query));
+    return displayName(card).toLowerCase().includes(query);
   });
 }

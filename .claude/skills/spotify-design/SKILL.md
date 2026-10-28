@@ -1,16 +1,17 @@
 ---
 name: spotify-design
-description: CardHolder's visual design system, inspired by Spotify — near-black surfaces, a single functional green accent, pill and circle geometry, uppercase tracked button labels, compact type and heavy shadows. Use when styling, adding or reviewing any UI in this app (theme tokens, buttons, chips, panels, typography).
+description: Doc Keeper's visual design system, inspired by Spotify — near-black surfaces, a single functional amber accent, pill and circle geometry, uppercase tracked button labels, compact type and heavy shadows. Use when styling, adding or reviewing any UI in this app (theme tokens, buttons, chips, panels, typography).
 ---
 
 # Design System Inspired by Spotify
 
-## Applying it to CardHolder
+## Applying it to Doc Keeper
 
 The tokens live in `src/ui/theme.ts`; components read them through `useTheme()`. Change a token there rather than hardcoding a colour in a screen.
 
 - **Font:** Spotify's fonts (SpotifyMixUI / CircularSp) are proprietary and not bundled. The app keeps Public Sans (`src/ui/Text.tsx`), using the weights and sizes below.
-- **Light mode:** the app keeps its appearance toggle. Dark is the primary look; the light palette uses the same geometry with a darker green (`#117A37`), since `#1ed760` doesn't reach 3:1 against white.
+- **Accent:** Doc Keeper uses its own amber, not Spotify Green: `#F5B83D` (black labels) in dark mode and `#8A5A00` (white labels) in light mode, since `#F5B83D` doesn't reach 3:1 against white. Wherever the reference below says Spotify Green, read the app's amber accent.
+- **Light mode:** the app keeps its appearance toggle. Dark is the primary look; the light palette uses the same geometry.
 - **Selection** (focus, the card being dragged) uses Announcement Blue, so it never reads as a primary action.
 - **Contrast:** every palette must still pass `src/ui/__tests__/theme.test.ts` (4.5:1 text, 3:1 accent).
 - No Spotify name, logo or artwork in the app; this is a visual style only.

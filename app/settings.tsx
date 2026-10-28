@@ -58,9 +58,13 @@ export default function SettingsScreen() {
             testID="app-lock-switch"
           />
         </Section>
-        <Section title={strings.settings.sharing}>
-          <Text style={[styles.caption, { color: theme.muted }]}>{strings.transfer.receiveHint}</Text>
-          <Button label={strings.transfer.receive} onPress={() => router.push('/receive')} testID="open-receive" />
+        <Section title={strings.categoriesScreen.title}>
+          <Button
+            variant="secondary"
+            label={strings.categoriesScreen.manage}
+            onPress={() => router.push('/categories')}
+            testID="manage-categories"
+          />
         </Section>
         <Section title={strings.settings.backup}>
           <Text style={[styles.body, { color: theme.muted }]} testID="last-backup">

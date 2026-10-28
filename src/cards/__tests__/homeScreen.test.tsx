@@ -58,6 +58,8 @@ jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     cards: mockCards,
     folders: mockFolders,
+    // As the provider builds it: the saved list plus any category a card holds.
+    categories: require('../categories').categoryOptions(['id', 'insurance', 'membership', 'other'], mockCards),
     unlocked: mockUnlocked,
     services: mockServices,
     openImportOnReady: false,

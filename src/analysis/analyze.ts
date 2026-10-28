@@ -3,7 +3,6 @@ import { classifyCard } from './classify';
 import { documentId, documentKey } from './documentKey';
 import { extractExpiry, extractName } from './fields';
 import { findMrz } from './mrz';
-import { suggestTags } from './tags';
 import { cardTextRecognizer } from './recognizer';
 import { CardAnalysis, Guess, OcrResult, TextRecognizer } from './types';
 
@@ -33,7 +32,6 @@ export function analyzeText(result: OcrResult, today: string): CardAnalysis {
     name: keep(extractName(lines, mrz)),
     expiresOn: keep(extractExpiry(lines, mrz, today)),
     category: keep(classifyCard(text, mrz)),
-    tags: keep(suggestTags(text, mrz)),
     documentKey: documentKeyOf(text, mrz),
     text,
   };

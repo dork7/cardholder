@@ -11,9 +11,9 @@ const mocked = LocalAuthentication as jest.Mocked<typeof LocalAuthentication>;
 beforeEach(() => jest.clearAllMocks());
 
 test('asks the phone, with its passcode always allowed as the fallback', async () => {
-  expect(await authenticate('Unlock CardHolder', 'Cancel')).toBe('success');
+  expect(await authenticate('Unlock Doc Keeper', 'Cancel')).toBe('success');
   expect(mocked.authenticateAsync).toHaveBeenCalledWith({
-    promptMessage: 'Unlock CardHolder',
+    promptMessage: 'Unlock Doc Keeper',
     cancelLabel: 'Cancel',
     disableDeviceFallback: false,
     biometricsSecurityLevel: 'weak',

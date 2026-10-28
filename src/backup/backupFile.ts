@@ -1,5 +1,5 @@
 import { ImportEntry } from '../cards/cardStore';
-import { Card, CardImage, Folder } from '../cards/types';
+import { Card, CardImage, Folder, PdfDocument } from '../cards/types';
 import { validateCardFields } from '../cards/validate';
 import { FOLDER_NAME_MAX_LENGTH, PBKDF2_ITERATIONS } from '../config';
 import { createAead } from '../crypto/aead';
@@ -98,6 +98,18 @@ function parseImage(v: unknown): CardImage {
   return { jpegBase64: v.jpegBase64, aspect: v.aspect };
 }
 
+const isPdf = (b64: string) => b64.startsWith('JVBERi0'); // base64 of "%PDF-"
+
+// Absent from backups made before PDF cards; read as none.
+function parsePdf(v: unknown): PdfDocument | null {
+  if (v === undefined || v === null) return null;
+  if (!isObject(v) || !isBase64(v.pdfBase64) || !isPdf(v.pdfBase64)) invalid();
+  const { pageCount, coverPage } = v;
+  if (!Number.isInteger(pageCount) || (pageCount as number) < 1) invalid();
+  if (!Number.isInteger(coverPage) || (coverPage as number) < 0 || (coverPage as number) >= (pageCount as number)) invalid();
+  return { pdfBase64: v.pdfBase64, pageCount: pageCount as number, coverPage: coverPage as number };
+}
+
 function parseFolder(v: unknown, seen: Set<string>): Folder {
   if (!isObject(v) || typeof v.id !== 'string' || !ID_PATTERN.test(v.id) || !isNumber(v.createdAt)) invalid();
   if (typeof v.name !== 'string') invalid();
@@ -130,6 +142,7 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
   const back = imgs.back === null ? null : parseImage(imgs.back);
   if (c.hasBack !== (back !== null)) invalid();
   if (back ? !isPositive(c.backAspect) : c.backAspect !== null) invalid();
+  const pdf = parsePdf(imgs.pdf);
 
   const card: Card = {
     ...fields.value,
@@ -141,8 +154,9 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
     hasBack: back !== null,
     frontAspect: c.frontAspect,
     backAspect: back ? (c.backAspect as number) : null,
+    pdf: pdf ? { pageCount: pdf.pageCount, coverPage: pdf.coverPage } : null,
   };
-  return { card, images: { front: { ...front, thumbJpegBase64: thumb }, back } };
+  return { card, images: { front: { ...front, thumbJpegBase64: thumb }, back, ...(pdf && { pdf }) } };
 }
 
 export function parseSnapshot(value: unknown): BackupSnapshot {

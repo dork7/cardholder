@@ -36,7 +36,13 @@ test('blank query and no category returns everything', () => {
   expect(filterCards(cards, { query: '  ', category: null })).toHaveLength(5);
 });
 
-test('search matches tags as well as names', () => {
+test('search matches names, not the hidden tags', () => {
   const cards = [makeCard({ id: 'a', name: 'Daman', tags: ['Health', 'Work'] }), makeCard({ id: 'b', name: 'Gym' })];
-  expect(filterCards(cards, { query: 'heal', category: null }).map((c) => c.id)).toEqual(['a']);
+  expect(filterCards(cards, { query: 'heal', category: null }).map((c) => c.id)).toEqual([]);
+  expect(filterCards(cards, { query: 'dam', category: null }).map((c) => c.id)).toEqual(['a']);
+});
+
+test('a typed category filters like a built-in one', () => {
+  const cards = [makeCard({ id: 'a', category: 'Vehicle' }), makeCard({ id: 'b', category: 'id' })];
+  expect(filterCards(cards, { query: '', category: 'Vehicle' }).map((c) => c.id)).toEqual(['a']);
 });

@@ -1,4 +1,4 @@
-# CardHolder — v1 Design
+# Doc Keeper — v1 Design
 
 Status: agreed 2026-10-19 (design grilling session). This is the source of truth for v1 scope; the implementation plan in `docs/superpowers/plans/` argues from it.
 
@@ -17,15 +17,15 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 | Name | required, trimmed, 1–60 chars |
 | Front image | required |
 | Back image | optional |
-| Category | one of ID / Insurance / Membership / Loyalty / Other |
+| Category | ID / Insurance / Membership / Other to start with, plus any the user types (**+ New** under Category on the edit screen; a name matching an existing category, ignoring case, picks it). The list is saved sealed and managed in **Settings → Categories**: a category can be deleted only while no card uses it — otherwise the error lists those cards. Tags were removed from the app; tags already saved stay in the data but are no longer shown, suggested or searched. |
 | Card number | optional, typed (e.g. to read out over the phone) |
 | Notes | optional |
 | Expiry date | optional, a calendar date |
 
 - Images come from the **photo library only** — no in-app camera in v1, so the app never asks for camera permission. Two ways in:
   - **Pick from the library** on the add/edit screen.
-  - **Use a PDF** on the add/edit screen, for cards issued as PDFs (digital insurance cards, e-IDs). One page is rendered on the device (PDFKit on iOS, `PdfRenderer` on Android, in `modules/card-pdf`): page 1 for the front, page 2 for the back (the last page if there is only one). Password-protected PDFs are refused with a short message. The original PDF is not kept; only the cropped image is saved.
-  - **Share to CardHolder** from Photos (or any app) via the system share sheet. One shared image opens the add-card screen with it as the front; two images become front and back, in the order shared; more than two is refused with a short message. If the user is at the free limit, the upgrade screen shows instead (the shared images are discarded).
+  - **Use a PDF** on the add/edit screen, for documents issued as PDFs (digital insurance cards, e-IDs, policies). The whole PDF is kept, encrypted like the photos; nothing is cropped or extracted from it. One page, the **thumbnail page** (page 1 unless the user picks another from a row of page previews), is rendered on the device (PDFKit on iOS, `PdfRenderer` on Android, in `modules/card-pdf`) and stands in as the card's front picture on the home screen and for reading the card. The PDF's pages take the place of a back photo. The card view shows every page, swiped sideways and pinch-zoomable; Share sends the PDF itself; backups carry it. Sending to another phone over QR codes carries only the thumbnail page, as a photo card. A photo chosen for the front turns the card back into a photo card. Password-protected PDFs and PDFs over 10 MB are refused with a short message.
+  - **Share to Doc Keeper** from Photos (or any app) via the system share sheet. One shared image opens the add-card screen with it as the front; two images become front and back, in the order shared; more than two is refused with a short message. If the user is at the free limit, the upgrade screen shows instead (the shared images are discarded).
 - Every image goes through a **freeform crop** before it is saved.
 - Every field and image is editable after saving.
 - Delete asks for confirmation, removes the encrypted image files immediately, and frees a slot toward the free limit.
@@ -37,7 +37,7 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 
 1. Backup nudge banner (when due, see Backup).
 2. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New cards are pinned by default (appended to the end).
-3. Search field (matches name and card number) and category filter.
+3. Search field (matches the name) and category filter.
 4. All other cards, alphabetical.
 
 Tap a card → **counter view**:
@@ -55,7 +55,7 @@ Tap a card → **counter view**:
 - Card images and all card fields are **AES-256-GCM encrypted at rest**. The key is random, **device-only**, and stored in the Keychain/Keystore via `expo-secure-store`.
 - Card data is **excluded from iCloud/Google device backups** (see Implementation notes for how this is achieved per platform).
 - The app is **blurred in the app switcher**. Screenshots are allowed.
-- **Share** on the counter view sends the card's front and back images through the system share sheet. For cards in the ID category, a one-line confirmation first: "This shares an unencrypted copy."
+- **Quick share** on the card view sends the whole card through the system share sheet — AirDrop on iPhone, Quick Share on Android (Bluetooth and Wi-Fi, no internet), or any other app — as one file: a PDF card as its PDF, a card with a back as a two-page PDF made on the phone, a front-only card as its photo. For cards in the ID category, a one-line confirmation first: "This shares an unencrypted copy of the card." Sending a card over QR codes was removed, along with the camera permission (`android.permission.CAMERA` is blocked).
 - No crash-reporting or analytics SDKs. Rely on the stores' own opt-in crash reports. Store privacy label: **Data Not Collected**.
 
 ## Backup
@@ -85,7 +85,7 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
 ## Visual design
 
-Revised 2026-10-23: the visual language is **Spotify-inspired** (full rules in the project skill `.claude/skills/spotify-design`). Near-black surfaces recede so the card photos are the only colour; one functional green marks primary actions and active states. Tokens live in `src/ui/theme.ts`.
+Revised 2026-10-23: the visual language is **Spotify-inspired** (full rules in the project skill `.claude/skills/spotify-design`). Near-black surfaces recede so the card photos are the only colour; one functional amber marks primary actions and active states (Doc Keeper's own accent in place of Spotify's green). Tokens live in `src/ui/theme.ts`.
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
@@ -93,7 +93,7 @@ Revised 2026-10-23: the visual language is **Spotify-inspired** (full rules in t
 | Surface | `#F4F4F4` | `#181818` | panels, card tiles |
 | Raised | `#EEEEEE` | `#1F1F1F` | banners, sheets, unselected chips |
 | Text / muted | `#121212` / `#5E5E5E` | `#FDFDFD` / `#B3B3B3` | primary and secondary text (4.5:1) |
-| Green | `#117A37` | `#1ED760` | filled primary buttons, active chips, the add button — never decoration. Light uses a deeper green: `#1ED760` doesn't reach 3:1 on white |
+| Amber | `#8A5A00` | `#F5B83D` | filled primary buttons, active chips, the add button — never decoration. Light uses a deeper amber with white labels: `#F5B83D` doesn't reach 3:1 on white |
 | Outline grey | `#7C7C7C` | `#7C7C7C` | secondary button outlines, field underlines (3:1) |
 | Selection blue | `#1F6FD0` | `#539DF5` | selection, focus, the card being dragged — nothing else |
 | Negative red | `#C2283A` | `#F3727F` | destructive actions, "can't be recovered" |
@@ -116,7 +116,7 @@ Depth is shown by shade (`#121212` → `#181818` → `#1F1F1F`), and floating el
 - `react-native-quick-crypto` (AES-256-GCM, PBKDF2, random bytes), `buffer` (byte/string conversion)
 - `expo-secure-store` (device-only key)
 - `expo-file-system` (encrypted image blobs, temp files)
-- `react-native-image-crop-picker` (library picker, freeform crop — also crops shared-in images and rendered PDF pages), `expo-image-manipulator` (list thumbnails)
+- `react-native-image-crop-picker` (library picker, freeform crop — also crops shared-in images), `expo-image-manipulator` (list thumbnails)
 - `expo-document-picker` (pick a PDF from Files)
 - `expo-share-intent` (receive images shared to the app: iOS Share Extension + Android `SEND`/`SEND_MULTIPLE` image intents)
 - `expo-brightness`, `expo-keep-awake`, `expo-screen-orientation` (counter view)
@@ -132,15 +132,15 @@ Depth is shown by shade (`#121212` → `#181818` → `#1F1F1F`), and floating el
 - **Jest** unit tests for encryption round trips, export/import (wrong passphrase, merge, replace), the card limit and unlock state, reminder scheduling.
 - One **Maestro** E2E flow: add a card → it appears pinned → open it full-screen → flip it.
 - Manual checks on real devices: library pick, share-in from Photos (1 and 2 images, and while at the free limit), crop, brightness, purchases (store sandboxes).
-- Release: TestFlight + Play internal testing with friends and family, then public. Needs a one-page privacy policy (both stores require one) and the "CardHolder" store name checked for availability.
+- Release: TestFlight + Play internal testing with friends and family, then public. Needs a one-page privacy policy (both stores require one) and the "Doc Keeper" store name checked for availability.
 
 ## Implementation notes (decided while planning)
 
 These follow from the agreed design; they're recorded so nobody re-derives them.
 
 - **Everything about a card is encrypted, not just "sensitive" fields.** SQLite holds only `id`, `pinned`, `position`, timestamps and an encrypted JSON payload. Search and category filtering happen in memory after decryption — datasets are tiny.
-- **Backup exclusion.** Android: `android.allowBackup: false`. iOS: files in the app container can still be swept into an iCloud device backup, but they are useless there because the key is `…ThisDeviceOnly` and never leaves the original phone. On launch, if card data exists but the key is missing or doesn't match (a "key-check" value fails to decrypt), the app shows a recovery screen: "Cards from a previous device can't be opened — import your CardHolder backup file" with **Import backup** and **Start fresh**. It never crashes or shows garbage.
-- **Plaintext never sits on disk in the app's storage** except transiently: picker/crop temp files, picked PDFs and their rendered pages, and images received through share-in are deleted right after encryption (or when the add is cancelled), and decrypted share files go to a `share/` cache folder that is emptied at every launch and before every share.
+- **Backup exclusion.** Android: `android.allowBackup: false`. iOS: files in the app container can still be swept into an iCloud device backup, but they are useless there because the key is `…ThisDeviceOnly` and never leaves the original phone. On launch, if card data exists but the key is missing or doesn't match (a "key-check" value fails to decrypt), the app shows a recovery screen: "Cards from a previous device can't be opened — import your Doc Keeper backup file" with **Import backup** and **Start fresh**. It never crashes or shows garbage.
+- **Plaintext never sits on disk in the app's storage** except transiently: picker/crop temp files, picked PDFs, their rendered pages and the decrypted copy a stored PDF is drawn from (`pdf/` cache, deleted as soon as its pages are drawn), and images received through share-in are deleted right after encryption (or when the add is cancelled), and decrypted share files go to a `share/` cache folder that is emptied at every launch and before every share.
 - **Thumbnails.** A ~400px encrypted thumbnail of the front is stored per card so the list never decodes full-size images.
 - **Reminder cap.** iOS allows 64 pending local notifications per app. Reminders are re-planned from scratch after every change and at launch, scheduling only the soonest 60.
 - **Refunds.** The app doesn't contact the store on its own; it only talks to the store when the user taps Buy or Restore. A refunded unlock therefore isn't revoked automatically. Accepted for a one-time utility unlock.

@@ -1,20 +1,21 @@
-import { MAX_TAGS } from '../config';
 import { FolderSuggestion } from '../folders/suggest';
 import { canAddCard } from '../purchases/limits';
-import { Card, CardFields, CardImage, Category, FrontImage, ImageChanges, NewCardImages } from './types';
-import { FieldError, normalizeTags, validateCardFields } from './validate';
+import { Card, CardCategory, CardFields, CardImage, FrontImage, ImageChanges, NewCardImages, PdfDocument } from './types';
+import { FieldError, validateCardFields } from './validate';
 
 export interface EditDraft {
   name: string;
-  category: Category;
+  category: CardCategory;
   expiresOn: string | null;
-  tags: string[];
+  tags: string[]; // no longer shown or edited; kept so a card's saved tags survive an edit
   documentKey: string | null;
   folderId: string | null;
   newFolderName: string | null; // a folder to create on save and put the card in; folderId is then null
-  front: FrontImage | null; // newly captured only
+  front: FrontImage | null; // newly captured only; for a PDF, its cover page
   back: CardImage | null; // newly captured only
   removeBack: boolean;
+  pdf: PdfDocument | null; // newly picked, or the saved one with a different cover page
+  removePdf: boolean; // a photo replaced the saved PDF
 }
 
 export type SaveError = FieldError | 'front-required';
@@ -25,10 +26,11 @@ export type SavePlan =
   | { kind: 'create'; fields: CardFields; images: NewCardImages; newFolder: string | null }
   | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges; newFolder: string | null };
 
-export function draftFor(card: Card | null): EditDraft {
+// A new card starts in `defaultCategory`: the first one offered, as built-ins can be deleted.
+export function draftFor(card: Card | null, defaultCategory: CardCategory = 'id'): EditDraft {
   return {
     name: card?.name ?? '',
-    category: card?.category ?? 'id',
+    category: card?.category ?? defaultCategory,
     expiresOn: card?.expiresOn ?? null,
     tags: card?.tags ?? [],
     documentKey: card?.documentKey ?? null,
@@ -37,6 +39,8 @@ export function draftFor(card: Card | null): EditDraft {
     front: null,
     back: null,
     removeBack: false,
+    pdf: null,
+    removePdf: false,
   };
 }
 
@@ -54,6 +58,8 @@ export function planSave(
     if (draft.front) changes.front = draft.front;
     if (draft.back) changes.back = draft.back;
     else if (draft.removeBack) changes.back = null;
+    if (draft.pdf) changes.pdf = draft.pdf;
+    else if (draft.removePdf) changes.pdf = null;
     return { kind: 'update', id: ctx.existing.id, fields: validation.value, changes, newFolder: draft.newFolderName };
   }
 
@@ -62,14 +68,14 @@ export function planSave(
   return {
     kind: 'create',
     fields: validation.value,
-    images: { front: draft.front as FrontImage, back: draft.back },
+    images: { front: draft.front as FrontImage, back: draft.back, ...(draft.pdf && { pdf: draft.pdf }) },
     newFolder: draft.newFolderName,
   };
 }
 
 // Suggestions from reading the card's photos (src/analysis/). They fill the form, never save it, and
 // never overwrite something the user chose.
-export const SUGGESTABLE = ['name', 'category', 'expiresOn', 'tags'] as const;
+export const SUGGESTABLE = ['name', 'category', 'expiresOn'] as const;
 export type Suggestable = (typeof SUGGESTABLE)[number];
 
 type Touchable = Suggestable | 'folder';
@@ -82,12 +88,12 @@ export interface FormState {
   folderOffer: string | null; // no folder fits: the name of one the user can create for the card
 }
 
-export function formFor(card: Card | null): FormState {
+export function formFor(card: Card | null, defaultCategory?: CardCategory): FormState {
   // An existing card's category was chosen by the user, and so was its folder if it has one; its
   // name and expiry may still be blank.
   const touched: Touchable[] = card ? ['category'] : [];
   if (card?.folderId) touched.push('folder');
-  return { draft: draftFor(card), suggested: {}, touched, folderSuggested: false, folderOffer: null };
+  return { draft: draftFor(card, defaultCategory), suggested: {}, touched, folderSuggested: false, folderOffer: null };
 }
 
 const isSuggestable = (key: string): key is Suggestable => (SUGGESTABLE as readonly string[]).includes(key);
@@ -143,14 +149,6 @@ export function applyAnalysis(
   for (const field of SUGGESTABLE) {
     const guess = analysis[field];
     if (!guess || state.touched.includes(field)) continue;
-    // Tags add up: the front and the back can each find some, and tags already there stay.
-    if (field === 'tags') {
-      const tags = normalizeTags([...draft.tags, ...(guess.value as string[])]).slice(0, MAX_TAGS);
-      if (tags.length === draft.tags.length) continue;
-      draft = { ...draft, tags };
-      suggested = { ...suggested, tags: Math.max(guess.confidence, suggested.tags ?? 0) };
-      continue;
-    }
     const held = suggested[field];
     // Fill a blank field, or replace an earlier, weaker suggestion (e.g. the back's MRZ beats a date
     // guessed from the front). Category is never blank, so it only takes the first or a stronger one.

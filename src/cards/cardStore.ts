@@ -4,12 +4,20 @@ import { engine } from '../crypto/engine';
 import { BlobStore } from '../storage/blobStore';
 import { SqlDb } from '../storage/sqlDb';
 import { sortCards } from './listing';
-import { Card, CardFields, Folder, ImageChanges, ImageSide, NewCardImages, toCategory } from './types';
+import { Card, CardCategory, CardFields, CardPdf, CATEGORIES, Folder, ImageChanges, ImageSide, NewCardImages, PdfDocument, toCategory } from './types';
 
 export class FolderNotFoundError extends Error {
   constructor(id: string) {
     super(`Folder ${id} not found`);
     this.name = 'FolderNotFoundError';
+  }
+}
+
+// Deleting a category some cards still use; `cards` are those cards.
+export class CategoryInUseError extends Error {
+  constructor(public readonly cards: Card[]) {
+    super(`Category is used by ${cards.length} card(s)`);
+    this.name = 'CategoryInUseError';
   }
 }
 
@@ -32,6 +40,7 @@ export interface CardStore {
   count(): Promise<number>;
   lastChangeAt(): Promise<number | null>;
   loadImage(id: string, side: ImageSide): Promise<string | null>;
+  loadPdf(id: string): Promise<string | null>; // base64
   create(fields: CardFields, images: NewCardImages): Promise<Card>;
   update(id: string, fields: CardFields, changes?: ImageChanges): Promise<Card>;
   remove(id: string): Promise<void>;
@@ -44,6 +53,11 @@ export interface CardStore {
   renameFolder(id: string, name: string): Promise<Folder>;
   // Its cards stay, outside any folder.
   removeFolder(id: string): Promise<void>;
+  // The saved category list, in the order categories were added; the built-ins until it is changed.
+  listCategories(): Promise<CardCategory[]>;
+  addCategory(category: CardCategory): Promise<void>;
+  // Fails with CategoryInUseError while any card still uses it.
+  removeCategory(category: CardCategory): Promise<void>;
 }
 
 export interface CardStoreDeps {
@@ -73,12 +87,25 @@ interface FolderRow {
 // Everything about a card except what SQL needs for ordering is sealed in the payload.
 type Payload = Omit<Card, 'id' | 'pinned' | 'position' | 'folderId' | 'createdAt' | 'updatedAt'>;
 
-const SIDES: ImageSide[] = ['front', 'back', 'thumb'];
+type BlobKind = ImageSide | 'pdf';
+const KINDS: BlobKind[] = ['front', 'back', 'thumb', 'pdf'];
 const INSERT_SQL =
   'INSERT INTO cards (id, pinned, position, folder_id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
 const INSERT_FOLDER_SQL = 'INSERT INTO folders (id, payload, created_at) VALUES (?, ?, ?)';
+// Sealed like a folder's name, in the settings table: the user's own category names are theirs to keep private.
+const CATEGORIES_KEY = 'categories';
 
-export const blobName = (id: string, side: ImageSide) => `${id}.${side}`;
+export const blobName = (id: string, kind: BlobKind) => `${id}.${kind}`;
+
+const pdfInfo = (pdf: PdfDocument | null | undefined): CardPdf | null =>
+  pdf ? { pageCount: pdf.pageCount, coverPage: pdf.coverPage } : null;
+
+// Payloads sealed before PDF cards have no `pdf`.
+const isCardPdf = (v: unknown): v is CardPdf =>
+  typeof v === 'object' &&
+  v !== null &&
+  Number.isInteger((v as CardPdf).pageCount) &&
+  Number.isInteger((v as CardPdf).coverPage);
 
 export function createCardStore({
   db,
@@ -97,6 +124,7 @@ export function createCardStore({
       hasBack: card.hasBack,
       frontAspect: card.frontAspect,
       backAspect: card.backAspect,
+      pdf: card.pdf,
     };
     return aead.seal(utf8.encode(JSON.stringify(payload)));
   };
@@ -113,6 +141,7 @@ export function createCardStore({
       hasBack: payload.hasBack,
       frontAspect: payload.frontAspect,
       backAspect: payload.backAspect,
+      pdf: isCardPdf(payload.pdf) ? payload.pdf : null,
       id: row.id,
       pinned: row.pinned === 1,
       position: row.position,
@@ -130,13 +159,30 @@ export function createCardStore({
   });
   const folderName = (name: string) => name.trim();
 
+  const readCategories = async (): Promise<CardCategory[]> => {
+    const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', [CATEGORIES_KEY]);
+    if (!row) return [...CATEGORIES];
+    const list = JSON.parse(utf8.decode(aead.open(base64.decode(row.value)))) as unknown;
+    return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string') : [...CATEGORIES];
+  };
+  const writeCategories = (list: CardCategory[]) =>
+    db.runAsync(
+      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      [CATEGORIES_KEY, base64.encode(aead.seal(utf8.encode(JSON.stringify(list))))],
+    );
+
   const getRow = (id: string) => db.getFirstAsync<Row>('SELECT * FROM cards WHERE id = ?', [id]);
 
-  const putImage = (id: string, side: ImageSide, jpegBase64: string) =>
-    blobs.put(blobName(id, side), aead.seal(base64.decode(jpegBase64)));
+  const putImage = (id: string, kind: BlobKind, base64Data: string) =>
+    blobs.put(blobName(id, kind), aead.seal(base64.decode(base64Data)));
 
   const removeImages = async (id: string) => {
-    for (const side of SIDES) await blobs.remove(blobName(id, side));
+    for (const kind of KINDS) await blobs.remove(blobName(id, kind));
+  };
+
+  const load = async (id: string, kind: BlobKind) => {
+    const sealed = await blobs.get(blobName(id, kind));
+    return sealed ? base64.encode(aead.open(sealed)) : null;
   };
 
   const writeImages = async (id: string, images: NewCardImages) => {
@@ -144,6 +190,8 @@ export function createCardStore({
     await putImage(id, 'thumb', images.front.thumbJpegBase64);
     if (images.back) await putImage(id, 'back', images.back.jpegBase64);
     else await blobs.remove(blobName(id, 'back'));
+    if (images.pdf) await putImage(id, 'pdf', images.pdf.pdfBase64);
+    else await blobs.remove(blobName(id, 'pdf'));
   };
 
   const nextPinnedPosition = async () =>
@@ -154,21 +202,23 @@ export function createCardStore({
       )
     )?.next ?? 0;
 
+  const listCards = async () => {
+    const rows = await db.getAllAsync<Row>('SELECT * FROM cards', []);
+    const cards: Card[] = [];
+    for (const row of rows) {
+      try {
+        cards.push(toCard(row));
+      } catch {
+        console.warn(`Skipping unreadable card ${row.id}`);
+      }
+    }
+    return sortCards(cards);
+  };
+
   const ids = async () => (await db.getAllAsync<{ id: string }>('SELECT id FROM cards', [])).map((r) => r.id);
 
   return {
-    async list() {
-      const rows = await db.getAllAsync<Row>('SELECT * FROM cards', []);
-      const cards: Card[] = [];
-      for (const row of rows) {
-        try {
-          cards.push(toCard(row));
-        } catch {
-          console.warn(`Skipping unreadable card ${row.id}`);
-        }
-      }
-      return sortCards(cards);
-    },
+    list: listCards,
 
     ids,
 
@@ -185,10 +235,9 @@ export function createCardStore({
       return (await db.getFirstAsync<{ t: number | null }>('SELECT MAX(updated_at) AS t FROM cards', []))?.t ?? null;
     },
 
-    async loadImage(id, side) {
-      const sealed = await blobs.get(blobName(id, side));
-      return sealed ? base64.encode(aead.open(sealed)) : null;
-    },
+    loadImage: load,
+
+    loadPdf: (id) => load(id, 'pdf'),
 
     async create(fields, images) {
       const id = newId();
@@ -203,6 +252,7 @@ export function createCardStore({
         hasBack: images.back !== null,
         frontAspect: images.front.aspect,
         backAspect: images.back?.aspect ?? null,
+        pdf: pdfInfo(images.pdf),
         createdAt: t,
         updatedAt: t,
       };
@@ -220,6 +270,8 @@ export function createCardStore({
       }
       if (changes.back) await putImage(id, 'back', changes.back.jpegBase64);
       else if (changes.back === null) await blobs.remove(blobName(id, 'back'));
+      if (changes.pdf) await putImage(id, 'pdf', changes.pdf.pdfBase64);
+      else if (changes.pdf === null) await blobs.remove(blobName(id, 'pdf'));
 
       const backChanged = changes.back !== undefined;
       const next: Card = {
@@ -228,6 +280,7 @@ export function createCardStore({
         frontAspect: changes.front?.aspect ?? current.frontAspect,
         hasBack: backChanged ? changes.back !== null : current.hasBack,
         backAspect: backChanged ? (changes.back?.aspect ?? null) : current.backAspect,
+        pdf: changes.pdf !== undefined ? pdfInfo(changes.pdf) : current.pdf,
         // Strictly increasing so image caches keyed on updatedAt never serve a stale picture.
         updatedAt: Math.max(now(), current.updatedAt + 1),
       };
@@ -342,6 +395,19 @@ export function createCardStore({
       const folder = { ...toFolder(row), name: folderName(name) };
       await db.runAsync('UPDATE folders SET payload = ? WHERE id = ?', [sealFolder(folder), id]);
       return folder;
+    },
+
+    listCategories: readCategories,
+
+    async addCategory(category) {
+      const list = await readCategories();
+      if (!list.includes(category)) await writeCategories([...list, category]);
+    },
+
+    async removeCategory(category) {
+      const users = (await listCards()).filter((card) => card.category === category);
+      if (users.length > 0) throw new CategoryInUseError(users);
+      await writeCategories((await readCategories()).filter((c) => c !== category));
     },
 
     async removeFolder(id) {

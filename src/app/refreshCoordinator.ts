@@ -1,8 +1,9 @@
-import { Card, Folder } from '../cards/types';
+import { Card, CardCategory, Folder } from '../cards/types';
 
 export interface AppSnapshot {
   cards: Card[];
   folders: Folder[];
+  categories: CardCategory[]; // the saved list; see categoryOptions for what pickers offer
   unlocked: boolean;
 }
 

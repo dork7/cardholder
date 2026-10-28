@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
+import { categoryLabel } from '../cards/categories';
 import { displayName } from '../cards/display';
 import { Card } from '../cards/types';
 import { useCardImage } from '../hooks/useCardImage';
@@ -300,7 +301,7 @@ export function CardStack({ cards, onOpen }: Props) {
           <Text style={{ fontSize: TYPE.section, fontWeight: '600', color: theme.text }} numberOfLines={1}>
             {displayName(front)}
           </Text>
-          <Text style={{ fontSize: TYPE.secondary, color: theme.muted }}>{strings.categories[front.category]}</Text>
+          <Text style={{ fontSize: TYPE.secondary, color: theme.muted }}>{categoryLabel(front.category)}</Text>
         </View>
 
         {n > 1 && (
