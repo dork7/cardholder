@@ -300,13 +300,16 @@ export default function EditCard() {
                 onChange={chooseCoverPage}
               />
             ) : (
-              <ImageField
-                label={strings.edit.back}
-                uri={backUri}
-                onLibrary={() => capture('back')}
-                onRemove={backUri ? removeBack : undefined}
-                testIDPrefix="back"
-              />
+              // The back waits for the front: a card starts from its front photo.
+              (frontUri || backUri) && (
+                <ImageField
+                  label={strings.edit.back}
+                  uri={backUri}
+                  onLibrary={() => capture('back')}
+                  onRemove={backUri ? removeBack : undefined}
+                  testIDPrefix="back"
+                />
+              )
             )}
             {reading > 0 && (
               <Text style={{ color: theme.muted, fontSize: 16 }} accessibilityLiveRegion="polite" testID="reading-card">

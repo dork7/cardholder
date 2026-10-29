@@ -19,7 +19,7 @@ import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { CategoryChips } from '../src/ui/CategoryChips';
 import { ChipRow } from '../src/ui/ChipRow';
 import { Fab } from '../src/ui/Fab';
-import { Rosette } from '../src/ui/Rosette';
+import { PixelLogo } from '../src/ui/PixelLogo';
 import { PinnedStrip } from '../src/ui/PinnedStrip';
 import { Panel, Screen } from '../src/ui/Surface';
 import { TYPE, useTheme } from '../src/ui/theme';
@@ -114,7 +114,7 @@ export default function Home() {
       <View style={[styles.inset, styles.body]}>
         {cards.length === 0 ? (
           <View style={styles.empty} testID="empty-state">
-            <Rosette size={200} color={theme.rosette} />
+            <PixelLogo size={160} theme={theme} />
             <Text style={[styles.emptyTitle, { color: theme.text }]} accessibilityRole="header">
               {strings.home.emptyTitle}
             </Text>

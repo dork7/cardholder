@@ -9,6 +9,13 @@ import { Guess, OcrLine } from './types';
 // Emirates ID number: 784-YYYY-NNNNNNN-C.
 export const EMIRATES_ID = /\b784[- ]?\d{4}[- ]?\d{7}[- ]?\d\b/;
 
+// A UAE birth certificate prints no title in its text: it is known by its registration number
+// ("AD/BTH-NC/…") or by naming the father and mother beside a date of birth.
+export function isBirthCertificate(text: string): boolean {
+  if (/birth\s*certificate|شهادة\s*(ال)?ميلاد|\/BTH-/i.test(text)) return true;
+  return /اسم\s*الاب|father'?s?\s*name/i.test(text) && /اسم\s*الام|mother'?s?\s*name/i.test(text) && /تاريخ\s*الولادة|date\s*of\s*birth/i.test(text);
+}
+
 const EXPIRY_LABEL = /expir|\bexp\b|\bexp\.|valid\s*(until|till|thru|through|to)|good\s*thru|تاريخ\s*الانتهاء|ينتهي/i;
 // A vehicle licence's "Ins. Exp." is when its insurance ends, not the licence.
 const NOT_EXPIRY_LABEL = /birth|\bdob\b|issue|issued|\bins\b|insurance|الميلاد|الإصدار|التأمين/i;
@@ -95,9 +102,14 @@ function titleCase(s: string): string {
     .replace(/(^|[\s\-'’&/])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
 }
 
+// A name is a few words; a longer line, or one ending like a sentence, is a printed notice
+// ("Any change to this certificate voids it.").
+const TITLE_MAX_WORDS = 5;
+
 function looksLikeTitle(text: string): boolean {
   const t = text.trim();
   if (t.length < 3 || [...t].length > NAME_MAX_LENGTH || t.includes('<')) return false;
+  if (/[.!?؟]$/.test(t) || t.split(/\s+/).length > TITLE_MAX_WORDS) return false;
   if (LABEL.test(t) || GENERIC.has(t.toLowerCase())) return false;
   const letters = (t.match(/\p{L}/gu) ?? []).length;
   return letters >= 3 && letters / t.replace(/\s/g, '').length >= 0.6 && datesIn(t).length === 0;
@@ -111,6 +123,7 @@ export function extractName(lines: OcrLine[], mrz: Mrz | null): Guess<string> | 
   }
   if (mrz?.format === 'td3') return { value: 'Passport', confidence: 0.85 };
   if (/VEHICLE\s*LICEN[CS]E/.test(upper) || /رخصة\s*مركبة/.test(text)) return { value: 'Vehicle License', confidence: 0.85 };
+  if (isBirthCertificate(text)) return { value: 'Birth Certificate', confidence: 0.85 };
 
   // Otherwise the most prominent line of words: the issuer's or brand's name is usually printed
   // largest, near the top.

@@ -198,6 +198,35 @@ describe('reading a vehicle licence', () => {
   });
 });
 
+// An Abu Dhabi birth certificate, as OCR read dataSet/1.1: Arabic only, apart from the registration
+// number. It has no printed title, and its red warning at the foot is the largest text.
+const BIRTH_CERTIFICATE = [
+  'AD/BTH-NC/0005475/2017 : رقم القيد',
+  'إيصال مالي : 1991016',
+  'الاسم : جوري',
+  'اسم الاب : ربيع عبدالله الترك',
+  'جنسيته : الجمهورية اللبنانية',
+  'اسم الام : جهان هشام صبح',
+  'تاريخ الولادة الميلادي (رقما) : 2017/03/20',
+  'مكان الاصدار: ابوظبي',
+  'تاريخ الاصدار : 2017/04/02',
+  { text: 'أي تغيير في هذه الشهادة يلغيها.', big: true } as const,
+];
+
+describe('reading a document', () => {
+  test('a birth certificate is named after the document and filed under ID', () => {
+    const analysis = analyzeText(ocr(BIRTH_CERTIFICATE), TODAY);
+    expect(analysis.name).toEqual({ value: 'Birth Certificate', confidence: 0.85 });
+    expect(analysis.category).toEqual({ value: 'id', confidence: 0.9 });
+    expect(analysis.expiresOn).toBeUndefined();
+  });
+
+  test('a printed sentence is never the name', () => {
+    expect(analyzeText(ocr([{ text: 'أي تغيير في هذه الشهادة يلغيها.', big: true }]), TODAY).name).toBeUndefined();
+    expect(analyzeText(ocr([{ text: 'Any change to this certificate voids it', big: true }]), TODAY).name).toBeUndefined();
+  });
+});
+
 describe('analyzeImage', () => {
   test('runs the recognizer on the photo it is given', async () => {
     const recognize = jest.fn(async () => ocr(['GOLD CLUB', 'Valid thru 12/2029']));

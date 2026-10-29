@@ -167,6 +167,13 @@ describe('saving', () => {
   });
 });
 
+test('the back photo is offered only once there is a front', async () => {
+  await render(<EditCard />);
+  expect(screen.queryByTestId('back-library')).toBeNull();
+  await fireEvent.press(screen.getByTestId('front-library'));
+  expect(screen.getByTestId('back-library')).toBeTruthy();
+});
+
 describe('adding from a PDF', () => {
   test('keeps the whole PDF, shows its first page as the thumbnail, and reads that page', async () => {
     await render(<EditCard />);

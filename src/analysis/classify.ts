@@ -1,5 +1,5 @@
 import { Category } from '../cards/types';
-import { EMIRATES_ID } from './fields';
+import { EMIRATES_ID, isBirthCertificate } from './fields';
 import { normalizeDigits } from './smartExtract';
 import { Mrz } from './mrz';
 import { Guess } from './types';
@@ -27,6 +27,7 @@ const RULES: Record<Exclude<Category, 'other'>, [RegExp, number][]> = {
 export function classifyCard(text: string, mrz: Mrz | null): Guess<Category> | undefined {
   if (mrz) return { value: 'id', confidence: 0.95 };
   if (EMIRATES_ID.test(normalizeDigits(text))) return { value: 'id', confidence: 0.95 };
+  if (isBirthCertificate(text)) return { value: 'id', confidence: 0.9 };
 
   const scores = (Object.keys(RULES) as (keyof typeof RULES)[]).map((category) => ({
     category,
