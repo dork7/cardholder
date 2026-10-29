@@ -6,6 +6,7 @@ import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
 import { gemmaReader, releaseGemma } from '../../src/analysis/gemma';
 import { displayName } from '../../src/cards/display';
+import { FrontImage } from '../../src/cards/types';
 import { findDuplicate } from '../../src/cards/duplicates';
 import {
   acceptFolderOffer,
@@ -23,7 +24,7 @@ import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
-import { pickImage } from '../../src/images/capture';
+import { clearOriginals, cropFullPhoto, discardFile, pickImage } from '../../src/images/capture';
 import { canPickPdf, isPdfLocked, PdfTooLargeError, pickPdf, renderCover } from '../../src/images/pdf';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { askReplace } from '../../src/ui/askReplace';
@@ -60,6 +61,21 @@ export default function EditCard() {
   const covers = useRef(0); // which cover render is current: a slower, earlier tap is dropped
   // The AI model, if the user has downloaded it, takes ~300 MB while loaded: free it when the form closes.
   useEffect(() => () => void releaseGemma().catch(() => {}), []);
+  // The whole photo behind a side that was cut around the card automatically, for "Use full photo".
+  // Plaintext, so each is deleted once it can't be used, and all of them when the form closes; any
+  // left over from a crash go when the form opens.
+  const [originals, setOriginals] = useState<{ front: string | null; back: string | null }>({ front: null, back: null });
+  const keptOriginals = useRef(originals);
+  const setOriginal = (side: 'front' | 'back', path: string | null) => {
+    const previous = keptOriginals.current[side];
+    if (previous && previous !== path) discardFile(previous);
+    keptOriginals.current = { ...keptOriginals.current, [side]: path };
+    setOriginals(keptOriginals.current);
+  };
+  useEffect(() => {
+    clearOriginals();
+    return clearOriginals;
+  }, []);
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
   const [namingFolder, setNamingFolder] = useState(false);
@@ -86,13 +102,33 @@ export default function EditCard() {
 
   const capture = async (side: 'front' | 'back') => {
     try {
-      const captured = await pickImage();
-      if (!captured) return;
-      // A photo of the front replaces a PDF: the card becomes a photo card again.
-      if (side === 'front') update({ front: captured, pdf: null, removePdf: !!existing?.pdf });
-      else update({ back: captured, removeBack: false });
-      covers.current++;
-      readCard(side, captured.jpegBase64);
+      const picked = await pickImage();
+      if (!picked) return;
+      applyImage(side, picked.image);
+      setOriginal(side, picked.original);
+    } catch (e) {
+      console.warn('Capture failed', e);
+      Alert.alert(strings.edit.captureFailed);
+    }
+  };
+
+  const applyImage = (side: 'front' | 'back', image: FrontImage) => {
+    // A photo of the front replaces a PDF: the card becomes a photo card again.
+    if (side === 'front') update({ front: image, pdf: null, removePdf: !!existing?.pdf });
+    else update({ back: image, removeBack: false });
+    covers.current++;
+    readCard(side, image.jpegBase64);
+  };
+
+  // Crop again from the whole photo. Once used, the photo is no longer a cut, so the option goes.
+  const cropWholePhoto = async (side: 'front' | 'back') => {
+    const original = keptOriginals.current[side];
+    if (!original) return;
+    try {
+      const image = await cropFullPhoto(original);
+      if (!image || keptOriginals.current[side] !== original) return;
+      applyImage(side, image);
+      setOriginal(side, null);
     } catch (e) {
       console.warn('Capture failed', e);
       Alert.alert(strings.edit.captureFailed);
@@ -110,6 +146,8 @@ export default function EditCard() {
       if (covers.current !== cover) return;
       reads.current.back++; // drop a read of the back photo being removed
       update({ pdf, front, back: null, removeBack: !!existing?.hasBack, removePdf: false });
+      setOriginal('front', null);
+      setOriginal('back', null);
       readCard('front', front.jpegBase64);
     } catch (e) {
       console.warn('PDF failed', e);
@@ -161,6 +199,7 @@ export default function EditCard() {
   const removeBack = () => {
     reads.current.back++; // drop a read of the photo being removed
     update({ back: null, removeBack: true });
+    setOriginal('back', null);
   };
 
   const save = async () => {
@@ -287,6 +326,7 @@ export default function EditCard() {
               label={pdfInfo ? strings.edit.pdfFront : strings.edit.front}
               uri={frontUri}
               onLibrary={() => capture('front')}
+              onFullPhoto={originals.front ? () => void cropWholePhoto('front') : undefined}
               onPdf={canPickPdf ? attachPdf : undefined}
               pdfLabel={pdfInfo ? strings.edit.replacePdf : undefined}
               error={errorText('front-required')}
@@ -306,6 +346,7 @@ export default function EditCard() {
                   label={strings.edit.back}
                   uri={backUri}
                   onLibrary={() => capture('back')}
+                  onFullPhoto={originals.back ? () => void cropWholePhoto('back') : undefined}
                   onRemove={backUri ? removeBack : undefined}
                   testIDPrefix="back"
                 />

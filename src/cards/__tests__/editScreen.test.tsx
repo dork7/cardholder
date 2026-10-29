@@ -61,8 +61,18 @@ jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({
 jest.mock('../../reminders/scheduler', () => ({
   requestReminderPermissionOnce: () => mockPermission(),
 }));
+// Picking a photo gives the cropped image, plus the whole photo when the crop started cut around the card.
+const mockPickImage = jest.fn(() =>
+  Promise.resolve({ image: require('../../../test/fixtures').frontImage('picked'), original: null as string | null }),
+);
+const mockCropFullPhoto = jest.fn();
+const mockDiscard = jest.fn();
+const mockClearOriginals = jest.fn();
 jest.mock('../../images/capture', () => ({
-  pickImage: () => Promise.resolve(require('../../../test/fixtures').frontImage('picked')),
+  pickImage: () => mockPickImage(),
+  cropFullPhoto: (path: string) => mockCropFullPhoto(path),
+  discardFile: (path: string) => mockDiscard(path),
+  clearOriginals: () => mockClearOriginals(),
 }));
 const mockPickPdf = jest.fn();
 const mockRenderCover = jest.fn();
@@ -410,6 +420,67 @@ describe('reading the card from its photo', () => {
     expect(screen.getByTestId('card-name').props.value).toBe('');
     expect(screen.queryByText(strings.edit.suggested)).toBeNull();
     expect(alert).not.toHaveBeenCalled();
+  });
+});
+
+describe('going back to the whole photo', () => {
+  const cutAround = (original: string) =>
+    mockPickImage.mockResolvedValueOnce({ image: frontImage('picked'), original });
+
+  test('not offered when the crop already started from the whole photo', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.queryByTestId('front-full-photo')).toBeNull();
+  });
+
+  test('crops again from the whole photo, reads it, and the option goes', async () => {
+    cutAround('file:///cache/originals/1.jpg');
+    mockCropFullPhoto.mockResolvedValueOnce(frontImage('whole'));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    await fireEvent.press(screen.getByTestId('front-full-photo'));
+
+    expect(mockCropFullPhoto).toHaveBeenCalledWith('file:///cache/originals/1.jpg');
+    expect(mockAnalyze).toHaveBeenLastCalledWith(frontImage('whole').jpegBase64, expect.anything());
+    expect(screen.queryByTestId('front-full-photo')).toBeNull();
+    expect(mockDiscard).toHaveBeenCalledWith('file:///cache/originals/1.jpg');
+  });
+
+  test('cancelling that crop keeps the photo and the option', async () => {
+    cutAround('file:///cache/originals/1.jpg');
+    mockCropFullPhoto.mockResolvedValueOnce(null);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    mockAnalyze.mockClear();
+    await fireEvent.press(screen.getByTestId('front-full-photo'));
+    expect(mockAnalyze).not.toHaveBeenCalled();
+    expect(screen.getByTestId('front-full-photo')).toBeTruthy();
+    expect(mockDiscard).not.toHaveBeenCalled();
+  });
+
+  test('each side keeps its own; a new photo or removing the back lets the old one go', async () => {
+    cutAround('file:///cache/originals/front.jpg');
+    cutAround('file:///cache/originals/back.jpg');
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    await fireEvent.press(screen.getByTestId('back-library'));
+    expect(screen.getByTestId('front-full-photo')).toBeTruthy();
+    expect(screen.getByTestId('back-full-photo')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('front-library')); // a photo that started whole
+    expect(mockDiscard).toHaveBeenCalledWith('file:///cache/originals/front.jpg');
+    expect(screen.queryByTestId('front-full-photo')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('back-remove'));
+    expect(mockDiscard).toHaveBeenCalledWith('file:///cache/originals/back.jpg');
+    expect(screen.queryByTestId('back-full-photo')).toBeNull();
+  });
+
+  test('whole photos are cleared when the form opens and when it closes', async () => {
+    await render(<EditCard />);
+    expect(mockClearOriginals).toHaveBeenCalledTimes(1);
+    await screen.unmount();
+    expect(mockClearOriginals).toHaveBeenCalledTimes(2);
   });
 });
 
