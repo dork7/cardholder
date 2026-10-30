@@ -115,48 +115,7 @@ jobs:
         run: npx expo prebuild --platform android --no-install
 
       - name: Point release builds at the CI keystore
-        run: |
-          node <<'EOF'
-          const fs = require('fs');
-          const file = 'android/app/build.gradle';
-          let src = fs.readFileSync(file, 'utf8');
-          const debugBlock = `        debug {
-              storeFile file('debug.keystore')
-              storePassword 'android'
-              keyAlias 'androiddebugkey'
-              keyPassword 'android'
-          }`;
-          const withRelease = `        debug {
-              storeFile file('debug.keystore')
-              storePassword 'android'
-              keyAlias 'androiddebugkey'
-              keyPassword 'android'
-          }
-          release {
-              def ciStoreFile = System.getenv('SIGNING_STORE_FILE')
-              if (ciStoreFile) {
-                  storeFile file(ciStoreFile)
-                  storePassword System.getenv('SIGNKEY_STORE_PASSWORD')
-                  keyAlias System.getenv('SIGNKEY_KEY_ALIAS')
-                  keyPassword System.getenv('SIGNKEY_KEY_PASSWORD')
-              }
-          }`;
-          if (!src.includes(debugBlock)) {
-            console.error('Could not find the debug signingConfig in android/app/build.gradle');
-            process.exit(1);
-          }
-          src = src.replace(debugBlock, withRelease);
-          const releaseLine = `            // see https://reactnative.dev/docs/signed-apk-android.
-              signingConfig signingConfigs.debug`;
-          const releaseNext = `            // see https://reactnative.dev/docs/signed-apk-android.
-              signingConfig System.getenv('SIGNING_STORE_FILE') ? signingConfigs.release : signingConfigs.debug`;
-          if (!src.includes(releaseLine)) {
-            console.error('Could not find the release signingConfig line in android/app/build.gradle');
-            process.exit(1);
-          }
-          src = src.replace(releaseLine, releaseNext);
-          fs.writeFileSync(file, src);
-          EOF
+        run: node scripts/configure-android-release-signing.js
 
       - name: Decode Release Keystore
         env:
