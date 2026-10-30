@@ -118,6 +118,16 @@ EOF
 
 export EXPO_NO_TELEMETRY=1
 npx expo prebuild --platform android --no-install
+# The Expo template allows only 10 seconds to download Gradle. A home connection
+# often needs longer.
+wrapper_props="android/gradle/wrapper/gradle-wrapper.properties"
+if [[ -f "$wrapper_props" ]]; then
+  if grep -q '^networkTimeout=' "$wrapper_props"; then
+    sed -i '' 's/^networkTimeout=.*/networkTimeout=120000/' "$wrapper_props"
+  else
+    printf '\nnetworkTimeout=120000\n' >> "$wrapper_props"
+  fi
+fi
 node scripts/configure-android-release-signing.js
 cp "$signing_dir/release.jks" android/app/release.jks
 
