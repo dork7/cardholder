@@ -34,11 +34,23 @@ if [[ ! -f "$signing_dir/release.jks" || ! -f "$signing_dir/store-password" || !
   exit 1
 fi
 
-if [[ -z "${JAVA_HOME:-}" && -x "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java" ]]; then
-  export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  if [[ -x "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java" ]]; then
+    export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+  elif [[ -d "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ]]; then
+    export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
+  elif /usr/libexec/java_home -v 17 >/dev/null 2>&1; then
+    JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+    export JAVA_HOME
+  fi
+fi
+if [[ -n "${JAVA_HOME:-}" ]]; then
+  export PATH="${JAVA_HOME}/bin:${PATH}"
 fi
 if [[ -z "${ANDROID_HOME:-}" && -d "${HOME}/Library/Android/sdk" ]]; then
   export ANDROID_HOME="${HOME}/Library/Android/sdk"
+elif [[ -z "${ANDROID_HOME:-}" && -d "/opt/homebrew/share/android-commandlinetools" ]]; then
+  export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
 fi
 export ANDROID_SDK_ROOT="${ANDROID_HOME:-}"
 
