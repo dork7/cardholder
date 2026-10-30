@@ -72,6 +72,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy "tools" package was removed from sdkmanager. Requesting it
+          # makes this step fail. platform-tools is enough; Gradle fetches the rest.
+          packages: platform-tools
 
       - name: Install dependencies
         run: npm ci
