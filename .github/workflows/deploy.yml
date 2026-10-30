@@ -64,6 +64,11 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Node 22 ships npm 10. This lockfile was written by npm 11. npm 10
+      # rejects it because an optional TypeScript 5 peer is not listed.
+      - name: Use npm 11
+        run: npm install -g npm@11.7.0
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
