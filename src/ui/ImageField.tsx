@@ -12,11 +12,13 @@ interface Props {
   onPdf?: () => void;
   pdfLabel?: string; // defaults to "Use a PDF"
   onRemove?: () => void;
+  // Shown when the photo was cut around the card automatically: crop again from the whole photo.
+  onFullPhoto?: () => void;
   error?: string;
   testIDPrefix: string;
 }
 
-export function ImageField({ label, uri, onLibrary, onPdf, pdfLabel, onRemove, error, testIDPrefix }: Props) {
+export function ImageField({ label, uri, onLibrary, onPdf, pdfLabel, onRemove, onFullPhoto, error, testIDPrefix }: Props) {
   const theme = useTheme();
   return (
     <Field label={label} error={error}>
@@ -39,8 +41,17 @@ export function ImageField({ label, uri, onLibrary, onPdf, pdfLabel, onRemove, e
           <Text style={{ color: theme.muted, fontSize: 16 }}>{strings.edit.tapToAddPhoto}</Text>
         )}
       </Pressable>
-      {(onPdf || onRemove) && (
+      {(onFullPhoto || onPdf || onRemove) && (
         <View style={styles.actions}>
+          {onFullPhoto && (
+            <Button
+              variant="secondary"
+              label={strings.edit.fullPhoto}
+              onPress={onFullPhoto}
+              accessibilityHint={strings.edit.fullPhotoHint}
+              testID={`${testIDPrefix}-full-photo`}
+            />
+          )}
           {onPdf && (
             <Button
               variant="secondary"

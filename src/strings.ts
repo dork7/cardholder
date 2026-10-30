@@ -71,6 +71,8 @@ export const strings = {
     addPhoto: 'Add photo',
     changePhoto: 'Change photo',
     removeBack: 'Remove back',
+    fullPhoto: 'Use full photo',
+    fullPhotoHint: 'Opens the crop again with the whole photo, not just the card',
     fromPdf: 'Use a PDF',
     replacePdf: 'Use another PDF',
     pdfFront: 'Thumbnail',
