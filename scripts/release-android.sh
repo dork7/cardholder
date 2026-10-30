@@ -185,7 +185,7 @@ manifest="android/app/build/outputs/apk/release/version.json"
 if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
   gh release upload "$tag" --repo "$repo" --clobber "$release_apk" "$manifest"
 else
-  gh release create "$tag" --repo "$repo" --title "$tag" --notes "$notes" --target HEAD \
+  gh release create "$tag" --repo "$repo" --title "$tag" --notes "$notes" --target "$(git rev-parse HEAD)" \
     "$release_apk" "$manifest"
 fi
 
