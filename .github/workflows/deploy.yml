@@ -1,8 +1,11 @@
 # Build a signed Android APK and publish it to GitHub Releases.
 # Sideload distribution: no Play Store upload.
 #
-# Trigger: push a tag named vMAJOR.MINOR.PATCH (for example v1.2.3).
-# versionName comes from that tag. versionCode is major*1000000 + minor*1000 + patch.
+# Local releases are the normal path: scripts/release-android.sh
+# This workflow is the manual backup. Run it from the Actions tab and pass a
+# version such as v1.2.3. Pushing a tag does not start a build.
+#
+# versionName comes from that version. versionCode is major*1000000 + minor*1000 + patch.
 #
 # Each release also uploads version.json. The app can poll the latest manifest at:
 #   https://github.com/<owner>/<repo>/releases/latest/download/version.json
@@ -17,9 +20,12 @@
 name: Build and Release APK
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, for example v1.2.3
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -35,6 +41,7 @@ jobs:
 
     env:
       EXPO_NO_TELEMETRY: "1"
+      RELEASE_TAG: ${{ inputs.version }}
 
     steps:
       - name: Checkout Source Code
@@ -89,7 +96,7 @@ jobs:
         run: |
           node <<'EOF'
           const fs = require('fs');
-          const tag = process.env.GITHUB_REF_NAME || '';
+          const tag = process.env.RELEASE_TAG || '';
           const match = tag.match(/^v(\d+)\.(\d+)\.(\d+)$/);
           if (!match) {
             console.error(`Tag "${tag}" must look like v1.2.3`);
@@ -166,7 +173,7 @@ jobs:
             echo "APK is signed with the Android debug keystore"
             exit 1
           fi
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           cp "$apk" "android/app/build/outputs/apk/release/DocKeeper-${version}.apk"
 
       - name: Write version.json
@@ -174,7 +181,7 @@ jobs:
           node <<'EOF'
           const fs = require('fs');
           const { execSync } = require('child_process');
-          const tag = process.env.GITHUB_REF_NAME || '';
+          const tag = process.env.RELEASE_TAG || '';
           const repository = process.env.GITHUB_REPOSITORY || '';
           const server = process.env.GITHUB_SERVER_URL || 'https://github.com';
           const match = tag.match(/^v(\d+)\.(\d+)\.(\d+)$/);
@@ -222,6 +229,7 @@ jobs:
       - name: Publish Release to GitHub
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.version }}
           files: |
             android/app/build/outputs/apk/release/DocKeeper-*.apk
             android/app/build/outputs/apk/release/version.json
