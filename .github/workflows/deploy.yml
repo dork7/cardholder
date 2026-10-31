@@ -9,7 +9,8 @@
 #
 # Each release also uploads version.json. The app can poll the latest manifest at:
 #   https://github.com/<owner>/<repo>/releases/latest/download/version.json
-# apkUrl inside that file points at the DocKeeper-<version>.apk asset on the same release.
+# apkUrl inside that file points at the DocKeeper-<version>.apk asset on the same release; sha256 and
+# size let the app check a downloaded update before installing it.
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   SIGNING_KEY_STORE_BASE64  base64 of the release .jks keystore
@@ -220,7 +221,10 @@ jobs:
             }
           }
 
-          const manifest = { versionCode, versionName, apkUrl, releaseNotes };
+          // The app checks a downloaded update against this before installing it (src/update/).
+          const apk = fs.readFileSync(`android/app/build/outputs/apk/release/${apkName}`);
+          const sha256 = require('crypto').createHash('sha256').update(apk).digest('hex');
+          const manifest = { versionCode, versionName, apkUrl, releaseNotes, sha256, size: apk.length };
           const out = 'android/app/build/outputs/apk/release/version.json';
           fs.writeFileSync(out, JSON.stringify(manifest, null, 2) + '\n');
           console.log(JSON.stringify({ versionCode, versionName, apkUrl }, null, 2));

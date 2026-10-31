@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ReactNode, useCallback, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { cancelModelDownload, removeModel, startModelDownload, useModelState } from '../src/analysis/modelDownload';
@@ -9,6 +9,16 @@ import { FOLDERS_ENABLED } from '../src/config';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
 import { strings } from '../src/strings';
 import { formatAgo } from '../src/time/dates';
+import { canSelfUpdate, clearDownloads } from '../src/update/download';
+import {
+  cancelUpdateDownload,
+  checkForUpdate,
+  downloadUpdate,
+  getUpdateState,
+  installUpdate,
+  refreshInstallPermission,
+  useUpdateState,
+} from '../src/update/updateStore';
 import { Button } from '../src/ui/Button';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
@@ -101,6 +111,7 @@ export default function SettingsScreen() {
           </Section>
           </>
         )}
+        {canSelfUpdate && <UpdateSection />}
         <Section title={strings.settings.about}>
           <Text style={[styles.body, { color: theme.text }]}>{strings.promise}</Text>
           <Button variant="secondary" label={strings.settings.privacyPolicy} onPress={() => router.push('/privacy')} />
@@ -170,6 +181,83 @@ function AiSection() {
   );
 }
 
+// Android copies from GitHub Releases update from here. Nothing is fetched until the user taps Check.
+function UpdateSection() {
+  const theme = useTheme();
+  const update = useUpdateState();
+
+  // An APK left from an earlier visit (installed, or never installed) is only wasted space.
+  useEffect(() => {
+    if (getUpdateState().status === 'idle') clearDownloads();
+  }, []);
+  // Coming back from Android's "Install unknown apps" page.
+  useFocusEffect(useCallback(() => refreshInstallPermission(), []));
+
+  const failure = 'failure' in update && update.failure;
+  const notes = 'manifest' in update ? update.manifest.releaseNotes : '';
+  return (
+    <Section title={strings.update.title}>
+      {update.status === 'available' || update.status === 'downloading' || update.status === 'ready' ? (
+        <Text style={[styles.body, { color: theme.text }]} testID="update-version">
+          {update.status === 'ready'
+            ? strings.update.ready(update.manifest.versionName)
+            : strings.update.available(update.manifest.versionName)}
+        </Text>
+      ) : (
+        <Text style={[styles.caption, { color: theme.muted }]}>{strings.update.about}</Text>
+      )}
+      {notes !== '' && (
+        <View style={styles.notes} testID="update-notes">
+          <Text style={[styles.caption, { color: theme.muted, fontWeight: '700' }]}>{strings.update.whatsNew}</Text>
+          <Text style={[styles.caption, { color: theme.text }]}>{notes}</Text>
+        </View>
+      )}
+      {update.status === 'up-to-date' && (
+        <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID="update-current">
+          {strings.update.upToDate}
+        </Text>
+      )}
+      {failure && (
+        <Text style={[styles.caption, { color: theme.danger }]} accessibilityLiveRegion="polite" testID="update-failed">
+          {strings.update.failed[failure]}
+        </Text>
+      )}
+      {update.status === 'available' ? (
+        <Button
+          label={strings.update.download(update.manifest.size === null ? null : Math.round(update.manifest.size / 1_000_000))}
+          onPress={() => void downloadUpdate()}
+          testID="download-update"
+        />
+      ) : update.status === 'downloading' ? (
+        <>
+          <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID="update-progress">
+            {strings.update.downloading(update.progress === null ? null : Math.round(update.progress * 100))}
+          </Text>
+          <Button variant="secondary" label={strings.update.stop} onPress={cancelUpdateDownload} testID="stop-update" />
+        </>
+      ) : update.status === 'ready' ? (
+        <>
+          {update.needsPermission && (
+            <Text style={[styles.caption, { color: theme.muted }]} testID="update-permission">
+              {strings.update.permissionHint}
+            </Text>
+          )}
+          <Button label={strings.update.install} onPress={installUpdate} testID="install-update" />
+          <Text style={[styles.caption, { color: theme.muted }]}>{strings.update.keepsCards}</Text>
+        </>
+      ) : (
+        <Button
+          variant="secondary"
+          label={update.status === 'checking' ? strings.update.checking : strings.update.check}
+          onPress={() => void checkForUpdate()}
+          disabled={update.status === 'checking'}
+          testID="check-update"
+        />
+      )}
+    </Section>
+  );
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const theme = useTheme();
   return (
@@ -218,4 +306,5 @@ const styles = StyleSheet.create({
   caption: { fontSize: TYPE.secondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowText: { flex: 1, gap: 4 },
+  notes: { gap: 4 },
 });
