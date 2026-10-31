@@ -1,5 +1,5 @@
 import { makeCard } from '../../../test/fixtures';
-import { filterCards, sortCards, splitPinned } from '../listing';
+import { filterCards, isExpiringSoon, sortCards, sortForGallery, splitPinned } from '../listing';
 
 const cards = [
   makeCard({ id: 'a', name: 'zoo pass', pinned: false }),
@@ -45,4 +45,41 @@ test('search matches names, not the hidden tags', () => {
 test('a typed category filters like a built-in one', () => {
   const cards = [makeCard({ id: 'a', category: 'Vehicle' }), makeCard({ id: 'b', category: 'id' })];
   expect(filterCards(cards, { query: '', category: 'Vehicle' }).map((c) => c.id)).toEqual(['a']);
+});
+
+describe('gallery order', () => {
+  const cards = [
+    makeCard({ id: 'b', name: 'Bravo', expiresOn: '2027-03-01', createdAt: 3 }),
+    makeCard({ id: 'n', name: 'No date', expiresOn: null, createdAt: 4 }),
+    makeCard({ id: 'a', name: 'alpha', expiresOn: '2026-12-01', createdAt: 1 }),
+    makeCard({ id: 'c', name: 'Charlie', expiresOn: '2026-12-01', createdAt: 2 }),
+  ];
+  const ids = (list: typeof cards) => list.map((c) => c.id);
+
+  test('by name, ignoring case', () => {
+    expect(ids(sortForGallery(cards, 'name'))).toEqual(['a', 'b', 'c', 'n']);
+  });
+
+  test('by expiry: soonest first, same day by name, no date last', () => {
+    expect(ids(sortForGallery(cards, 'expiry'))).toEqual(['a', 'c', 'b', 'n']);
+  });
+
+  test('by date added: newest first', () => {
+    expect(ids(sortForGallery(cards, 'added'))).toEqual(['n', 'b', 'c', 'a']);
+  });
+
+  test('leaves the list it was given alone', () => {
+    sortForGallery(cards, 'name');
+    expect(ids(cards)).toEqual(['b', 'n', 'a', 'c']);
+  });
+});
+
+test('expiring soon means expired, due today, or due within the reminder window', () => {
+  const now = new Date(2026, 9, 31, 12);
+  const on = (expiresOn: string | null) => isExpiringSoon(makeCard({ expiresOn }), now);
+  expect(on('2026-10-01')).toBe(true); // expired
+  expect(on('2026-10-31')).toBe(true); // today
+  expect(on('2026-11-29')).toBe(true); // 29 days
+  expect(on('2027-01-31')).toBe(false);
+  expect(on(null)).toBe(false);
 });
