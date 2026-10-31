@@ -1,0 +1,7 @@
+{
+  "name": "app-update",
+  "version": "0.1.0",
+  "description": "Hands a downloaded Doc Keeper APK to Android's installer, for updates from inside the app.",
+  "license": "UNLICENSED",
+  "private": true
+}

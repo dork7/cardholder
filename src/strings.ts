@@ -226,7 +226,7 @@ export const strings = {
     download: 'Download AI model',
     confirmTitle: 'Download the AI model?',
     confirmMessage:
-      "Doc Keeper will download about 290 MB from Hugging Face, once. It's the only thing the app ever downloads, and nothing about your cards is sent. Use Wi-Fi if your data plan is limited.",
+      "Doc Keeper will download about 290 MB from Hugging Face, once. Nothing about your cards is sent. Use Wi-Fi if your data plan is limited.",
     confirm: 'Download',
     downloading: (percent: number | null) =>
       percent === null ? 'Downloading the AI model…' : `Downloading the AI model… ${percent}%`,
@@ -241,6 +241,29 @@ export const strings = {
       check: "The downloaded file didn't pass its check, so it wasn't used. Please try again.",
     },
     license: 'Model: Gemma 3 270M by Google, under the Gemma Terms of Use.',
+  },
+  update: {
+    title: 'App updates',
+    about: 'Checks GitHub for a newer version of Doc Keeper. Nothing about your cards is sent.',
+    check: 'Check for updates',
+    checking: 'Checking…',
+    upToDate: 'Doc Keeper is up to date.',
+    available: (version: string) => `Version ${version} is available.`,
+    whatsNew: "What's new",
+    download: (mb: number | null) => (mb === null ? 'Download update' : `Download update (${mb} MB)`),
+    downloading: (percent: number | null) => (percent === null ? 'Downloading…' : `Downloading… ${percent}%`),
+    stop: 'Stop download',
+    install: 'Install update',
+    ready: (version: string) => `Version ${version} is downloaded and checked.`,
+    permissionHint:
+      'Android will ask you to allow Doc Keeper to install apps. That is only used for its own updates. Allow it, come back, and tap Install again.',
+    keepsCards: 'Your cards stay on this phone through the update.',
+    failed: {
+      network: "Couldn't reach GitHub. Check your connection and try again.",
+      'bad-release': "The latest release can't be installed from inside the app. Download it from GitHub instead.",
+      check: "The download didn't match the release, so it wasn't installed. Please try again.",
+      install: "Android's installer didn't open. Please try again.",
+    },
   },
   categoriesScreen: {
     title: 'Categories',
@@ -323,11 +346,12 @@ export const strings = {
   privacy: {
     title: 'Privacy policy',
     paragraphs: [
-      'Doc Keeper stores your cards only on this phone. There are no accounts and no servers, and the app does not connect to the internet, apart from the one download you can choose below.',
+      'Doc Keeper stores your cards only on this phone. There are no accounts and no servers, and the app does not connect to the internet, apart from the downloads you can choose below.',
       'Card photos and details are encrypted on the phone with a key that never leaves it.',
       'Quick share sends a card through your phone\'s own share sheet (AirDrop, Quick Share or another app you choose). Doc Keeper hands the file to the app you pick and keeps no copy; the file is not encrypted once it leaves the app.',
       'If you turn on app lock, Face ID, fingerprint and passcode checks are done by your phone itself. Doc Keeper only learns whether the check succeeded, never your face, fingerprint or passcode.',
       'AI suggestions are optional. If you turn them on in Settings, Doc Keeper downloads an AI model (about 290 MB) once, from Hugging Face. Like any download, the request shows Hugging Face your IP address. Nothing about your cards is sent: the model reads them on this phone. You can delete it in Settings at any time.',
+      'On Android, Settings can check GitHub for a newer version of the app and download it, only when you tap Check for updates. Like any download, the request shows GitHub your IP address. Nothing about your cards is sent, and Android asks you before installing.',
       'Doc Keeper collects no personal data, analytics or crash reports. If you choose to share crash data with Apple or Google, they handle it under their own policies.',
       'Backups you export are encrypted with a passphrase you choose. Where you keep the file is up to you.',
       'Purchases are processed by the App Store or Google Play. Doc Keeper never sees your payment details.',

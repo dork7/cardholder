@@ -178,11 +178,15 @@ const repo = process.env.RELEASE_REPO;
 const match = tag.match(/^v(\d+)\.(\d+)\.(\d+)$/);
 const versionCode = Number(match[1]) * 1000000 + Number(match[2]) * 1000 + Number(match[3]);
 const apkName = `DocKeeper-${versionName}.apk`;
+// The app checks a downloaded update against this before installing it (src/update/).
+const apk = fs.readFileSync(`android/app/build/outputs/apk/release/${apkName}`);
 const manifest = {
   versionCode,
   versionName,
   apkUrl: `https://github.com/${repo}/releases/download/${tag}/${apkName}`,
   releaseNotes: notes,
+  sha256: require('crypto').createHash('sha256').update(apk).digest('hex'),
+  size: apk.length,
 };
 const out = 'android/app/build/outputs/apk/release/version.json';
 fs.writeFileSync(out, JSON.stringify(manifest, null, 2) + '\n');
