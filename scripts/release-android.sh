@@ -86,8 +86,16 @@ EOF
 fi
 
 repo="$(git remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/.]+)(\.git)?$#\1#')"
+# Without notes given, every change since the last release, one per line; merge commits are left out
+# because they repeat the changes they bring in.
 if [[ -z "$notes" ]]; then
-  notes="$(git log -1 --pretty=%s)"
+  previous="$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD^ 2>/dev/null || true)"
+  if [[ -n "$previous" ]]; then
+    notes="$(git log --no-merges --pretty='- %s' "${previous}..HEAD")"
+  fi
+  if [[ -z "$notes" ]]; then
+    notes="$(git log -1 --pretty=%s)"
+  fi
 fi
 
 app_json_backup="$(mktemp)"
