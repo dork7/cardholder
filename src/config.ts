@@ -29,12 +29,12 @@ export const MAX_CARD_SHORTCUTS = 3;
 // With the app lock on, time in the background after which the app asks to be unlocked again.
 export const LOCK_AFTER_BACKGROUND_MS = 30_000;
 
-export const BACKUP_STALE_MS = 30 * DAY_MS;
-export const BACKUP_SNOOZE_MS = 7 * DAY_MS;
 
 export const IMAGE_MAX_EDGE = 1600;
 export const IMAGE_QUALITY = 0.8;
-export const THUMB_WIDTH = 400;
+// Wide enough to stay sharp on a phone-wide card in the home stack (about 1200 px on most phones).
+export const THUMB_WIDTH = 1000;
+export const THUMB_QUALITY = 0.85;
 // A PDF card keeps the whole file, inside every backup too.
 export const PDF_MAX_BYTES = 10 * 1024 * 1024;
 // Page previews in the page picker.

@@ -219,20 +219,11 @@ test('with the card limit off, adding past it still goes to the editor', async (
   });
 });
 
-test('the backup banner shows until the user backs up or dismisses it', async () => {
+test('there is no backup banner on the home screen, even before the first backup', async () => {
   mockLastExportAt = null;
   await renderHome();
-  expect(await screen.findByTestId('backup-banner')).toBeTruthy();
-  await fireEvent.press(screen.getByRole('button', { name: strings.backupBanner.action }));
-  expect(mockPush).toHaveBeenLastCalledWith('/export');
-  await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.backupBanner.dismiss })));
-  expect(screen.queryByTestId('backup-banner')).toBeNull();
-  expect(mockSettingsSet).toHaveBeenCalledWith('backupSnoozedUntil', expect.any(String));
-});
-
-test('no banner right after a backup', async () => {
-  await renderHome();
   await act(async () => {});
+  expect(screen.queryByText('Back up your cards')).toBeNull();
   expect(screen.queryByTestId('backup-banner')).toBeNull();
 });
 

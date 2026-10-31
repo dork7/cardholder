@@ -49,12 +49,6 @@ export const strings = {
     moveUp: 'Move up',
     moveDown: 'Move down',
   },
-  backupBanner: {
-    title: 'Back up your cards',
-    body: 'If this phone is lost, your cards go with it. Export a backup file and keep it somewhere safe.',
-    action: 'Back up now',
-    dismiss: 'Not now',
-  },
   categories: {
     id: 'ID',
     insurance: 'Insurance',

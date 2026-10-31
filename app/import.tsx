@@ -6,7 +6,7 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, S
 import { useApp } from '../src/app/AppProvider';
 import { BackupError, BackupSnapshot, decodeBackup } from '../src/backup/backupFile';
 import { applySnapshot, ImportMode } from '../src/backup/backupService';
-import { recordExport } from '../src/backup/nudge';
+import { recordExport } from '../src/backup/lastExport';
 import { strings } from '../src/strings';
 import { formatDate } from '../src/time/dates';
 import { Button } from '../src/ui/Button';

@@ -4,7 +4,7 @@ export type SettingKey =
   | 'keyCheck'
   | 'unlocked'
   | 'lastExportAt'
-  | 'backupSnoozedUntil' | 'appearance'
+  | 'appearance'
   | 'appLock'
   | 'homeFolderFilter'
   | 'homeManageFolders'

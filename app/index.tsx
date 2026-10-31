@@ -7,13 +7,11 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
-import { useBackupNudge } from '../src/backup/useBackupNudge';
 import { filterCards, splitPinned } from '../src/cards/listing';
 import { CardCategory } from '../src/cards/types';
 import { FOLDERS_ENABLED } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
-import { BackupBanner } from '../src/ui/BackupBanner';
 import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { CategoryChips } from '../src/ui/CategoryChips';
@@ -33,7 +31,6 @@ export default function Home() {
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const nudge = useBackupNudge();
   useLaunchLinks();
   const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState<CardCategory | null>(null);
@@ -104,7 +101,6 @@ export default function Home() {
           <AppearanceToggle />
           <SettingsButton onPress={() => router.push('/settings')} />
         </Panel>
-        {nudge.visible && <BackupBanner onBackup={() => router.push('/export')} onDismiss={nudge.snooze} />}
         {cards.length > 1 && <SearchField value={query} onChange={setQuery} />}
         {/* Pinned cards stay put while searching or filtering: they're the shortcut, the stack is the browse. */}
         <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />

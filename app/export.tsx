@@ -4,7 +4,7 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, S
 import { useApp } from '../src/app/AppProvider';
 import { encodeBackup } from '../src/backup/backupFile';
 import { buildSnapshot } from '../src/backup/backupService';
-import { recordExport } from '../src/backup/nudge';
+import { recordExport } from '../src/backup/lastExport';
 import { validateNewPassphrase } from '../src/backup/passphrase';
 import { MIN_PASSPHRASE_LENGTH } from '../src/config';
 import { shareBackupFile } from '../src/share/shareCard';

@@ -35,10 +35,9 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 
 **Home screen** (the app opens straight to it):
 
-1. Backup nudge banner (when due, see Backup).
-2. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New cards are pinned by default (appended to the end).
-3. Search field (matches the name) and category filter.
-4. All other cards, alphabetical.
+1. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New cards are pinned by default (appended to the end).
+2. Search field (matches the name) and category filter.
+3. All other cards, alphabetical.
 
 Tap a card → **counter view**:
 
@@ -68,7 +67,7 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
   - **Merge** — cards already on the device (same internal ID) are skipped, the rest are added.
   - **Replace** — wipes the device's cards first, behind a confirmation.
 - Imported cards are never locked by the free limit.
-- Nudge: a banner on the home screen after the first card is saved if the user has never exported, and again when there are changes since the last export and that export is more than 30 days old. Dismissing snoozes it for 7 days. Settings shows "Last backup: <relative time>".
+- No backup reminder on the home screen. Settings shows "Last backup: <relative time>".
 
 ## Monetization
 
