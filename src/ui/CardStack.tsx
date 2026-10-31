@@ -349,7 +349,11 @@ interface StackCardProps {
 
 function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   const theme = useTheme();
-  const uri = useCardImage(card, 'thumb');
+  // The card in front is shown at full size, so it swaps to the full picture once that has loaded
+  // (cards saved before thumbnails were made larger look soft otherwise); the ones behind keep the thumbnail.
+  const thumbUri = useCardImage(card, 'thumb');
+  const fullUri = useCardImage(inFront ? card : undefined, 'front');
+  const uri = fullUri ?? thumbUri;
   // There is no back thumbnail; the full back image is only loaded for the card that can be flipped.
   const backUri = useCardImage(inFront && card.hasBack ? card : undefined, 'back');
   const { from, steps, f, pull, pullIndex, flip, flipIndex } = motion;

@@ -81,7 +81,7 @@ describe('export', () => {
 
   test('a short passphrase is refused before anything is encrypted', async () => {
     await render(<ExportScreen />);
-    await fill('short', 'short');
+    await fill('ab', 'ab');
     expect(screen.getByText(strings.export.tooShort(MIN_PASSPHRASE_LENGTH))).toBeTruthy();
     expect(mockEncode).not.toHaveBeenCalled();
   });

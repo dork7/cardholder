@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { Alert, AlertButton } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import { Folder } from '../types';
 import Home from '../../../app/index';
@@ -42,15 +43,20 @@ let mockFolders: Folder[] = [];
 let mockHomeFolders = { filter: true, manage: true };
 let mockLastExportAt: string | null = null;
 const mockSettingsSet = jest.fn(() => Promise.resolve());
+let mockHomeView: string | null = null;
+const mockRemove = jest.fn((_id: string) => Promise.resolve());
+const mockRefresh = jest.fn(() => Promise.resolve());
 // Stable across renders, as the real provider's services are.
 const mockServices = {
   store: {
     loadImage: () => Promise.resolve(null),
+    remove: (id: string) => mockRemove(id),
     count: () => Promise.resolve(mockCards.length),
     lastChangeAt: () => Promise.resolve(1_000),
   },
   settings: {
     getNumber: (key: string) => Promise.resolve(key === 'lastExportAt' && mockLastExportAt ? Number(mockLastExportAt) : null),
+    get: (key: string) => Promise.resolve(key === 'homeView' ? mockHomeView : null),
     set: mockSettingsSet,
   },
 };
@@ -67,12 +73,16 @@ jest.mock('../../app/AppProvider', () => ({
     appearance: 'system',
     setAppearance: mockSetAppearance,
     homeFolders: mockHomeFolders,
+    refresh: mockRefresh,
   }),
 }));
 
 beforeEach(() => {
   mockPush.mockClear();
   mockSettingsSet.mockClear();
+  mockRemove.mockClear();
+  mockRefresh.mockClear();
+  mockHomeView = null;
   mockUnlocked = false;
   mockFolders = [];
   mockHomeFolders = { filter: true, manage: true };
@@ -219,20 +229,11 @@ test('with the card limit off, adding past it still goes to the editor', async (
   });
 });
 
-test('the backup banner shows until the user backs up or dismisses it', async () => {
+test('there is no backup banner on the home screen, even before the first backup', async () => {
   mockLastExportAt = null;
   await renderHome();
-  expect(await screen.findByTestId('backup-banner')).toBeTruthy();
-  await fireEvent.press(screen.getByRole('button', { name: strings.backupBanner.action }));
-  expect(mockPush).toHaveBeenLastCalledWith('/export');
-  await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.backupBanner.dismiss })));
-  expect(screen.queryByTestId('backup-banner')).toBeNull();
-  expect(mockSettingsSet).toHaveBeenCalledWith('backupSnoozedUntil', expect.any(String));
-});
-
-test('no banner right after a backup', async () => {
-  await renderHome();
   await act(async () => {});
+  expect(screen.queryByText('Back up your cards')).toBeNull();
   expect(screen.queryByTestId('backup-banner')).toBeNull();
 });
 
@@ -273,4 +274,97 @@ test('pinned cards appear on the home page, stay put while searching, and open o
 test('nothing pinned, no pinned section', async () => {
   await renderHome();
   expect(screen.queryByTestId('pinned-strip')).toBeNull();
+});
+
+describe('gallery view', () => {
+  let alert: jest.SpyInstance;
+  beforeEach(() => {
+    alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  });
+  afterEach(() => alert.mockRestore());
+  // Presses the button labelled `text` in the alert that was just shown.
+  const answer = async (text: string) => {
+    const buttons = alert.mock.calls.at(-1)?.[2] as AlertButton[];
+    await act(async () => buttons.find((b) => b.text === text)?.onPress?.());
+  };
+  const showGallery = async () => {
+    await renderHome();
+    await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+  };
+
+  test('shows every card in a grid instead of the stack, and remembers the choice', async () => {
+    await showGallery();
+    expect(screen.getByTestId('card-grid')).toBeTruthy();
+    expect(screen.queryByTestId('card-stack')).toBeNull();
+    for (const id of ['a', 'b', 'c']) expect(screen.getByTestId(`grid-${id}`)).toBeTruthy();
+    // Each tile has the card's name and its category.
+    expect(within(screen.getByTestId('grid-b')).getByText('Health insurance')).toBeTruthy();
+    expect(within(screen.getByTestId('grid-b')).getByText(strings.categories.insurance)).toBeTruthy();
+    expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'gallery');
+
+    await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+    expect(screen.queryByTestId('card-grid')).toBeNull();
+    expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'stack');
+  });
+
+  test('opens in the gallery when that was the last choice', async () => {
+    mockHomeView = 'gallery';
+    await render(<Home />);
+    expect(await screen.findByTestId('card-grid')).toBeTruthy();
+  });
+
+  test('a tap opens the card', async () => {
+    await showGallery();
+    await fireEvent.press(screen.getByTestId('grid-b'));
+    expect(mockPush).toHaveBeenLastCalledWith('/card/b');
+  });
+
+  test('a long-press starts selecting; then taps add and remove cards', async () => {
+    await showGallery();
+    expect(screen.queryByTestId('selection-bar')).toBeNull();
+    await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
+    expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
+    expect(screen.queryByTestId('add-card')).toBeNull();
+
+    await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
+    expect(screen.getByText(strings.home.selected(2))).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+    await act(async () => fireEvent.press(screen.getByTestId('grid-a')));
+    expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
+
+    await act(async () => fireEvent.press(screen.getByTestId('selection-cancel')));
+    expect(screen.queryByTestId('selection-bar')).toBeNull();
+    expect(screen.getByTestId('add-card')).toBeTruthy();
+  });
+
+  test('deletes only the selected cards, after a confirmation', async () => {
+    await showGallery();
+    await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
+    await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
+    await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+    expect(alert).toHaveBeenCalledWith(
+      strings.home.deleteSelectedTitle(2),
+      strings.home.deleteSelectedBody(2),
+      expect.any(Array),
+    );
+    await answer(strings.common.cancel);
+    expect(mockRemove).not.toHaveBeenCalled();
+
+    await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+    await answer(strings.common.delete);
+    expect(mockRemove.mock.calls.map(([id]) => id)).toEqual(['a', 'c']);
+    expect(mockRefresh).toHaveBeenCalled();
+    expect(screen.queryByTestId('selection-bar')).toBeNull();
+  });
+
+  test('a filter that hides a selected card leaves it out of the delete', async () => {
+    await showGallery();
+    await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
+    await act(async () => fireEvent.press(screen.getByTestId('grid-b')));
+    await act(async () => fireEvent.press(screen.getByRole('radio', { name: strings.categories.insurance })));
+    expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+    await answer(strings.common.delete);
+    expect(mockRemove.mock.calls.map(([id]) => id)).toEqual(['b']);
+  });
 });

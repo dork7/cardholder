@@ -35,10 +35,11 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 
 **Home screen** (the app opens straight to it):
 
-1. Backup nudge banner (when due, see Backup).
-2. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New cards are pinned by default (appended to the end).
-3. Search field (matches the name) and category filter.
-4. All other cards, alphabetical.
+1. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New cards are pinned by default (appended to the end).
+2. Search field (matches the name) and category filter.
+3. All other cards, alphabetical.
+
+A **gallery view** button in the header swaps the card stack for a two-column grid of every card (picture, name and category); the choice is remembered. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel and Delete. Delete asks once for all of them. Only cards still shown by the search and category filter are deleted.
 
 Tap a card → **counter view**:
 
@@ -63,12 +64,12 @@ Tap a card → **counter view**:
 
 The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
-- Export: user picks a passphrase (minimum 8 characters, typed twice). The app states plainly that **a forgotten passphrase cannot be recovered**. File is shared via the system share sheet (Files, AirDrop, Drive, email…).
+- Export: user picks a passphrase (minimum 3 characters, numbers allowed, typed twice). The app states plainly that **a forgotten passphrase cannot be recovered**. File is shared via the system share sheet (Files, AirDrop, Drive, email…).
 - Import: pick the file, enter the passphrase, then choose:
   - **Merge** — cards already on the device (same internal ID) are skipped, the rest are added.
   - **Replace** — wipes the device's cards first, behind a confirmation.
 - Imported cards are never locked by the free limit.
-- Nudge: a banner on the home screen after the first card is saved if the user has never exported, and again when there are changes since the last export and that export is more than 30 days old. Dismissing snoozes it for 7 days. Settings shows "Last backup: <relative time>".
+- No backup reminder on the home screen. Settings shows "Last backup: <relative time>".
 
 ## Monetization
 

@@ -2,7 +2,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import ImagePicker, { Image as PickedImage } from 'react-native-image-crop-picker';
 import { FrontImage } from '../cards/types';
-import { IMAGE_MAX_EDGE, IMAGE_QUALITY, THUMB_WIDTH } from '../config';
+import { IMAGE_MAX_EDGE, IMAGE_QUALITY, THUMB_QUALITY, THUMB_WIDTH } from '../config';
 import { cropRect, detectCardBounds } from './smartCrop';
 
 // The library's `Options` is a photo|video|any union, which openCropper rejects; derive the photo-only type.
@@ -158,7 +158,7 @@ async function finish(picked: PickedImage): Promise<FrontImage> {
 
 export async function makeThumbnail(uri: string): Promise<string> {
   const rendered = await ImageManipulator.manipulate(uri).resize({ width: THUMB_WIDTH }).renderAsync();
-  const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.7, base64: true });
+  const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: THUMB_QUALITY, base64: true });
   try {
     if (!saved.base64) throw new Error('No thumbnail data');
     return saved.base64;
