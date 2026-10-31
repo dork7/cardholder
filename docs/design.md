@@ -63,7 +63,7 @@ Tap a card → **counter view**:
 
 The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
-- Export: user picks a passphrase (minimum 8 characters, typed twice). The app states plainly that **a forgotten passphrase cannot be recovered**. File is shared via the system share sheet (Files, AirDrop, Drive, email…).
+- Export: user picks a passphrase (minimum 3 characters, numbers allowed, typed twice). The app states plainly that **a forgotten passphrase cannot be recovered**. File is shared via the system share sheet (Files, AirDrop, Drive, email…).
 - Import: pick the file, enter the passphrase, then choose:
   - **Merge** — cards already on the device (same internal ID) are skipped, the rest are added.
   - **Replace** — wipes the device's cards first, behind a confirmation.

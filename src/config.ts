@@ -13,7 +13,7 @@ export const CATEGORY_MAX_LENGTH = 24;
 // Hidden for now: no folder UI anywhere, and new cards aren't sorted into folders. Saved folders are kept.
 export const FOLDERS_ENABLED = false;
 
-export const MIN_PASSPHRASE_LENGTH = 8;
+export const MIN_PASSPHRASE_LENGTH = 3;
 export const PBKDF2_ITERATIONS = 600_000;
 
 export const REMINDER_DAYS_BEFORE = [30, 7] as const;
