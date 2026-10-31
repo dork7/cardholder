@@ -14,6 +14,7 @@ const mockCheck = jest.fn(async () => {});
 const mockDownload = jest.fn(async () => {});
 const mockStop = jest.fn();
 const mockInstall = jest.fn();
+const mockRefreshPermission = jest.fn();
 jest.mock('../updateStore', () => ({
   useUpdateState: () => mockState,
   getUpdateState: () => mockState,
@@ -21,7 +22,7 @@ jest.mock('../updateStore', () => ({
   downloadUpdate: () => mockDownload(),
   cancelUpdateDownload: () => mockStop(),
   installUpdate: () => mockInstall(),
-  refreshInstallPermission: () => {},
+  refreshInstallPermission: () => mockRefreshPermission(),
 }));
 jest.mock('../../analysis/recognizer', () => ({ canReadText: false }));
 jest.mock('../../security/deviceAuth', () => ({ authenticate: jest.fn(), deviceLockAvailable: jest.fn() }));
@@ -112,4 +113,21 @@ test('says why something failed', async () => {
   mockState = { status: 'available', manifest, failure: 'check' };
   await render(<SettingsScreen />);
   expect(screen.getByTestId('update-failed')).toHaveTextContent(strings.update.failed.check);
+});
+
+test('re-checks the install permission when the app comes back from Android\'s settings', async () => {
+  const { AppState } = jest.requireActual('react-native');
+  const listeners: ((state: string) => void)[] = [];
+  const spy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+    listeners.push(listener as (state: string) => void);
+    return { remove: () => {} };
+  });
+  mockState = { status: 'ready', manifest, file: 'file:///apk', needsPermission: true };
+  await render(<SettingsScreen />);
+  expect(mockRefreshPermission).not.toHaveBeenCalled();
+  listeners.forEach((l) => l('background'));
+  expect(mockRefreshPermission).not.toHaveBeenCalled();
+  listeners.forEach((l) => l('active'));
+  expect(mockRefreshPermission).toHaveBeenCalled();
+  spy.mockRestore();
 });

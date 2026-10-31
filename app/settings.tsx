@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, AppState, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { cancelModelDownload, removeModel, startModelDownload, useModelState } from '../src/analysis/modelDownload';
 import { canReadText } from '../src/analysis/recognizer';
@@ -190,8 +190,12 @@ function UpdateSection() {
   useEffect(() => {
     if (getUpdateState().status === 'idle') clearDownloads();
   }, []);
-  // Coming back from Android's "Install unknown apps" page.
-  useFocusEffect(useCallback(() => refreshInstallPermission(), []));
+  // Coming back from Android's "Install unknown apps" page brings the app to the foreground; it doesn't
+  // refocus the screen, so listen for that.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => next === 'active' && refreshInstallPermission());
+    return () => sub.remove();
+  }, []);
 
   const failure = 'failure' in update && update.failure;
   const notes = 'manifest' in update ? update.manifest.releaseNotes : '';
