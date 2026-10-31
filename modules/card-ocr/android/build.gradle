@@ -11,5 +11,8 @@ android {
 }
 
 dependencies {
+  // Google's on-device text reader, with its Latin model bundled in the app: nothing is downloaded
+  // and no card leaves the phone.
+  implementation 'com.google.mlkit:text-recognition:16.0.1'
   testImplementation 'junit:junit:4.13.2'
 }
