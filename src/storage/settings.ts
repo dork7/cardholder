@@ -5,6 +5,7 @@ export type SettingKey =
   | 'unlocked'
   | 'lastExportAt'
   | 'appearance'
+  | 'homeView'
   | 'appLock'
   | 'homeFolderFilter'
   | 'homeManageFolders'

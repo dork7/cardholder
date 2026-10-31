@@ -39,6 +39,8 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 2. Search field (matches the name) and category filter.
 3. All other cards, alphabetical.
 
+A **gallery view** button in the header swaps the card stack for a two-column grid of every card (picture, name and category); the choice is remembered. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel and Delete. Delete asks once for all of them. Only cards still shown by the search and category filter are deleted.
+
 Tap a card → **counter view**:
 
 - Full-screen.
