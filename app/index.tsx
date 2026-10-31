@@ -7,18 +7,21 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
-import { filterCards, splitPinned } from '../src/cards/listing';
+import { moveToCategory, removeAll, shouldUnpin, togglePinned } from '../src/cards/batch';
+import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { CardCategory } from '../src/cards/types';
-import { FOLDERS_ENABLED } from '../src/config';
+import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { CardGrid } from '../src/ui/CardGrid';
+import { CategorySheet } from '../src/ui/CategorySheet';
 import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { CategoryChips } from '../src/ui/CategoryChips';
 import { ChipRow } from '../src/ui/ChipRow';
 import { Fab } from '../src/ui/Fab';
+import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { PixelLogo } from '../src/ui/PixelLogo';
 import { PinnedStrip } from '../src/ui/PinnedStrip';
@@ -70,11 +73,17 @@ export default function Home() {
   ];
   const shown = filterCards(cards, { query, category, folderId });
   const { pinned } = splitPinned(cards);
-  const [gallery, setGallery] = useGalleryView();
-  // Only cards still on screen count as selected, so a filter change can't delete something hidden.
+  const [gallery, setGallery] = useSavedChoice('homeView', (v): v is 'gallery' | 'stack' => v === 'gallery' || v === 'stack', 'stack');
+  const [sort, setSort] = useSavedChoice('gallerySort', isGallerySort, 'name');
+  const [expiringOnly, setExpiringOnly] = useState(false);
+  const now = new Date();
+  // The gallery has its own order and an "Expiring soon" filter on top of search and category.
+  const inGallery = sortForGallery(expiringOnly ? shown.filter((c) => isExpiringSoon(c, now)) : shown, sort);
+  // Only cards still on screen count as selected, so a filter change can't act on something hidden.
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const selected = shown.filter((c) => selectedIds.has(c.id));
-  const selecting = gallery && selected.length > 0;
+  const selected = inGallery.filter((c) => selectedIds.has(c.id));
+  const [choosingCategory, setChoosingCategory] = useState(false);
+  const selecting = gallery === 'gallery' && selected.length > 0;
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
   const toggleSelected = (card: Card) =>
     setSelectedIds((current) => {
@@ -94,30 +103,44 @@ export default function Home() {
     return () => sub.remove();
   }, [selecting, clearSelection]);
 
-  const deleteSelected = () => {
-    const doomed = selected;
-    Alert.alert(strings.home.deleteSelectedTitle(doomed.length), strings.home.deleteSelectedBody(doomed.length), [
+  // Runs a batch action on the selection, then leaves selection and reloads the cards.
+  const onSelection = async (run: (cards: Card[]) => Promise<number>) => {
+    const failed = await run(selected);
+    clearSelection();
+    await refresh().catch((e) => console.warn('Refresh after a batch action failed', e));
+    if (failed > 0) Alert.alert(strings.common.error, strings.home.selectionFailed(failed));
+  };
+
+  const deleteSelected = () =>
+    Alert.alert(strings.home.deleteSelectedTitle(selected.length), strings.home.deleteSelectedBody(selected.length), [
       { text: strings.common.cancel, style: 'cancel' },
       {
         text: strings.common.delete,
         style: 'destructive',
-        onPress: async () => {
-          let failed = false;
-          for (const card of doomed) {
-            try {
-              await services.store.remove(card.id);
-            } catch (e) {
-              console.warn('Delete failed', e);
-              failed = true;
-            }
-          }
-          clearSelection();
-          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
-          if (failed) Alert.alert(strings.common.error, strings.home.deleteSelectedFailed);
-        },
+        onPress: () => onSelection((cards) => removeAll(services.store, cards)),
       },
     ]);
-  };
+
+  const sortChips = [
+    ...([
+      ['name', strings.home.sortName],
+      ['expiry', strings.home.sortExpiry],
+      ['added', strings.home.sortAdded],
+    ] as [GallerySort, string][]).map(([key, label]) => ({
+      key,
+      label,
+      selected: sort === key,
+      onPress: () => setSort(key),
+      testID: `sort-${key}`,
+    })),
+    {
+      key: 'expiring',
+      label: strings.home.expiringSoon,
+      selected: expiringOnly,
+      onPress: () => setExpiringOnly((on) => !on),
+      testID: 'filter-expiring',
+    },
+  ];
 
   // "Import backup" on the recovery screen lands here first, then opens the import flow.
   useEffect(() => {
@@ -150,10 +173,10 @@ export default function Home() {
             </Pressable>
           )}
           <GalleryToggle
-            on={gallery}
+            on={gallery === 'gallery'}
             onChange={(on) => {
               clearSelection();
-              setGallery(on);
+              setGallery(on ? 'gallery' : 'stack');
             }}
           />
           <AppearanceToggle />
@@ -176,17 +199,26 @@ export default function Home() {
           </View>
         ) : (
           <>
+            {gallery === 'gallery' && shown.length > 0 && (
+              <ChipRow accessibilityLabel={strings.home.sortLabel} chips={sortChips} />
+            )}
             {shown.length === 0 ? (
               <Text style={[styles.promise, { color: theme.muted }]} accessibilityLiveRegion="polite">
                 {strings.home.noResults}
               </Text>
-            ) : gallery ? (
-              <CardGrid
-                cards={shown}
-                selected={selectedIds}
-                onOpen={(card) => router.push(`/card/${card.id}`)}
-                onToggle={toggleSelected}
-              />
+            ) : gallery === 'gallery' ? (
+              inGallery.length === 0 ? (
+                <Text style={[styles.promise, { color: theme.muted }]} accessibilityLiveRegion="polite">
+                  {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
+                </Text>
+              ) : (
+                <CardGrid
+                  cards={inGallery}
+                  selected={selectedIds}
+                  onOpen={(card) => router.push(`/card/${card.id}`)}
+                  onToggle={toggleSelected}
+                />
+              )
             ) : (
               // Keyed by filter so the stack starts from its first card instead of carrying motion over.
               <CardStack
@@ -209,15 +241,39 @@ export default function Home() {
 
       {selecting ? (
         <View style={[styles.selectionBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.bg }]} testID="selection-bar">
-          <Text style={[styles.selectionCount, { color: theme.text }]} accessibilityLiveRegion="polite">
-            {strings.home.selected(selected.length)}
-          </Text>
-          <View style={styles.selectionAction}>
-            <Button variant="secondary" label={strings.common.cancel} onPress={clearSelection} testID="selection-cancel" />
+          <View style={styles.selectionRow}>
+            <Text style={[styles.selectionCount, { color: theme.text }]} accessibilityLiveRegion="polite">
+              {strings.home.selected(selected.length)}
+            </Text>
+            <View style={styles.selectionAction}>
+              <Button variant="secondary" label={strings.common.cancel} onPress={clearSelection} testID="selection-cancel" />
+            </View>
           </View>
-          <View style={styles.selectionAction}>
-            <Button variant="danger" label={strings.home.deleteSelected} onPress={deleteSelected} testID="selection-delete" />
+          <View style={styles.selectionRow}>
+            <IconButton
+              icon={shouldUnpin(selected) ? 'unpin' : 'pin'}
+              label={shouldUnpin(selected) ? strings.home.unpinSelected : strings.home.pinSelected}
+              onPress={() => void onSelection((cards) => togglePinned(services.store, cards))}
+              testID="selection-pin"
+            />
+            <IconButton
+              icon="tag"
+              label={strings.home.categorySelected}
+              onPress={() => setChoosingCategory(true)}
+              testID="selection-category"
+            />
+            <IconButton icon="trash" label={strings.home.deleteSelected} onPress={deleteSelected} variant="danger" testID="selection-delete" />
           </View>
+          <CategorySheet
+            visible={choosingCategory}
+            title={strings.home.moveTo(selected.length)}
+            categories={categories}
+            onClose={() => setChoosingCategory(false)}
+            onChoose={(category) => {
+              setChoosingCategory(false);
+              void onSelection((cards) => moveToCategory(services.store, cards, category));
+            }}
+          />
         </View>
       ) : (
         <Fab label={strings.home.addCard} onPress={addCard} testID="add-card" />
@@ -330,42 +386,35 @@ function GalleryToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) 
   );
 }
 
-// The chosen home view, kept in settings so the app opens the way it was left.
-function useGalleryView(): [boolean, (on: boolean) => void] {
+// A choice kept in settings, so the home screen opens the way it was left: the view, the gallery's order.
+function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort', isValid: (v: unknown) => v is T, fallback: T) {
   const { services } = useApp();
-  const [gallery, setGallery] = useState(false);
+  const [value, setValue] = useState<T>(fallback);
   useEffect(() => {
     let live = true;
     services.settings
-      .get('homeView')
-      .then((value) => live && setGallery(value === 'gallery'))
+      .get(key)
+      .then((saved) => live && isValid(saved) && setValue(saved))
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [services]);
+    // isValid is a plain module-level check; it never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, key]);
   const change = useCallback(
-    (on: boolean) => {
-      setGallery(on);
-      services.settings.set('homeView', on ? 'gallery' : 'stack').catch((e) => console.warn('Saving the home view failed', e));
+    (next: T) => {
+      setValue(next);
+      services.settings.set(key, next).catch((e) => console.warn(`Saving ${key} failed`, e));
     },
-    [services],
+    [services, key],
   );
-  return [gallery, change];
+  return [value, change] as const;
 }
 
 const styles = StyleSheet.create({
-  selectionBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
+  selectionBar: { position: 'absolute', left: 0, right: 0, bottom: 0, gap: 10, paddingHorizontal: 16, paddingTop: 12 },
+  selectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   selectionCount: { flex: 1, fontSize: TYPE.secondary, fontWeight: '700' },
   selectionAction: { minWidth: 112 },
   inset: { paddingHorizontal: 16 },

@@ -39,7 +39,7 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 2. Search field (matches the name) and category filter.
 3. All other cards, alphabetical.
 
-A **gallery view** button in the header swaps the card stack for a two-column grid of every card (picture, name and category); the choice is remembered. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel and Delete. Delete asks once for all of them. Only cards still shown by the search and category filter are deleted.
+A **gallery view** button in the header swaps the card stack for a two-column grid of every card (picture, name and category); the choice is remembered. Chips above the grid sort it by name, expiry (soonest first, no date last) or newest, the sort is remembered, and **Expiring soon** narrows it to cards that are expired or due within the reminder window. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel, **Pin** (Unpin when every selected card is pinned), **Change category** and **Delete**. Delete asks once for all of them. Only cards still shown by the search and filters are acted on.
 
 Tap a card → **counter view**:
 

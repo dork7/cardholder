@@ -45,12 +45,16 @@ let mockLastExportAt: string | null = null;
 const mockSettingsSet = jest.fn(() => Promise.resolve());
 let mockHomeView: string | null = null;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
+const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
+const mockUpdate = jest.fn((_id: string, _fields: { category: string }) => Promise.resolve());
 const mockRefresh = jest.fn(() => Promise.resolve());
 // Stable across renders, as the real provider's services are.
 const mockServices = {
   store: {
     loadImage: () => Promise.resolve(null),
     remove: (id: string) => mockRemove(id),
+    setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
+    update: (id: string, fields: { category: string }) => mockUpdate(id, fields),
     count: () => Promise.resolve(mockCards.length),
     lastChangeAt: () => Promise.resolve(1_000),
   },
@@ -81,6 +85,8 @@ beforeEach(() => {
   mockPush.mockClear();
   mockSettingsSet.mockClear();
   mockRemove.mockClear();
+  mockSetPinned.mockClear();
+  mockUpdate.mockClear();
   mockRefresh.mockClear();
   mockHomeView = null;
   mockUnlocked = false;
@@ -366,5 +372,95 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
     await answer(strings.common.delete);
     expect(mockRemove.mock.calls.map(([id]) => id)).toEqual(['b']);
+  });
+
+  // The grid's cards, in the order shown.
+  const gridOrder = () => screen.getAllByTestId(/^grid-/).map((el) => el.props.testID.slice('grid-'.length));
+  const select = async (...ids: string[]) => {
+    await act(async () => fireEvent(screen.getByTestId(`grid-${ids[0]}`), 'longPress'));
+    for (const id of ids.slice(1)) await act(async () => fireEvent.press(screen.getByTestId(`grid-${id}`)));
+  };
+
+  test('sorts by name, expiry or newest, and remembers the choice', async () => {
+    await withCards(
+      [
+        makeCard({ id: 'a', name: 'Alpha', expiresOn: '2030-01-01', createdAt: 1 }),
+        makeCard({ id: 'b', name: 'Bravo', expiresOn: '2028-01-01', createdAt: 3 }),
+        makeCard({ id: 'c', name: 'Charlie', expiresOn: null, createdAt: 2 }),
+      ],
+      async () => {
+        await showGallery();
+        expect(gridOrder()).toEqual(['a', 'b', 'c']);
+        await act(async () => fireEvent.press(screen.getByTestId('sort-expiry')));
+        expect(gridOrder()).toEqual(['b', 'a', 'c']);
+        expect(mockSettingsSet).toHaveBeenLastCalledWith('gallerySort', 'expiry');
+        await act(async () => fireEvent.press(screen.getByTestId('sort-added')));
+        expect(gridOrder()).toEqual(['b', 'c', 'a']);
+      },
+    );
+  });
+
+  test('"Expiring soon" shows only cards that are expired or due within the reminder window', async () => {
+    const inDays = (days: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    await withCards(
+      [
+        makeCard({ id: 'soon', name: 'Soon', expiresOn: inDays(5) }),
+        makeCard({ id: 'late', name: 'Later', expiresOn: inDays(200) }),
+        makeCard({ id: 'gone', name: 'Gone', expiresOn: inDays(-3) }),
+        makeCard({ id: 'none', name: 'None' }),
+      ],
+      async () => {
+        await showGallery();
+        await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+        expect(gridOrder()).toEqual(['gone', 'soon']);
+        await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+        expect(gridOrder()).toHaveLength(4);
+      },
+    );
+  });
+
+  test('says so when nothing is expiring soon', async () => {
+    await showGallery();
+    await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+    expect(screen.getByText(strings.home.noneExpiring(30))).toBeTruthy();
+  });
+
+  test('pins the selected cards; when all are pinned, the same button unpins them', async () => {
+    await showGallery();
+    await select('a', 'c');
+    expect(screen.getByRole('button', { name: strings.home.pinSelected })).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByTestId('selection-pin')));
+    expect(mockSetPinned.mock.calls).toEqual([
+      ['a', true],
+      ['c', true],
+    ]);
+    expect(mockRefresh).toHaveBeenCalled();
+    expect(screen.queryByTestId('selection-bar')).toBeNull();
+  });
+
+  test('offers Unpin when every selected card is pinned', async () => {
+    await withCards([makeCard({ id: 'p', name: 'Pinned', pinned: true }), makeCard({ id: 'q', name: 'Other' })], async () => {
+      await showGallery();
+      await select('p');
+      await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.home.unpinSelected })));
+      expect(mockSetPinned).toHaveBeenCalledWith('p', false);
+    });
+  });
+
+  test('moves the selected cards to the category picked, leaving the rest', async () => {
+    await showGallery();
+    await select('a', 'b');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-category')));
+    expect(screen.getByText(strings.home.moveTo(2))).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByTestId('move-to-membership')));
+    expect(mockUpdate.mock.calls.map(([id, f]) => [id, f.category])).toEqual([
+      ['a', 'membership'],
+      ['b', 'membership'],
+    ]);
+    expect(screen.queryByTestId('selection-bar')).toBeNull();
   });
 });
