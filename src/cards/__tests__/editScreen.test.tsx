@@ -371,7 +371,7 @@ describe('reading the card from its photo', () => {
   };
 
   test('a picked photo fills name, expiry and category, marked as suggested, and they are saved', async () => {
-    mockAnalyze.mockResolvedValue({ ...emiratesId, category: { value: 'insurance', confidence: 0.8 } });
+    mockAnalyze.mockResolvedValue({ ...emiratesId, category: { value: 'insurance', confidence: 0.8 }, text: 'UNITED ARAB EMIRATES' });
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-library'));
     // With the AI model's reader, which suggests nothing until the user has downloaded the model.
@@ -380,9 +380,18 @@ describe('reading the card from its photo', () => {
     expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
     await save();
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', tags: [], documentKey: KEY, folderId: null },
+      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', tags: [], documentKey: KEY, folderId: null, readText: { front: 'UNITED ARAB EMIRATES', back: '' } },
       expect.anything(),
     );
+  });
+
+  test('keeps the text read off each side for search, and forgets a side whose photo is removed', async () => {
+    mockAnalyze.mockResolvedValueOnce({ text: 'FRONT TEXT' }).mockResolvedValueOnce({ text: 'BACK TEXT' });
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    await fireEvent.press(screen.getByTestId('back-library'));
+    await save();
+    expect(mockCreate.mock.calls.at(-1)?.[0].readText).toEqual({ front: 'FRONT TEXT', back: 'BACK TEXT' });
   });
 
   test('what the user typed is never replaced, even when the read finishes later', async () => {
@@ -408,7 +417,7 @@ describe('reading the card from its photo', () => {
     await save();
     expect(mockUpdate).toHaveBeenCalledWith(
       'c1',
-      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: [], documentKey: KEY, folderId: null }, // blanks filled
+      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: [], documentKey: KEY, folderId: null, readText: { front: '', back: '' } }, // blanks filled
       expect.anything(),
     );
   });

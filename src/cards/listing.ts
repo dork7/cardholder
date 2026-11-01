@@ -21,13 +21,24 @@ export function filterCards(
   filter: { query: string; category: CardCategory | null; folderId?: string | null },
 ): Card[] {
   const query = filter.query.trim().toLowerCase();
+  const compactQuery = compact(query);
   return cards.filter((card) => {
     if (filter.category && card.category !== filter.category) return false;
     if (filter.folderId && card.folderId !== filter.folderId) return false;
     if (query === '') return true;
-    return displayName(card).toLowerCase().includes(query);
+    if (displayName(card).toLowerCase().includes(query)) return true;
+    // Then what's printed on the card, e.g. the insurer or a policy number.
+    const text = card.readText ? `${card.readText.front}\n${card.readText.back}`.toLowerCase() : '';
+    if (text.includes(query)) return true;
+    // Numbers are written with spaces or dashes in different places; compare them without.
+    return compactQuery.length >= MIN_COMPACT_QUERY && compact(text).includes(compactQuery);
   });
 }
+
+// Letters and digits only, so "784-1990-1234567" and "7841990 1234567" compare equal.
+const compact = (s: string) => s.replace(/[^\p{L}\p{N}]/gu, '');
+// Shorter compacted queries would match by accident inside long numbers.
+const MIN_COMPACT_QUERY = 4;
 
 // How the gallery orders cards. "expiry" puts the soonest (or already expired) first and cards with no
 // date last; "added" puts the newest first. Ties fall back to the name.

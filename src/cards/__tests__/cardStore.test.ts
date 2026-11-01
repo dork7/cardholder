@@ -288,6 +288,7 @@ test('cards saved before number and notes were removed still load, without them'
     frontAspect: 1.586,
     backAspect: null,
     pdf: null, // saved before PDF cards existed
+    readText: null, // saved before card text was kept: read once, later
     createdAt: 1,
     updatedAt: 1,
   });
@@ -413,4 +414,13 @@ describe('categories', () => {
     expect((error as CategoryInUseError).cards.map((c) => c.name)).toEqual(['Boat', 'Mulkiya']);
     expect(await store.listCategories()).toContain('Vehicle');
   });
+});
+
+test('the text read off a card is sealed with it and comes back', async () => {
+  const { store } = await makeStore();
+  const readText = { front: 'DAMAN HEALTH INSURANCE', back: 'Policy 2025-ENH-00412' };
+  const card = await store.create(fields({ readText }), images('a'));
+  expect((await store.get(card.id))?.readText).toEqual(readText);
+  await store.update(card.id, fields({ readText: { front: 'NEW', back: '' } }));
+  expect((await store.get(card.id))?.readText).toEqual({ front: 'NEW', back: '' });
 });

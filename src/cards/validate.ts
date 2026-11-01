@@ -1,6 +1,6 @@
-import { MAX_TAGS, NAME_MAX_LENGTH, TAG_MAX_LENGTH } from '../config';
+import { MAX_TAGS, NAME_MAX_LENGTH, READ_TEXT_MAX_LENGTH, TAG_MAX_LENGTH } from '../config';
 import { isValidIsoDate } from '../time/dates';
-import { CardFields, toCategory } from './types';
+import { CardFields, CardText, toCategory } from './types';
 
 export type FieldError = 'name-too-long' | 'bad-category' | 'bad-expiry' | 'bad-tags';
 
@@ -12,6 +12,7 @@ export interface RawCardFields {
   tags?: unknown;
   documentKey?: unknown;
   folderId?: unknown;
+  readText?: unknown;
 }
 
 export type CardValidation = { ok: true; value: CardFields } | { ok: false; errors: FieldError[] };
@@ -51,6 +52,14 @@ function parseTags(v: unknown): string[] | null {
 
 const DOCUMENT_KEY = /^[0-9a-f]{64}$/;
 
+// Not typed by anyone either: anything malformed means "not read yet", and the card is read again.
+export function toCardText(v: unknown): CardText | null {
+  if (typeof v !== 'object' || v === null) return null;
+  const { front, back } = v as Record<string, unknown>;
+  if (typeof front !== 'string' || typeof back !== 'string') return null;
+  return { front: front.slice(0, READ_TEXT_MAX_LENGTH), back: back.slice(0, READ_TEXT_MAX_LENGTH) };
+}
+
 export function validateCardFields(raw: RawCardFields): CardValidation {
   const errors: FieldError[] = [];
 
@@ -70,5 +79,8 @@ export function validateCardFields(raw: RawCardFields): CardValidation {
   if (errors.length > 0 || !category || !tags) return { ok: false, errors };
   // Never typed by anyone, so a malformed one (from an edited backup, say) is just dropped.
   const documentKey = typeof raw.documentKey === 'string' && DOCUMENT_KEY.test(raw.documentKey) ? raw.documentKey : null;
-  return { ok: true, value: { name, category, expiresOn, tags, documentKey, folderId: toFolderId(raw.folderId) } };
+  return {
+    ok: true,
+    value: { name, category, expiresOn, tags, documentKey, folderId: toFolderId(raw.folderId), readText: toCardText(raw.readText) },
+  };
 }

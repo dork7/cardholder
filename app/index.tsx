@@ -12,6 +12,7 @@ import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery
 import { CardCategory } from '../src/cards/types';
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
+import { PdfUnavailableError, shareCards } from '../src/share/shareCard';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { CardGrid } from '../src/ui/CardGrid';
@@ -120,6 +121,25 @@ export default function Home() {
         onPress: () => onSelection((cards) => removeAll(services.store, cards)),
       },
     ]);
+
+  // One PDF of every selected card. An ID is worth a second thought before an unencrypted copy leaves
+  // the app, as on the card's own screen. Selection stays, so the same cards can be sent elsewhere.
+  const shareSelected = () => {
+    const picked = selected;
+    const go = () =>
+      shareCards(services.store, picked).catch((e) => {
+        console.warn('Share failed', e);
+        Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
+      });
+    if (picked.some((c) => c.category === 'id')) {
+      Alert.alert(strings.home.shareIdsTitle, strings.home.shareIdsBody, [
+        { text: strings.common.cancel, style: 'cancel' },
+        { text: strings.card.share, onPress: () => void go() },
+      ]);
+    } else {
+      void go();
+    }
+  };
 
   const sortChips = [
     ...([
@@ -261,6 +281,13 @@ export default function Home() {
               label={strings.home.categorySelected}
               onPress={() => setChoosingCategory(true)}
               testID="selection-category"
+            />
+            <IconButton
+              icon="share"
+              label={strings.home.shareSelected}
+              hint={strings.home.shareSelectedHint}
+              onPress={shareSelected}
+              testID="selection-share"
             />
             <IconButton icon="trash" label={strings.home.deleteSelected} onPress={deleteSelected} variant="danger" testID="selection-delete" />
           </View>

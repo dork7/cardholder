@@ -1,0 +1,7 @@
+{
+  "name": "home-widget",
+  "version": "0.1.0",
+  "description": "An Android home screen widget listing the pinned cards; each opens its card in the app.",
+  "license": "UNLICENSED",
+  "private": true
+}

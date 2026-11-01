@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- Exported so the launcher's widget host can reach it; it only redraws from what the app saved. -->
+    <receiver android:name="expo.modules.homewidget.CardsWidgetProvider" android:exported="true" android:label="@string/doc_keeper_widget_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/doc_keeper_cards_widget" />
+    </receiver>
+  </application>
+</manifest>

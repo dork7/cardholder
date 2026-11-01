@@ -4,7 +4,8 @@ import { CardStore } from '../cards/cardStore';
 import { displayName } from '../cards/display';
 import { Card } from '../cards/types';
 import { base64 } from '../crypto/bytes';
-import { imagesToPdf } from '../images/pdf';
+import { IMAGE_MAX_EDGE } from '../config';
+import { imagesToPdf, renderPages } from '../images/pdf';
 import { toIsoDate } from '../time/dates';
 
 const shareDir = () => new Directory(Paths.cache, 'share');
@@ -52,7 +53,7 @@ export async function shareCard(store: CardStore, card: Card): Promise<void> {
     if (combined) {
       const made = new File(await combined);
       try {
-        made.move(new File(shareDir(), `${base}.pdf`), { overwrite: true });
+        await made.move(new File(shareDir(), `${base}.pdf`), { overwrite: true });
         await Sharing.shareAsync(made.uri, PDF);
       } finally {
         if (made.exists) made.delete();
@@ -61,6 +62,50 @@ export async function shareCard(store: CardStore, card: Card): Promise<void> {
     }
     // No back, or a build without the PDF module: the front photo alone.
     await Sharing.shareAsync(frontFile.uri, JPEG);
+  } finally {
+    clearShareCache();
+  }
+}
+
+export class PdfUnavailableError extends Error {}
+
+// Several cards as one PDF, in the order given: each photo card's front then back, and every page of a
+// PDF card. Like shareCard, the copies are deleted once the share sheet closes. A single card is shared
+// as shareCard would.
+export async function shareCards(store: CardStore, cards: Card[]): Promise<void> {
+  if (cards.length === 1) return shareCard(store, cards[0]);
+  clearShareCache();
+  shareDir().create({ intermediates: true });
+  try {
+    const pages: string[] = [];
+    const addPage = async (jpegBase64: string) => {
+      pages.push((await writeShareFile(`page-${pages.length + 1}.jpg`, jpegBase64)).uri);
+    };
+    for (const card of cards) {
+      const pdf = card.pdf ? await store.loadPdf(card.id) : null;
+      if (card.pdf && pdf) {
+        const drawn: string[] = [];
+        await renderPages({ pdfBase64: pdf, pageCount: card.pdf.pageCount }, IMAGE_MAX_EDGE, (i, page) => {
+          drawn[i] = page.jpegBase64;
+        });
+        for (const page of drawn) await addPage(page);
+        continue;
+      }
+      const front = await store.loadImage(card.id, 'front');
+      if (front) await addPage(front);
+      const back = card.hasBack ? await store.loadImage(card.id, 'back') : null;
+      if (back) await addPage(back);
+    }
+    if (pages.length === 0) return;
+    const combined = imagesToPdf(pages);
+    if (!combined) throw new PdfUnavailableError('This build cannot make PDFs');
+    const made = new File(await combined);
+    try {
+      await made.move(new File(shareDir(), `DocKeeper-${cards.length}-cards.pdf`), { overwrite: true });
+      await Sharing.shareAsync(made.uri, PDF);
+    } finally {
+      if (made.exists) made.delete();
+    }
   } finally {
     clearShareCache();
   }

@@ -1,5 +1,15 @@
 import { frontImage, image, makeCard } from '../../../test/fixtures';
-import { acceptFolderOffer, applyAnalysis, applyFolderSuggestion, draftFor, editField, formFor, planSave } from '../editForm';
+import {
+  acceptFolderOffer,
+  applyAnalysis,
+  applyFolderSuggestion,
+  applyReadText,
+  draftFor,
+  editField,
+  formFor,
+  planSave,
+  removeReadSide,
+} from '../editForm';
 
 // The limit is switched off in the app for now; these tests keep its rules covered for when it returns.
 jest.mock('../../config', () => ({ ...jest.requireActual('../../config'), CARD_LIMIT_ENABLED: true }));
@@ -17,7 +27,7 @@ test('a valid new card within the free limit is created', () => {
   const plan = planSave({ ...draftFor(null), name: ' Gym ', category: 'membership', front }, free);
   expect(plan).toEqual({
     kind: 'create',
-    fields: { name: 'Gym', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null },
+    fields: { name: 'Gym', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null, readText: null },
     images: { front, back: null },
     newFolder: null,
   });
@@ -35,7 +45,7 @@ test('editing is never limited and sends no image changes when none were made', 
   expect(plan).toEqual({
     kind: 'update',
     id: 'c9',
-    fields: { name: 'New', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null },
+    fields: { name: 'New', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null, readText: null },
     changes: {},
     newFolder: null,
   });
@@ -72,6 +82,7 @@ test('draftFor fills from an existing card', () => {
     removePdf: false,
     tags: [],
     documentKey: null,
+    readText: null,
   });
 });
 
@@ -156,5 +167,32 @@ describe('folder suggestions', () => {
   test('picking a folder drops the offer and the suggested mark', () => {
     const offered = applyFolderSuggestion(formFor(null), { kind: 'new', name: 'IDs' });
     expect(editField(offered, { folderId: 'f2' })).toMatchObject({ folderOffer: null, folderSuggested: false });
+  });
+});
+
+describe('text read off the card, for search', () => {
+  test('each side is kept on its own; a card never read starts both blank', () => {
+    let form = formFor(null);
+    expect(form.draft.readText).toBeNull();
+    form = applyReadText(form, 'back', 'BACK');
+    expect(form.draft.readText).toEqual({ front: '', back: 'BACK' });
+    form = applyReadText(form, 'front', 'FRONT');
+    expect(form.draft.readText).toEqual({ front: 'FRONT', back: 'BACK' });
+  });
+
+  test('a new photo of one side replaces only that side', () => {
+    const form = formFor(makeCard({ readText: { front: 'OLD FRONT', back: 'OLD BACK' } }));
+    expect(applyReadText(form, 'front', 'NEW').draft.readText).toEqual({ front: 'NEW', back: 'OLD BACK' });
+  });
+
+  test('removing a side forgets its text', () => {
+    const form = formFor(makeCard({ readText: { front: 'F', back: 'B' } }));
+    expect(removeReadSide(form, 'back').draft.readText).toEqual({ front: 'F', back: '' });
+    expect(removeReadSide(formFor(null), 'back').draft.readText).toBeNull();
+  });
+
+  test('very long text is cut short', () => {
+    const form = applyReadText(formFor(null), 'front', 'x'.repeat(10_000));
+    expect(form.draft.readText?.front).toHaveLength(4000);
   });
 });

@@ -20,6 +20,11 @@ jest.mock('../../config', () =>
     get: () => mockFoldersEnabled,
   }),
 );
+const mockShareCards = jest.fn((_store: unknown, _cards: { id: string }[]) => Promise.resolve());
+jest.mock('../../share/shareCard', () => ({
+  PdfUnavailableError: class extends Error {},
+  shareCards: (store: unknown, cards: { id: string }[]) => mockShareCards(store, cards),
+}));
 jest.mock('expo-notifications', () => ({ useLastNotificationResponse: () => null }));
 jest.mock('expo-quick-actions/hooks', () => ({ useQuickActionCallback: () => {} }));
 jest.mock('expo-router', () => {
@@ -85,6 +90,7 @@ beforeEach(() => {
   mockPush.mockClear();
   mockSettingsSet.mockClear();
   mockRemove.mockClear();
+  mockShareCards.mockClear();
   mockSetPinned.mockClear();
   mockUpdate.mockClear();
   mockRefresh.mockClear();
@@ -462,5 +468,25 @@ describe('gallery view', () => {
       ['b', 'membership'],
     ]);
     expect(screen.queryByTestId('selection-bar')).toBeNull();
+  });
+
+  test('shares the selected cards together, in the order shown, and keeps the selection', async () => {
+    await showGallery();
+    await select('c', 'b');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
+    // Gym and Health insurance: no ID, so no warning first.
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['c', 'b']);
+    expect(screen.getByTestId('selection-bar')).toBeTruthy();
+  });
+
+  test('asks first when an ID is among them', async () => {
+    await showGallery();
+    await select('a', 'b');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
+    expect(alert).toHaveBeenCalledWith(strings.home.shareIdsTitle, strings.home.shareIdsBody, expect.any(Array));
+    expect(mockShareCards).not.toHaveBeenCalled();
+    await answer(strings.card.share);
+    expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
   });
 });
