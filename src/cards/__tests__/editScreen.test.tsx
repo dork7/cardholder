@@ -417,7 +417,7 @@ describe('reading the card from its photo', () => {
     await save();
     expect(mockUpdate).toHaveBeenCalledWith(
       'c1',
-      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: [], documentKey: KEY, folderId: null, readText: { front: '', back: '' } }, // blanks filled
+      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', tags: [], documentKey: KEY, folderId: null, readText: null }, // blanks filled; the card was never read, so it's read in full later
       expect.anything(),
     );
   });
