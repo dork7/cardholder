@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- The app's light palette (src/ui/theme.ts). -->
+  <color name="doc_keeper_widget_bg">#FFFFFF</color>
+  <color name="doc_keeper_widget_row">#F4F4F4</color>
+  <color name="doc_keeper_widget_text">#121212</color>
+  <color name="doc_keeper_widget_muted">#5E5E5E</color>
+  <color name="doc_keeper_widget_accent">#8A5A00</color>
+  <color name="doc_keeper_widget_on_accent">#FFFFFF</color>
+  <color name="doc_keeper_widget_danger">#C2283A</color>
+
+  <string name="doc_keeper_widget_label">Pinned cards</string>
+  <string name="doc_keeper_widget_description">Your pinned cards, one tap away</string>
+  <string name="doc_keeper_widget_title">Doc Keeper</string>
+  <string name="doc_keeper_widget_add">Add card</string>
+  <string name="doc_keeper_widget_empty">Open Doc Keeper and pin cards to see them here.</string>
+  <string name="doc_keeper_widget_locked">Locked. Tap to open.</string>
+</resources>

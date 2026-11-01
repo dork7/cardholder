@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- The app's dark palette (src/ui/theme.ts). -->
+  <color name="doc_keeper_widget_bg">#121212</color>
+  <color name="doc_keeper_widget_row">#1F1F1F</color>
+  <color name="doc_keeper_widget_text">#FDFDFD</color>
+  <color name="doc_keeper_widget_muted">#B3B3B3</color>
+  <color name="doc_keeper_widget_accent">#F5B83D</color>
+  <color name="doc_keeper_widget_on_accent">#000000</color>
+  <color name="doc_keeper_widget_danger">#F3727F</color>
+</resources>

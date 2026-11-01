@@ -42,3 +42,6 @@ yarn-error.*
 
 # local test data (card photos etc.), never committed
 /dataSet
+
+# Gradle output of the local native modules
+modules/*/android/build/

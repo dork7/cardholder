@@ -247,6 +247,9 @@ export const strings = {
     },
     license: 'Model: Gemma 3 270M by Google, under the Gemma Terms of Use.',
   },
+  widget: {
+    expired: (date: string) => `Expired ${date}`,
+  },
   update: {
     title: 'App updates',
     about: 'Checks GitHub for a newer version of Doc Keeper. Nothing about your cards is sent.',

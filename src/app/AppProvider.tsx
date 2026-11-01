@@ -11,6 +11,7 @@ import { syncReminders } from '../reminders/scheduler';
 import { loadAppLock, saveAppLock } from '../security/appLock';
 import { syncShortcuts } from '../shortcuts/quickActions';
 import { AppearancePref, applyAppearance, loadAppearance, saveAppearance } from '../ui/appearance';
+import { syncWidget } from '../widget/homeWidget';
 import { createFileBlobStore } from '../storage/fileBlobStore';
 import { toIsoDate } from '../time/dates';
 import { openDatabase } from '../storage/openDatabase';
@@ -157,6 +158,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (services) await coordinator.load(() => readSnapshot(services));
   }, [coordinator, services]);
   const clearOpenImport = useCallback(() => setOpenImportOnReady(false), []);
+
+  // The home screen widget follows the pinned cards and app lock. Only once the cards are open: before
+  // that the list is empty, and the widget would lose its cards on every launch.
+  useEffect(() => {
+    if (!services) return;
+    try {
+      syncWidget(cards, appLock);
+    } catch (e) {
+      console.warn('Widget sync failed', e);
+    }
+  }, [services, cards, appLock]);
 
   // Once per launch, after the cards are open: read the cards saved before their text was kept, so
   // search can find them by what's printed on them (see readBackfill.ts).
