@@ -12,6 +12,7 @@ export interface EditDraft {
   documentKey: string | null;
   folderId: string | null;
   readText: CardText | null; // see CardFields; set as each photo is read
+  unreadSides: (keyof CardText)[]; // sides with a photo not read yet; saved as unread so it's read later
   newFolderName: string | null; // a folder to create on save and put the card in; folderId is then null
   front: FrontImage | null; // newly captured only; for a PDF, its cover page
   back: CardImage | null; // newly captured only
@@ -38,6 +39,8 @@ export function draftFor(card: Card | null, defaultCategory: CardCategory = 'id'
     documentKey: card?.documentKey ?? null,
     folderId: card?.folderId ?? null,
     readText: card?.readText ?? null,
+    // A card never read is read in full later (readUnreadCards), so reading one side now isn't enough.
+    unreadSides: card && card.readText === null ? ['front', 'back'] : [],
     newFolderName: null,
     front: null,
     back: null,
@@ -56,6 +59,9 @@ export function planSave(
   if (!ctx.existing && !draft.front) errors.push('front-required');
   if (!validation.ok || errors.length > 0) return { kind: 'invalid', errors };
 
+  // Text from an older photo is never kept for a new one; a side not read yet leaves the card unread.
+  const fields = { ...validation.value, readText: draft.unreadSides.length > 0 ? null : validation.value.readText };
+
   if (ctx.existing) {
     const changes: ImageChanges = {};
     if (draft.front) changes.front = draft.front;
@@ -63,14 +69,14 @@ export function planSave(
     else if (draft.removeBack) changes.back = null;
     if (draft.pdf) changes.pdf = draft.pdf;
     else if (draft.removePdf) changes.pdf = null;
-    return { kind: 'update', id: ctx.existing.id, fields: validation.value, changes, newFolder: draft.newFolderName };
+    return { kind: 'update', id: ctx.existing.id, fields, changes, newFolder: draft.newFolderName };
   }
 
   if (!canAddCard(ctx.cardCount, ctx.unlocked)) return { kind: 'limit-reached' };
   // front is non-null here: a missing front was reported as 'front-required' above.
   return {
     kind: 'create',
-    fields: validation.value,
+    fields,
     images: { front: draft.front as FrontImage, back: draft.back, ...(draft.pdf && { pdf: draft.pdf }) },
     newFolder: draft.newFolderName,
   };
@@ -109,9 +115,16 @@ export function editField(state: FormState, patch: Partial<EditDraft>): FormStat
   const folderChanged = 'folderId' in patch || 'newFolderName' in patch;
   if (folderChanged) fields.push('folder');
   const touched = [...state.touched, ...fields.filter((f) => !state.touched.includes(f))];
+  let draft = { ...state.draft, ...patch };
+  // A new photo's text isn't known until it is read (applyReadText).
+  for (const side of ['front', 'back'] as const) {
+    if (!patch[side]) continue;
+    draft = withSideText(draft, side, '');
+    if (!draft.unreadSides.includes(side)) draft = { ...draft, unreadSides: [...draft.unreadSides, side] };
+  }
   return {
     ...state,
-    draft: { ...state.draft, ...patch },
+    draft,
     suggested,
     touched,
     folderSuggested: folderChanged ? false : state.folderSuggested,
@@ -167,11 +180,17 @@ export function applyAnalysis(
 // Keeps what was read off one side, for search. A card that was never read starts with both sides blank;
 // a side whose photo is removed is blanked (removeReadSide).
 export function applyReadText(state: FormState, side: keyof CardText, text: string): FormState {
-  const readText = { ...(state.draft.readText ?? { front: '', back: '' }), [side]: text.slice(0, READ_TEXT_MAX_LENGTH) };
-  return { ...state, draft: { ...state.draft, readText } };
+  const draft = withSideText(state.draft, side, text.slice(0, READ_TEXT_MAX_LENGTH), { start: true });
+  return { ...state, draft: { ...draft, unreadSides: draft.unreadSides.filter((s) => s !== side) } };
 }
 
 export function removeReadSide(state: FormState, side: keyof CardText): FormState {
-  if (!state.draft.readText) return state;
-  return { ...state, draft: { ...state.draft, readText: { ...state.draft.readText, [side]: '' } } };
+  const draft = withSideText(state.draft, side, '');
+  return { ...state, draft: { ...draft, unreadSides: draft.unreadSides.filter((s) => s !== side) } };
+}
+
+// Sets one side's text; a card with no text yet only gets some when `start` is set.
+function withSideText(draft: EditDraft, side: keyof CardText, text: string, { start = false } = {}): EditDraft {
+  if (!draft.readText && !start) return draft;
+  return { ...draft, readText: { ...(draft.readText ?? { front: '', back: '' }), [side]: text } };
 }

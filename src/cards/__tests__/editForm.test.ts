@@ -83,6 +83,7 @@ test('draftFor fills from an existing card', () => {
     tags: [],
     documentKey: null,
     readText: null,
+    unreadSides: ['front', 'back'],
   });
 });
 
@@ -189,6 +190,35 @@ describe('text read off the card, for search', () => {
     const form = formFor(makeCard({ readText: { front: 'F', back: 'B' } }));
     expect(removeReadSide(form, 'back').draft.readText).toEqual({ front: 'F', back: '' });
     expect(removeReadSide(formFor(null), 'back').draft.readText).toBeNull();
+  });
+
+  test('a card saved before text was kept stays unread until every side is read', () => {
+    const card = makeCard({ hasBack: true, readText: null });
+    let form = editField(formFor(card), { back: image('new-back') });
+    form = applyReadText(form, 'back', 'BACK');
+    const ctx = { existing: card, cardCount: 1, unlocked: false };
+    expect(planSave(form.draft, ctx)).toMatchObject({ fields: { readText: null } });
+    form = applyReadText(editField(form, { front: frontImage('new-front') }), 'front', 'FRONT');
+    expect(planSave(form.draft, ctx)).toMatchObject({ fields: { readText: { front: 'FRONT', back: 'BACK' } } });
+  });
+
+  test("a new photo's text replaces the old one only once it's read; saved before that, the card is unread", () => {
+    const card = makeCard({ readText: { front: 'OLD', back: '' } });
+    const ctx = { existing: card, cardCount: 1, unlocked: false };
+    const form = editField(formFor(card), { front: frontImage('new') });
+    expect(form.draft.readText).toEqual({ front: '', back: '' });
+    expect(planSave(form.draft, ctx)).toMatchObject({ fields: { readText: null } });
+    expect(planSave(applyReadText(form, 'front', 'NEW').draft, ctx)).toMatchObject({
+      fields: { readText: { front: 'NEW', back: '' } },
+    });
+  });
+
+  test('a new card saved before its photo is read is left for reading later', () => {
+    const form = editField(formFor(null), { front: frontImage('f') });
+    expect(planSave(form.draft, free)).toMatchObject({ kind: 'create', fields: { readText: null } });
+    expect(planSave(applyReadText(form, 'front', 'F').draft, free)).toMatchObject({
+      fields: { readText: { front: 'F', back: '' } },
+    });
   });
 
   test('very long text is cut short', () => {
