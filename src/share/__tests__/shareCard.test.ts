@@ -1,7 +1,7 @@
 import * as Sharing from 'expo-sharing';
 import { makeCard } from '../../../test/fixtures';
 import { base64, utf8 } from '../../crypto/bytes';
-import { backupFileName, cardFileBase, shareBackupFile, shareCard } from '../shareCard';
+import { backupFileName, cardFileBase, PdfUnavailableError, shareBackupFile, shareCard, shareCards } from '../shareCard';
 
 // A tiny in-memory stand-in for the cache directory: enough to see what was written and cleaned up.
 const mockDisk = new Map<string, Uint8Array>();
@@ -38,7 +38,9 @@ jest.mock('expo-file-system', () => {
     delete() {
       mockDisk.delete(this.uri);
     }
-    move(to: { uri: string }) {
+    // Async, as in expo-file-system: a caller that doesn't wait shares a file that isn't there yet.
+    async move(to: { uri: string }) {
+      await Promise.resolve();
       mockDisk.set(to.uri, mockDisk.get(this.uri) as Uint8Array);
       mockDisk.delete(this.uri);
       this.uri = to.uri;
@@ -55,6 +57,10 @@ jest.mock('../../images/pdf', () => ({
     const out = 'cache/pdf-made.pdf';
     mockDisk.set(out, new TextEncoder().encode(`PDF:${uris.join('+')}`));
     return Promise.resolve(out);
+  },
+  // Each page of a PDF card drawn as a JPEG marker naming its page.
+  renderPages: async (pdf: { pageCount: number }, _edge: number, onPage: (i: number, img: { jpegBase64: string }) => void) => {
+    for (let i = 0; i < pdf.pageCount; i++) onPage(i, { jpegBase64: Buffer.from(`JPEG:pdf-page-${i + 1}`).toString('base64') });
   },
 }));
 
@@ -147,4 +153,57 @@ test('the backup copy is removed even when sharing fails', async () => {
   shareAsync.mockRejectedValue(new Error('no share sheet'));
   await expect(shareBackupFile(utf8.encode('x'), new Date())).rejects.toThrow('no share sheet');
   expect(mockDisk.size).toBe(0);
+});
+
+describe('sharing several cards', () => {
+  const madeFrom = () => new TextDecoder().decode(shared?.bytes).replace('PDF:', '').split('+');
+
+  test('one PDF with every side of every card, in the order picked', async () => {
+    (store.loadImage as jest.Mock).mockImplementation((id: string, side: string) =>
+      Promise.resolve(base64.encode(utf8.encode(`JPEG:${id}-${side}`))),
+    );
+    await shareCards(store, [
+      makeCard({ id: 'a', name: 'Gym', hasBack: true, backAspect: 1.586 }),
+      makeCard({ id: 'b', name: 'Policy', pdf: { pageCount: 2, coverPage: 0 } }),
+      makeCard({ id: 'c', name: 'Library' }),
+    ]);
+    expect(shareAsync).toHaveBeenCalledWith('cache/share/DocKeeper-3-cards.pdf', PDF);
+    expect(madeFrom()).toEqual(['1', '2', '3', '4', '5'].map((n) => `cache/share/page-${n}.jpg`));
+    expect(mockDisk.size).toBe(0);
+  });
+
+  test('pages come from the right places: photos, then each page of a PDF card', async () => {
+    const written: string[] = [];
+    shareAsync.mockImplementation(async () => {
+      for (const [uri, bytes] of mockDisk) if (uri.endsWith('.jpg')) written.push(`${uri}=${utf8.decode(bytes)}`);
+    });
+    (store.loadImage as jest.Mock).mockImplementation((id: string, side: string) =>
+      Promise.resolve(base64.encode(utf8.encode(`JPEG:${id}-${side}`))),
+    );
+    await shareCards(store, [makeCard({ id: 'a', hasBack: true, backAspect: 1.586 }), makeCard({ id: 'b', pdf: { pageCount: 2, coverPage: 0 } })]);
+    expect(written.sort()).toEqual([
+      'cache/share/page-1.jpg=JPEG:a-front',
+      'cache/share/page-2.jpg=JPEG:a-back',
+      'cache/share/page-3.jpg=JPEG:pdf-page-1',
+      'cache/share/page-4.jpg=JPEG:pdf-page-2',
+    ]);
+  });
+
+  test('a single card is shared as on its own screen', async () => {
+    await shareCards(store, [makeCard({ name: 'Gym' })]);
+    expect(shareAsync).toHaveBeenCalledWith('cache/share/Gym-front.jpg', expect.anything());
+  });
+
+  test('without the PDF module it says so instead of sharing part of the selection', async () => {
+    mockPdfAvailable = false;
+    await expect(shareCards(store, [makeCard({ id: 'a' }), makeCard({ id: 'b' })])).rejects.toBeInstanceOf(PdfUnavailableError);
+    expect(shareAsync).not.toHaveBeenCalled();
+    expect(mockDisk.size).toBe(0);
+  });
+
+  test('the copies are removed even when sharing fails', async () => {
+    shareAsync.mockRejectedValue(new Error('no share sheet'));
+    await expect(shareCards(store, [makeCard({ id: 'a' }), makeCard({ id: 'b' })])).rejects.toThrow('no share sheet');
+    expect(mockDisk.size).toBe(0);
+  });
 });

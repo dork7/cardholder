@@ -1,5 +1,8 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { analyzeText } from '../analysis/analyze';
+import { canReadText, cardTextRecognizer } from '../analysis/recognizer';
 import { categoryOptions } from '../cards/categories';
+import { readUnreadCards } from '../cards/readBackfill';
 import { Card, CardCategory, Folder } from '../cards/types';
 import { secureVault } from '../crypto/secureVault';
 import { DEFAULT_HOME_FOLDERS, HomeFolderOptions, loadHomeFolders, saveHomeFolders } from '../folders/homeOptions';
@@ -9,6 +12,7 @@ import { loadAppLock, saveAppLock } from '../security/appLock';
 import { syncShortcuts } from '../shortcuts/quickActions';
 import { AppearancePref, applyAppearance, loadAppearance, saveAppearance } from '../ui/appearance';
 import { createFileBlobStore } from '../storage/fileBlobStore';
+import { toIsoDate } from '../time/dates';
 import { openDatabase } from '../storage/openDatabase';
 import { boot, BootDeps, bootFresh, Services } from './boot';
 import { AppSnapshot, createRefreshCoordinator } from './refreshCoordinator';
@@ -153,6 +157,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (services) await coordinator.load(() => readSnapshot(services));
   }, [coordinator, services]);
   const clearOpenImport = useCallback(() => setOpenImportOnReady(false), []);
+
+  // Once per launch, after the cards are open: read the cards saved before their text was kept, so
+  // search can find them by what's printed on them (see readBackfill.ts).
+  const readingOldCards = useRef(false);
+  useEffect(() => {
+    if (!services || !canReadText || readingOldCards.current) return;
+    readingOldCards.current = true;
+    const read = async (jpegBase64: string) =>
+      analyzeText(await cardTextRecognizer.recognize(jpegBase64), toIsoDate(new Date())).text ?? '';
+    readUnreadCards(services.store, read)
+      .then((updated) => (updated > 0 ? refresh() : undefined))
+      .catch((e) => console.warn('Reading saved cards failed', e));
+  }, [services, refresh]);
   const setAppearance = useCallback(
     async (pref: AppearancePref) => {
       // Applied first so the switch is instant; a failed save only means it isn't remembered.

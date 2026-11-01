@@ -33,6 +33,14 @@ export interface CardFields {
   tags: string[]; // free-form, deduplicated ignoring case; [] when there are none
   documentKey: string | null; // hash of the document's own number, for spotting duplicates (src/analysis/documentKey.ts)
   folderId: string | null; // null when the card isn't in a folder
+  readText: CardText | null; // what was read off the photos, for search; null until the card has been read
+}
+
+// The text on each side of a card, as card reading found it ('' when nothing was read). Sealed with the
+// rest of the card and searched, never shown.
+export interface CardText {
+  front: string;
+  back: string;
 }
 
 // A user-made group of cards. Its name is sealed like a card's; the id is random.

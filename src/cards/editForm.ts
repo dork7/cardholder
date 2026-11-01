@@ -1,6 +1,7 @@
 import { FolderSuggestion } from '../folders/suggest';
 import { canAddCard } from '../purchases/limits';
-import { Card, CardCategory, CardFields, CardImage, FrontImage, ImageChanges, NewCardImages, PdfDocument } from './types';
+import { READ_TEXT_MAX_LENGTH } from '../config';
+import { Card, CardCategory, CardFields, CardImage, CardText, FrontImage, ImageChanges, NewCardImages, PdfDocument } from './types';
 import { FieldError, validateCardFields } from './validate';
 
 export interface EditDraft {
@@ -10,6 +11,7 @@ export interface EditDraft {
   tags: string[]; // no longer shown or edited; kept so a card's saved tags survive an edit
   documentKey: string | null;
   folderId: string | null;
+  readText: CardText | null; // see CardFields; set as each photo is read
   newFolderName: string | null; // a folder to create on save and put the card in; folderId is then null
   front: FrontImage | null; // newly captured only; for a PDF, its cover page
   back: CardImage | null; // newly captured only
@@ -35,6 +37,7 @@ export function draftFor(card: Card | null, defaultCategory: CardCategory = 'id'
     tags: card?.tags ?? [],
     documentKey: card?.documentKey ?? null,
     folderId: card?.folderId ?? null,
+    readText: card?.readText ?? null,
     newFolderName: null,
     front: null,
     back: null,
@@ -159,4 +162,16 @@ export function applyAnalysis(
     suggested = { ...suggested, [field]: guess.confidence };
   }
   return { ...state, draft, suggested };
+}
+
+// Keeps what was read off one side, for search. A card that was never read starts with both sides blank;
+// a side whose photo is removed is blanked (removeReadSide).
+export function applyReadText(state: FormState, side: keyof CardText, text: string): FormState {
+  const readText = { ...(state.draft.readText ?? { front: '', back: '' }), [side]: text.slice(0, READ_TEXT_MAX_LENGTH) };
+  return { ...state, draft: { ...state.draft, readText } };
+}
+
+export function removeReadSide(state: FormState, side: keyof CardText): FormState {
+  if (!state.draft.readText) return state;
+  return { ...state, draft: { ...state.draft, readText: { ...state.draft.readText, [side]: '' } } };
 }

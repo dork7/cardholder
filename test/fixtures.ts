@@ -16,6 +16,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
     tags: [],
     documentKey: null,
     folderId: null,
+    readText: null,
     pinned: false,
     position: 0,
     hasBack: false,
@@ -29,7 +30,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
 }
 
 export function fields(overrides: Partial<CardFields> = {}): CardFields {
-  return { name: 'Gym', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null, ...overrides };
+  return { name: 'Gym', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null, readText: null, ...overrides };
 }
 
 // Fake "JPEGs": readable markers so tests can check what came back and that nothing leaks.
@@ -57,7 +58,14 @@ export function backupSnapshot(): BackupSnapshot {
     formatVersion: 1,
     exportedAt: 1_700_000_000_000,
     cards: [
-      importEntry('card1', { name: 'Emirates ID', category: 'id', expiresOn: '2027-03-01', tags: ['Government'], pinned: true }),
+      importEntry('card1', {
+        name: 'Emirates ID',
+        category: 'id',
+        expiresOn: '2027-03-01',
+        tags: ['Government'],
+        pinned: true,
+        readText: { front: 'UNITED ARAB EMIRATES', back: '' },
+      }),
       importEntry('card2', { name: 'Gym', pinned: false, position: 0 }, true),
     ],
     folders: [],

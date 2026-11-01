@@ -11,6 +11,8 @@ import { findDuplicate } from '../../src/cards/duplicates';
 import {
   acceptFolderOffer,
   applyAnalysis,
+  applyReadText,
+  removeReadSide,
   applyFolderSuggestion,
   editField,
   EditDraft,
@@ -146,6 +148,7 @@ export default function EditCard() {
       if (covers.current !== cover) return;
       reads.current.back++; // drop a read of the back photo being removed
       update({ pdf, front, back: null, removeBack: !!existing?.hasBack, removePdf: false });
+      setForm((f) => removeReadSide(f, 'back'));
       setOriginal('front', null);
       setOriginal('back', null);
       readCard('front', front.jpegBase64);
@@ -183,7 +186,7 @@ export default function EditCard() {
         // A category the user has deleted isn't suggested back.
         if (analysis.category && !categories.includes(analysis.category.value)) analysis = { ...analysis, category: undefined };
         setForm((f) => {
-          const read = applyAnalysis(f, analysis);
+          const read = applyReadText(applyAnalysis(f, analysis), side, analysis.text ?? '');
           return FOLDERS_ENABLED ? applyFolderSuggestion(read, suggestFolder(analysis, folders)) : read;
         });
       })
@@ -199,6 +202,7 @@ export default function EditCard() {
   const removeBack = () => {
     reads.current.back++; // drop a read of the photo being removed
     update({ back: null, removeBack: true });
+    setForm((f) => removeReadSide(f, 'back'));
     setOriginal('back', null);
   };
 

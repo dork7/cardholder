@@ -83,3 +83,36 @@ test('expiring soon means expired, due today, or due within the reminder window'
   expect(on('2027-01-31')).toBe(false);
   expect(on(null)).toBe(false);
 });
+
+describe('search by what is printed on the card', () => {
+  const cards = [
+    makeCard({
+      id: 'eid',
+      name: 'My ID',
+      readText: { front: 'UNITED ARAB EMIRATES\nID Number 784-1990-1234567-1', back: 'Employer: ACME LLC' },
+    }),
+    makeCard({ id: 'ins', name: 'Insurance', readText: { front: 'DAMAN HEALTH INSURANCE\nPolicy No: 2025-ENH-00412', back: '' } }),
+    makeCard({ id: 'old', name: 'Gym', readText: null }), // saved before text was kept
+  ];
+  const find = (query: string) => filterCards(cards, { query, category: null }).map((c) => c.id);
+
+  test('finds a card by a word on either side, ignoring case', () => {
+    expect(find('daman')).toEqual(['ins']);
+    expect(find('acme')).toEqual(['eid']);
+  });
+
+  test('finds numbers however the spaces and dashes are typed', () => {
+    expect(find('784-1990')).toEqual(['eid']);
+    expect(find('78419901234567')).toEqual(['eid']);
+    expect(find('2025 ENH 00412')).toEqual(['ins']);
+  });
+
+  test('short compacted queries do not match by accident inside numbers', () => {
+    expect(find('9-9')).toEqual([]);
+  });
+
+  test('the name still matches, and a card that was never read is found by name', () => {
+    expect(find('gym')).toEqual(['old']);
+    expect(find('my id')).toEqual(['eid']);
+  });
+});

@@ -4,6 +4,7 @@ import { engine } from '../crypto/engine';
 import { BlobStore } from '../storage/blobStore';
 import { SqlDb } from '../storage/sqlDb';
 import { sortCards } from './listing';
+import { toCardText } from './validate';
 import { Card, CardCategory, CardFields, CardPdf, CATEGORIES, Folder, ImageChanges, ImageSide, NewCardImages, PdfDocument, toCategory } from './types';
 
 export class FolderNotFoundError extends Error {
@@ -125,6 +126,7 @@ export function createCardStore({
       frontAspect: card.frontAspect,
       backAspect: card.backAspect,
       pdf: card.pdf,
+      readText: card.readText,
     };
     return aead.seal(utf8.encode(JSON.stringify(payload)));
   };
@@ -142,6 +144,7 @@ export function createCardStore({
       frontAspect: payload.frontAspect,
       backAspect: payload.backAspect,
       pdf: isCardPdf(payload.pdf) ? payload.pdf : null,
+      readText: toCardText(payload.readText), // null for cards saved before text was kept
       id: row.id,
       pinned: row.pinned === 1,
       position: row.position,
