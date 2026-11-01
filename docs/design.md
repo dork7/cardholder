@@ -36,10 +36,10 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 **Home screen** (the app opens straight to it):
 
 1. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New cards are pinned by default (appended to the end).
-2. Search field (matches the name) and category filter.
+2. Search field and category filter. Search matches the name and the text read off the card's photos (kept sealed with the card, carried in backups; numbers match whatever spaces or dashes are typed). Cards saved before the text was kept are read once, in the background, after the app opens.
 3. All other cards, alphabetical.
 
-A **gallery view** button in the header swaps the card stack for a two-column grid of every card (picture, name and category); the choice is remembered. Chips above the grid sort it by name, expiry (soonest first, no date last) or newest, the sort is remembered, and **Expiring soon** narrows it to cards that are expired or due within the reminder window. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel, **Pin** (Unpin when every selected card is pinned), **Change category** and **Delete**. Delete asks once for all of them. Only cards still shown by the search and filters are acted on.
+A **gallery view** button in the header swaps the card stack for a two-column grid of every card (picture, name and category); the choice is remembered. Chips above the grid sort it by name, expiry (soonest first, no date last) or newest, the sort is remembered, and **Expiring soon** narrows it to cards that are expired or due within the reminder window. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel, **Pin** (Unpin when every selected card is pinned), **Change category**, **Quick share** and **Delete**. Quick share sends the selected cards as one PDF in the order shown (each photo card's sides, every page of a PDF card), asking first when an ID is among them. Delete asks once for all of them. Only cards still shown by the search and filters are acted on.
 
 Tap a card → **counter view**:
 
