@@ -10,6 +10,7 @@ export type SettingKey =
   | 'appLock'
   | 'homeFolderFilter'
   | 'homeManageFolders'
+  | 'cardBrightness'
   | 'categories'; // written by the card store, sealed
 
 export interface Settings {

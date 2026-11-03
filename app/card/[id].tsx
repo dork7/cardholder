@@ -21,7 +21,7 @@ import { strings } from '../../src/strings';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cards, services, refresh } = useApp();
+  const { cards, services, refresh, cardBrightness } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -32,7 +32,7 @@ export default function CardView() {
   const [staff, setStaff] = useState(false);
   const [holdHint, setHoldHint] = useState(false);
 
-  useMaxBrightness();
+  useMaxBrightness(cardBrightness);
   useAllowLandscape();
 
   useEffect(() => {

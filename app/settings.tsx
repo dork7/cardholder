@@ -25,7 +25,7 @@ import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 
 export default function SettingsScreen() {
-  const { services, appLock, setAppLock, homeFolders, setHomeFolders } = useApp();
+  const { services, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const [lastExportAt, setLastExportAt] = useState<number | null>(null);
@@ -68,6 +68,15 @@ export default function SettingsScreen() {
             onChange={(on) => void toggleLock(on)}
             disabled={changingLock}
             testID="app-lock-switch"
+          />
+        </Section>
+        <Section title={strings.settings.cardView}>
+          <SwitchRow
+            label={strings.settings.fullBrightness}
+            hint={strings.settings.fullBrightnessHint}
+            value={cardBrightness}
+            onChange={(on) => void setCardBrightness(on).catch(() => {})}
+            testID="card-brightness-switch"
           />
         </Section>
         {canReadText && <AiSection />}

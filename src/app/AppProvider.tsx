@@ -11,6 +11,7 @@ import { syncReminders } from '../reminders/scheduler';
 import { loadAppLock, saveAppLock } from '../security/appLock';
 import { syncShortcuts } from '../shortcuts/quickActions';
 import { AppearancePref, applyAppearance, loadAppearance, saveAppearance } from '../ui/appearance';
+import { loadCardBrightness, saveCardBrightness } from '../ui/cardBrightness';
 import { syncWidget } from '../widget/homeWidget';
 import { createFileBlobStore } from '../storage/fileBlobStore';
 import { toIsoDate } from '../time/dates';
@@ -48,6 +49,9 @@ export interface AppContextValue {
   setAppLock(on: boolean): Promise<void>;
   homeFolders: HomeFolderOptions;
   setHomeFolders(options: HomeFolderOptions): Promise<void>;
+  // Whether the counter view turns the screen all the way up.
+  cardBrightness: boolean;
+  setCardBrightness(on: boolean): Promise<void>;
 }
 
 const BootContext = createContext<BootContextValue | null>(null);
@@ -73,6 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [appearance, setAppearanceState] = useState<AppearancePref>('system');
   const [appLock, setAppLockState] = useState(false);
   const [homeFolders, setHomeFoldersState] = useState<HomeFolderOptions>(DEFAULT_HOME_FOLDERS);
+  const [cardBrightness, setCardBrightnessState] = useState(true);
   const depsRef = useRef<BootDeps | null>(null);
   const bootingRef = useRef(false);
   const phaseRef = useRef(phase);
@@ -106,6 +111,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // means locked: the lock only ever errs towards asking.
     setAppLockState(await loadAppLock(services.settings).catch(() => true));
     setHomeFoldersState(await loadHomeFolders(services.settings).catch(() => DEFAULT_HOME_FOLDERS));
+    setCardBrightnessState(await loadCardBrightness(services.settings).catch(() => true));
   }, []);
 
   const runBoot = useCallback(async () => {
@@ -209,6 +215,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [services],
   );
 
+  const setCardBrightness = useCallback(
+    async (on: boolean) => {
+      // Shown at once; a failed save only means it isn't remembered.
+      setCardBrightnessState(on);
+      if (services) await saveCardBrightness(services.settings, on);
+    },
+    [services],
+  );
+
   const categories = useMemo(() => categoryOptions(savedCategories, cards), [savedCategories, cards]);
 
   const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
@@ -231,6 +246,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setAppLock,
             homeFolders,
             setHomeFolders,
+            cardBrightness,
+            setCardBrightness,
           }
         : null,
     [
@@ -248,6 +265,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAppLock,
       homeFolders,
       setHomeFolders,
+      cardBrightness,
+      setCardBrightness,
     ],
   );
 

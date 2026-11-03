@@ -28,6 +28,7 @@ const mockSetAppLock = jest.fn(async (on: boolean) => {
   mockAppLock = on;
 });
 const mockSetHomeFolders = jest.fn(() => Promise.resolve());
+const mockSetCardBrightness = jest.fn(() => Promise.resolve());
 const mockServices = { settings: { getNumber: () => Promise.resolve(null) } };
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
@@ -36,6 +37,8 @@ jest.mock('../../app/AppProvider', () => ({
     setAppLock: mockSetAppLock,
     homeFolders: { filter: true, manage: true },
     setHomeFolders: mockSetHomeFolders,
+    cardBrightness: true,
+    setCardBrightness: mockSetCardBrightness,
   }),
 }));
 
@@ -101,4 +104,14 @@ test('with folders hidden, settings has no folder options', async () => {
   await render(<SettingsScreen />);
   expect(screen.queryByTestId('home-folder-filter-switch')).toBeNull();
   expect(screen.queryByTestId('manage-folders')).toBeNull();
+});
+
+test('full brightness for an open card can be turned off and back on', async () => {
+  await render(<SettingsScreen />);
+  const toggle = screen.getByTestId('card-brightness-switch');
+  expect(toggle.props.value).toBe(true);
+  await fireEvent(toggle, 'valueChange', false);
+  expect(mockSetCardBrightness).toHaveBeenCalledWith(false);
+  await fireEvent(toggle, 'valueChange', true);
+  expect(mockSetCardBrightness).toHaveBeenCalledWith(true);
 });

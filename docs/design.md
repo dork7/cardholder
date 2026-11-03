@@ -44,7 +44,7 @@ A **gallery view** button in the header swaps the card stack for a two-column gr
 Tap a card → **counter view**:
 
 - Full-screen.
-- Brightness to maximum; restored on exit and when the app is backgrounded.
+- Brightness to maximum; restored on exit and when the app is backgrounded. A **Full brightness** switch in Settings (on by default) turns this off.
 - Screen kept awake.
 - Front and back shown together, one above the other, when a back exists.
 - Pinch to zoom.
