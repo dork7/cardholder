@@ -83,8 +83,10 @@ test('draftFor fills from an existing card', () => {
     tags: [],
     documentKey: null,
     readText: null,
-    unreadSides: ['front', 'back'],
+    unreadSides: ['front'],
   });
+  expect(draftFor(makeCard({ hasBack: true })).unreadSides).toEqual(['front', 'back']);
+  expect(draftFor(makeCard({ readText: { front: 'F', back: '' } })).unreadSides).toEqual([]);
 });
 
 describe('suggestions from the photo', () => {
@@ -190,6 +192,26 @@ describe('text read off the card, for search', () => {
     const form = formFor(makeCard({ readText: { front: 'F', back: 'B' } }));
     expect(removeReadSide(form, 'back').draft.readText).toEqual({ front: 'F', back: '' });
     expect(removeReadSide(formFor(null), 'back').draft.readText).toBeNull();
+  });
+
+  test('removing a replacement that was never read leaves the card readable', () => {
+    const card = makeCard({ hasBack: true, readText: { front: 'F', back: 'OLD' } });
+    const replaced = editField(formFor(card), { back: image('new-back') });
+    const removed = removeReadSide(replaced, 'back');
+    const ctx = { existing: card, cardCount: 1, unlocked: false };
+    expect(planSave({ ...removed.draft, back: null, removeBack: true }, ctx)).toMatchObject({
+      fields: { readText: { front: 'F', back: '' } },
+      changes: { back: null },
+    });
+  });
+
+  test('a front-only card never read is saved once its photo is read', () => {
+    const card = makeCard({ hasBack: false, readText: null });
+    const ctx = { existing: card, cardCount: 1, unlocked: false };
+    expect(planSave(formFor(card).draft, ctx)).toMatchObject({ fields: { readText: null } });
+    expect(planSave(applyReadText(formFor(card), 'front', 'FRONT').draft, ctx)).toMatchObject({
+      fields: { readText: { front: 'FRONT', back: '' } },
+    });
   });
 
   test('a card saved before text was kept stays unread until every side is read', () => {
