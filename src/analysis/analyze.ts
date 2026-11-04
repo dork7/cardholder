@@ -1,6 +1,7 @@
 import { toIsoDate } from '../time/dates';
 import { classifyCard } from './classify';
 import { documentId, documentKey } from './documentKey';
+import { detectDocumentType } from './documentType';
 import { extractExpiry, extractName } from './fields';
 import { findMrz } from './mrz';
 import { cardTextRecognizer } from './recognizer';
@@ -33,6 +34,7 @@ export function analyzeText(result: OcrResult, today: string): CardAnalysis {
     name: keep(extractName(lines, mrz)),
     expiresOn: keep(extractExpiry(lines, mrz, today)),
     category: keep(classifyCard(text, mrz)),
+    documentType: keep(detectDocumentType(text, mrz)),
     documentKey: documentKeyOf(text, mrz),
     text,
   };

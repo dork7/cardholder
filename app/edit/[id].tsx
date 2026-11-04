@@ -10,6 +10,7 @@ import { gemmaReader, releaseGemma } from '../../src/analysis/gemma';
 import { displayName } from '../../src/cards/display';
 import { FrontImage } from '../../src/cards/types';
 import { findDuplicate } from '../../src/cards/duplicates';
+import { suggestedCategory } from '../../src/analysis/documentType';
 import {
   acceptFolderOffer,
   applyAnalysis,
@@ -209,10 +210,11 @@ export default function EditCard() {
     analyzeImage(jpegBase64, { smart: gemmaReader })
       .then((analysis) => {
         if (reads.current[side] !== read) return;
-        // A category the user has deleted isn't suggested back.
-        if (analysis.category && !categories.includes(analysis.category.value)) analysis = { ...analysis, category: undefined };
+        // The document's own type ("Residency") when it names one, else a built-in category the user
+        // still has: a deleted one isn't suggested back.
+        const suggestion = { ...analysis, category: suggestedCategory(analysis, categories) };
         setForm((f) => {
-          const read = applyReadText(applyAnalysis(f, analysis), side, analysis.text ?? '');
+          const read = applyReadText(applyAnalysis(f, suggestion), side, analysis.text ?? '');
           return FOLDERS_ENABLED ? applyFolderSuggestion(read, suggestFolder(analysis, folders)) : read;
         });
       })
