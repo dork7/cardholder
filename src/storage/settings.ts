@@ -11,6 +11,7 @@ export type SettingKey =
   | 'homeFolderFilter'
   | 'homeManageFolders'
   | 'cardBrightness'
+  | 'stackVertical'
   | 'categories'; // written by the card store, sealed
 
 export interface Settings {

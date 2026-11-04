@@ -29,6 +29,7 @@ const mockSetAppLock = jest.fn(async (on: boolean) => {
 });
 const mockSetHomeFolders = jest.fn(() => Promise.resolve());
 const mockSetCardBrightness = jest.fn(() => Promise.resolve());
+const mockSetStackVertical = jest.fn(() => Promise.resolve());
 const mockServices = { settings: { getNumber: () => Promise.resolve(null) } };
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
@@ -39,6 +40,8 @@ jest.mock('../../app/AppProvider', () => ({
     setHomeFolders: mockSetHomeFolders,
     cardBrightness: true,
     setCardBrightness: mockSetCardBrightness,
+    stackVertical: false,
+    setStackVertical: mockSetStackVertical,
   }),
 }));
 
@@ -114,4 +117,12 @@ test('full brightness for an open card can be turned off and back on', async () 
   expect(mockSetCardBrightness).toHaveBeenCalledWith(false);
   await fireEvent(toggle, 'valueChange', true);
   expect(mockSetCardBrightness).toHaveBeenCalledWith(true);
+});
+
+test('the home stack can be switched to swipe up and down', async () => {
+  await render(<SettingsScreen />);
+  const toggle = screen.getByTestId('stack-vertical-switch');
+  expect(toggle.props.value).toBe(false);
+  await fireEvent(toggle, 'valueChange', true);
+  expect(mockSetStackVertical).toHaveBeenCalledWith(true);
 });

@@ -1,6 +1,8 @@
 // Geometry and gesture rules for the wallet-style card stack on the home screen.
-// The pile fans out to the right of the front card; swiping left sends the front card away,
-// swiping right brings the previous one back.
+// Sideways (the default), the pile fans out to the right of the front card; swiping left sends the
+// front card away, swiping right brings the previous one back. Vertical (a setting), the pile fans
+// out below it and the same happens swiping up and down. Poses are along that one "main" axis: `tx`
+// is a translateX sideways and a translateY vertically.
 // Pure functions so they can run as worklets on the UI thread and be unit tested.
 
 export const PEEK = 26; // right-edge strip of each card behind the front one
@@ -27,14 +29,22 @@ export interface StackGeometry {
   visible: number;
   height: number;
   fly: number; // how far a leaving card travels before it is re-queued
+  vertical: boolean;
 }
 
-// The front card shrinks so the fanned strips stay inside `width`.
-export function stackGeometry(width: number, n: number): StackGeometry {
+// Sideways, the front card shrinks so the fanned strips stay inside `width`; vertically it takes the
+// whole width and the strips add to the height.
+export function stackGeometry(width: number, n: number, vertical = false): StackGeometry {
   const visible = Math.max(1, Math.min(n, MAX_VISIBLE));
-  const cardW = Math.max(0, width - PEEK * (visible - 1));
+  const fan = PEEK * (visible - 1);
+  if (vertical) {
+    const cardW = Math.max(0, width);
+    const cardH = cardW / ID1_RATIO;
+    return { cardW, cardH, visible, height: cardH + fan, fly: cardH * 0.9, vertical };
+  }
+  const cardW = Math.max(0, width - fan);
   const cardH = cardW / ID1_RATIO;
-  return { cardW, cardH, visible, height: cardH, fly: cardW * 0.7 };
+  return { cardW, cardH, visible, height: cardH, fly: cardW * 0.7, vertical };
 }
 
 export function mod(a: number, n: number): number {
@@ -101,6 +111,14 @@ export function dragProgress(dx: number, fly: number): number {
   return Math.min(rubberBand(-dx) / (2 * fly), 0.5);
 }
 
+// The finger's horizontal speed (pt/s) as stack progress per second, matching dragProgress: a
+// leftward flick moves progress forward. Never negative, so a release only ever carries on.
+export function releaseVelocity(vx: number, fly: number): number {
+  'worklet';
+  if (fly <= 0) return 0;
+  return Math.max(0, -vx / (2 * fly));
+}
+
 // +1 sends the front card away (left), -1 brings the previous one back (right), 0 springs back.
 export function releaseAction(dx: number, vx: number): 1 | -1 | 0 {
   'worklet';
@@ -114,4 +132,10 @@ export function slotAtX(x: number, geo: Pick<StackGeometry, 'cardW' | 'visible'>
   'worklet';
   if (x <= geo.cardW) return 0;
   return Math.min(Math.ceil((x - geo.cardW) / PEEK), geo.visible - 1);
+}
+
+// The same for either layout: strips are to the right sideways, below vertically.
+export function slotAt(x: number, y: number, geo: Pick<StackGeometry, 'cardW' | 'cardH' | 'visible' | 'vertical'>): number {
+  'worklet';
+  return geo.vertical ? slotAtX(y, { cardW: geo.cardH, visible: geo.visible }) : slotAtX(x, geo);
 }

@@ -30,8 +30,9 @@ import {
   ID1_RADIUS,
   mod,
   releaseAction,
+  releaseVelocity,
   rubberBand,
-  slotAtX,
+  slotAt,
   stackGeometry,
   StackGeometry,
   TAP_SLOP,
@@ -43,6 +44,12 @@ import { useTooltip } from './Tooltip';
 
 const EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
 const DURATION = 380;
+// After a swipe the stack finishes on a spring that starts at the finger's speed, so a flick keeps
+// its momentum and a slow drag eases home instead of being snatched. Clamped: progress past the end
+// would pose the cards wrongly.
+const SETTLE = { duration: 420, dampingRatio: 1, overshootClamping: true };
+// The front card pulled right and let go returns with a little give.
+const SNAP_BACK = { duration: 400, dampingRatio: 0.8 };
 // Slightly under-damped so the card settles with a small, physical overshoot after turning over.
 const FLIP_SPRING = { stiffness: 180, damping: 20, mass: 1 };
 const FLIP_BUTTON = 44;
@@ -50,19 +57,20 @@ const FLIP_BUTTON = 44;
 interface Props {
   cards: Card[];
   onOpen: (card: Card) => void;
+  vertical?: boolean; // swipe up and down, the pile fanned out below (a setting)
 }
 
 // Wallet-style stack: the front card is fully visible, the cards behind it fan out to its right,
 // swiping left sends the front card to the back, swiping right brings the previous one back,
 // and tapping a strip brings that card straight to the front.
-export function CardStack({ cards, onOpen }: Props) {
+export function CardStack({ cards, onOpen, vertical = false }: Props) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
   const [width, setWidth] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
   const n = cards.length;
   const active = Math.max(0, cards.findIndex((c) => c.id === activeId));
-  const geo = stackGeometry(width, n);
+  const geo = stackGeometry(width, n, vertical);
 
   // The stack's motion is a single progress value: `from` is the front card, `steps` how far the
   // stack is moving, `f` how far along it is. Every card's pose is derived from those three.
@@ -73,6 +81,7 @@ export function CardStack({ cards, onOpen }: Props) {
   const pullIndex = useSharedValue(active); // the card that rightward drag belongs to
   const busy = useSharedValue(false);
   const dragging = useSharedValue(false);
+  const dragStart = useSharedValue(0); // where the finger was when the drag took over, so the card doesn't jump by the slop
   const flip = useSharedValue(0); // 0 = front face up, 1 = back face up, on the card at flipIndex
   const flipIndex = useSharedValue(active);
   const [flipped, setFlipped] = useState(false);
@@ -125,20 +134,31 @@ export function CardStack({ cards, onOpen }: Props) {
   };
 
   // Move the stack `count` cards forward from wherever the progress is now.
-  const advance = (count: number) => {
+  // Progress (f) toward `to`, starting at `velocity` in progress per second.
+  const settleF = (to: number, velocity: number, done?: (finished?: boolean) => void) => {
+    'worklet';
+    return reduceMotion ? withTiming(to, { duration: 0 }, done) : withSpring(to, { ...SETTLE, velocity }, done);
+  };
+  const settlePull = (velocity: number) => {
+    'worklet';
+    return reduceMotion ? withTiming(0, { duration: 0 }) : withSpring(0, { ...SNAP_BACK, velocity });
+  };
+
+  // Move the stack `count` cards forward from wherever the progress is now; `velocity` carries a flick on.
+  const advance = (count: number, velocity = 0) => {
     'worklet';
     if (n < 2 || count <= 0) return;
     busy.value = true;
     unflip();
     steps.value = count;
-    pull.value = withTiming(0, { duration, easing: EASING });
+    pull.value = settlePull(0);
     const to = mod(from.value + count, n);
-    f.value = withTiming(1, { duration, easing: EASING }, (done) => {
+    f.value = settleF(1, velocity, (done) => {
       if (done) finish(to);
     });
   };
 
-  const goBack = () => {
+  const goBack = (pullVelocity = 0) => {
     'worklet';
     if (n < 2) return;
     busy.value = true;
@@ -147,16 +167,16 @@ export function CardStack({ cards, onOpen }: Props) {
     from.value = to;
     steps.value = 1;
     f.value = 1;
-    pull.value = withTiming(0, { duration, easing: EASING });
-    f.value = withTiming(0, { duration, easing: EASING }, (done) => {
+    pull.value = settlePull(pullVelocity);
+    f.value = settleF(0, 0, (done) => {
       if (done) finish(to);
     });
   };
 
-  const springBack = () => {
+  const springBack = (velocity = 0, pullVelocity = 0) => {
     'worklet';
-    pull.value = withTiming(0, { duration, easing: EASING });
-    f.value = withTiming(0, { duration, easing: EASING }, () => {
+    pull.value = settlePull(pullVelocity);
+    f.value = settleF(0, velocity, () => {
       steps.value = 0;
       busy.value = false;
     });
@@ -168,8 +188,8 @@ export function CardStack({ cards, onOpen }: Props) {
     advance(mod(index - from.value, n));
   };
 
-  const tapAt = (x: number) => {
-    const k = slotAtX(x, geo);
+  const tapAt = (x: number, y: number) => {
+    const k = slotAt(x, y, geo);
     if (k === 0) {
       const card = cardsRef.current[active];
       if (card) onOpen(card);
@@ -178,37 +198,58 @@ export function CardStack({ cards, onOpen }: Props) {
     }
   };
 
+  // Movement along the stack's axis: x sideways, y vertically. Read in worklets from the gesture event.
+  const along = (e: { translationX: number; translationY: number }) => {
+    'worklet';
+    return vertical ? e.translationY : e.translationX;
+  };
+  const speedAlong = (e: { velocityX: number; velocityY: number }) => {
+    'worklet';
+    return vertical ? e.velocityY : e.velocityX;
+  };
+
   const pan = usePanGesture({
     enabled: n > 1,
-    activeOffsetX: [-TAP_SLOP, TAP_SLOP],
-    failOffsetY: [-20, 20], // a mostly vertical move is not a swipe
-    onActivate: () => {
+    // A move mostly across the stack's axis is not a swipe.
+    activeOffsetX: vertical ? undefined : [-TAP_SLOP, TAP_SLOP],
+    failOffsetY: vertical ? undefined : [-20, 20],
+    activeOffsetY: vertical ? [-TAP_SLOP, TAP_SLOP] : undefined,
+    failOffsetX: vertical ? [-20, 20] : undefined,
+    onActivate: (e) => {
       'worklet';
       dragging.value = !busy.value;
       if (!dragging.value) return;
       busy.value = true;
       pullIndex.value = from.value;
+      dragStart.value = along(e);
     },
     onUpdate: (e) => {
       'worklet';
       if (!dragging.value) return;
-      if (e.translationX < 0) {
+      const dx = along(e) - dragStart.value;
+      if (dx < 0) {
         steps.value = 1;
-        f.value = dragProgress(e.translationX, geo.fly);
+        f.value = dragProgress(dx, geo.fly);
         pull.value = 0;
       } else {
         f.value = 0;
-        pull.value = rubberBand(e.translationX) * 0.5;
+        pull.value = rubberBand(dx) * 0.5;
       }
     },
     onDeactivate: (e) => {
       'worklet';
       if (!dragging.value) return;
       dragging.value = false;
-      const action = e.canceled ? 0 : releaseAction(e.translationX, e.velocityX);
-      if (action === 1) advance(1);
-      else if (action === -1) goBack();
-      else springBack();
+      const dx = along(e) - dragStart.value;
+      const vx = speedAlong(e);
+      const action = e.canceled ? 0 : releaseAction(dx, vx);
+      // The finger's speed in the units each value moves in: progress for a leftward swipe, points
+      // (halved, as the pull is) for a rightward one.
+      const fVelocity = releaseVelocity(vx, geo.fly);
+      const pullVelocity = dx > 0 ? vx * 0.5 : 0;
+      if (action === 1) advance(1, fVelocity);
+      else if (action === -1) goBack(pullVelocity);
+      else springBack(dx < 0 ? fVelocity : 0, pullVelocity);
     },
   });
 
@@ -216,7 +257,7 @@ export function CardStack({ cards, onOpen }: Props) {
     runOnJS: true,
     maxDistance: TAP_SLOP,
     onActivate: (e) => {
-      if (!busy.value) tapAt(e.x);
+      if (!busy.value) tapAt(e.x, e.y);
     },
   });
 
@@ -227,7 +268,7 @@ export function CardStack({ cards, onOpen }: Props) {
   const onAccessibilityAction = (e: AccessibilityActionEvent) => {
     if (e.nativeEvent.actionName === 'increment') select(mod(active + 1, n));
     else if (e.nativeEvent.actionName === 'decrement' && !busy.value) goBack();
-    else if (e.nativeEvent.actionName === 'activate') tapAt(0);
+    else if (e.nativeEvent.actionName === 'activate') tapAt(0, 0);
     else if (e.nativeEvent.actionName === 'flip') toggleFlip();
   };
 
@@ -254,7 +295,7 @@ export function CardStack({ cards, onOpen }: Props) {
               needsExpiryAlert(front, new Date()) ? `${displayName(front)}, ${expiryLabel(front, new Date())}` : displayName(front)
             }
             accessibilityValue={{ text: strings.home.cardOf(active + 1, n) }}
-            accessibilityHint={strings.home.stackHint}
+            accessibilityHint={vertical ? strings.home.stackHintVertical : strings.home.stackHint}
             accessibilityActions={[
               { name: 'increment' },
               { name: 'decrement' },
@@ -361,7 +402,7 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   // There is no back thumbnail; the full back image is only loaded for the card that can be flipped.
   const backUri = useCardImage(inFront && card.hasBack ? card : undefined, 'back');
   const { from, steps, f, pull, pullIndex, flip, flipIndex } = motion;
-  const { fly } = geo;
+  const { fly, vertical } = geo;
   const radius = geo.cardW * ID1_RADIUS;
   const alert = needsExpiryAlert(card, new Date());
 
@@ -371,7 +412,11 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
     return {
       zIndex: pose.z,
       opacity: pose.opacity,
-      transform: [{ translateX: pose.tx + extra }, { rotate: `${pose.rotate}deg` }, { scale: pose.scale }],
+      transform: [
+        vertical ? { translateY: pose.tx + extra } : { translateX: pose.tx + extra },
+        { rotate: `${pose.rotate}deg` },
+        { scale: pose.scale },
+      ],
     };
   });
 
@@ -394,7 +439,7 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
 
   const faceStyle = [styles.face, { borderRadius: radius, backgroundColor: theme.surface }];
   return (
-    <Animated.View pointerEvents="none" style={[styles.card, { width: geo.cardW, height: geo.cardH }, animated]}>
+    <Animated.View pointerEvents="none" style={[styles.card, vertical && styles.cardVertical, { width: geo.cardW, height: geo.cardH }, animated]}>
       <Animated.View style={[faceStyle, frontFace]}>
         {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
         {uri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />}
@@ -433,6 +478,8 @@ function FlipIcon() {
 const styles = StyleSheet.create({
   // Scaling from the right edge keeps every peeking strip the same width.
   card: { position: 'absolute', top: 0, left: 0, transformOrigin: '100% 50%' },
+  // Scaling from the bottom edge keeps every strip below the same height.
+  cardVertical: { transformOrigin: '50% 100%' },
   face: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', backfaceVisibility: 'hidden' },
   shade: { backgroundColor: '#000000' },
   alert: { position: 'absolute', top: 12, left: 12 },

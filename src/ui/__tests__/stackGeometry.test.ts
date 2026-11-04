@@ -4,8 +4,10 @@ import {
   dragProgress,
   PEEK,
   releaseAction,
+  releaseVelocity,
   restingPose,
   rubberBand,
+  slotAt,
   slotAtX,
   stackGeometry,
 } from '../stackGeometry';
@@ -123,4 +125,29 @@ describe('slotAtX', () => {
     expect(slotAtX(400, stackGeometry(360, 1))).toBe(0);
     expect(slotAtX(1000, geo)).toBe(3);
   });
+});
+
+describe('vertical stack', () => {
+  test('the front card takes the whole width and the strips fan out below it', () => {
+    const geo = stackGeometry(360, 5, true);
+    expect(geo.cardW).toBe(360);
+    expect(geo.height).toBeCloseTo(360 / 1.586 + 3 * PEEK);
+    expect(geo.vertical).toBe(true);
+    expect(stackGeometry(360, 5).vertical).toBe(false);
+  });
+
+  test('a tap below the front card picks a strip by its height', () => {
+    const geo = stackGeometry(360, 5, true);
+    expect(slotAt(350, geo.cardH - 10, geo)).toBe(0); // far right, but on the front card
+    expect(slotAt(10, geo.cardH + 10, geo)).toBe(1);
+    expect(slotAt(10, geo.cardH + PEEK + 10, geo)).toBe(2);
+    const sideways = stackGeometry(360, 5);
+    expect(slotAt(sideways.cardW + 10, 0, sideways)).toBe(1);
+  });
+});
+
+test("a release carries the finger's speed on as progress per second, only ever forward", () => {
+  expect(releaseVelocity(-800, 200)).toBe(2);
+  expect(releaseVelocity(800, 200)).toBe(0);
+  expect(releaseVelocity(-800, 0)).toBe(0);
 });

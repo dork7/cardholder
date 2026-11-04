@@ -25,7 +25,8 @@ import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 
 export default function SettingsScreen() {
-  const { services, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness } = useApp();
+  const { services, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
+    useApp();
   const router = useRouter();
   const theme = useTheme();
   const [lastExportAt, setLastExportAt] = useState<number | null>(null);
@@ -77,6 +78,13 @@ export default function SettingsScreen() {
             value={cardBrightness}
             onChange={(on) => void setCardBrightness(on).catch(() => {})}
             testID="card-brightness-switch"
+          />
+          <SwitchRow
+            label={strings.settings.verticalSwipe}
+            hint={strings.settings.verticalSwipeHint}
+            value={stackVertical}
+            onChange={(on) => void setStackVertical(on).catch(() => {})}
+            testID="stack-vertical-switch"
           />
         </Section>
         {canReadText && <AiSection />}

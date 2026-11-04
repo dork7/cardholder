@@ -12,6 +12,7 @@ import { loadAppLock, saveAppLock } from '../security/appLock';
 import { syncShortcuts } from '../shortcuts/quickActions';
 import { AppearancePref, applyAppearance, loadAppearance, saveAppearance } from '../ui/appearance';
 import { loadCardBrightness, saveCardBrightness } from '../ui/cardBrightness';
+import { loadStackVertical, saveStackVertical } from '../ui/stackDirection';
 import { syncWidget } from '../widget/homeWidget';
 import { createFileBlobStore } from '../storage/fileBlobStore';
 import { toIsoDate } from '../time/dates';
@@ -52,6 +53,9 @@ export interface AppContextValue {
   // Whether the counter view turns the screen all the way up.
   cardBrightness: boolean;
   setCardBrightness(on: boolean): Promise<void>;
+  // Whether the home stack swipes up and down instead of sideways.
+  stackVertical: boolean;
+  setStackVertical(on: boolean): Promise<void>;
 }
 
 const BootContext = createContext<BootContextValue | null>(null);
@@ -78,6 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [appLock, setAppLockState] = useState(false);
   const [homeFolders, setHomeFoldersState] = useState<HomeFolderOptions>(DEFAULT_HOME_FOLDERS);
   const [cardBrightness, setCardBrightnessState] = useState(true);
+  const [stackVertical, setStackVerticalState] = useState(false);
   const depsRef = useRef<BootDeps | null>(null);
   const bootingRef = useRef(false);
   const phaseRef = useRef(phase);
@@ -112,6 +117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAppLockState(await loadAppLock(services.settings).catch(() => true));
     setHomeFoldersState(await loadHomeFolders(services.settings).catch(() => DEFAULT_HOME_FOLDERS));
     setCardBrightnessState(await loadCardBrightness(services.settings).catch(() => true));
+    setStackVerticalState(await loadStackVertical(services.settings).catch(() => false));
   }, []);
 
   const runBoot = useCallback(async () => {
@@ -224,6 +230,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [services],
   );
 
+  const setStackVertical = useCallback(
+    async (on: boolean) => {
+      setStackVerticalState(on);
+      if (services) await saveStackVertical(services.settings, on);
+    },
+    [services],
+  );
+
   const categories = useMemo(() => categoryOptions(savedCategories, cards), [savedCategories, cards]);
 
   const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
@@ -248,6 +262,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setHomeFolders,
             cardBrightness,
             setCardBrightness,
+            stackVertical,
+            setStackVertical,
           }
         : null,
     [
@@ -267,6 +283,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setHomeFolders,
       cardBrightness,
       setCardBrightness,
+      stackVertical,
+      setStackVertical,
     ],
   );
 

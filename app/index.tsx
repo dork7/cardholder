@@ -34,7 +34,8 @@ import { useTooltip } from '../src/ui/Tooltip';
 const ENTER = 360;
 
 export default function Home() {
-  const { cards, folders, categories, unlocked, openImportOnReady, clearOpenImport, homeFolders, services, refresh } = useApp();
+  const { cards, folders, categories, unlocked, openImportOnReady, clearOpenImport, homeFolders, services, refresh, stackVertical } =
+    useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -240,11 +241,12 @@ export default function Home() {
                 />
               )
             ) : (
-              // Keyed by filter so the stack starts from its first card instead of carrying motion over.
+              // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
               <CardStack
-                key={`${category ?? 'all'}|${folderId ?? 'all'}|${query.trim().toLowerCase()}`}
+                key={`${category ?? 'all'}|${folderId ?? 'all'}|${query.trim().toLowerCase()}|${stackVertical ? 'v' : 'h'}`}
                 cards={shown}
                 onOpen={(card) => router.push(`/card/${card.id}`)}
+                vertical={stackVertical}
               />
             )}
             {/* Which parts of the folder row show is chosen in settings. */}
