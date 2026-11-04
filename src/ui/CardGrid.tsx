@@ -2,9 +2,11 @@ import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { categoryLabel } from '../cards/categories';
 import { displayName } from '../cards/display';
+import { expiryLabel, needsExpiryAlert } from '../cards/expiry';
 import { Card } from '../cards/types';
 import { useCardImage } from '../hooks/useCardImage';
 import { strings } from '../strings';
+import { ExpiryAlert } from './ExpiryAlert';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 
@@ -61,12 +63,15 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
   const theme = useTheme();
   const uri = useCardImage(card, 'thumb');
   const name = displayName(card);
+  const now = new Date();
+  const alert = needsExpiryAlert(card, now);
+  const label = selecting ? name : strings.home.openCard(name);
   return (
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityRole={selecting ? 'checkbox' : 'button'}
-      accessibilityLabel={selecting ? name : strings.home.openCard(name)}
+      accessibilityLabel={alert ? `${label}, ${expiryLabel(card, now)}` : label}
       accessibilityState={selecting ? { checked } : undefined}
       accessibilityHint={selecting ? undefined : strings.home.selectHint}
       testID={`grid-${card.id}`}
@@ -83,6 +88,11 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
       >
         {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
+        {alert && (
+          <View style={styles.alert}>
+            <ExpiryAlert size={22} testID={`expiry-alert-${card.id}`} />
+          </View>
+        )}
         {selecting && (
           <View
             style={[
@@ -132,6 +142,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 4,
   },
+  alert: { position: 'absolute', top: 6, left: 6 },
   check: {
     position: 'absolute',
     top: 6,

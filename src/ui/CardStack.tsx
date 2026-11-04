@@ -19,9 +19,11 @@ import Svg, { Path } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 import { categoryLabel } from '../cards/categories';
 import { displayName } from '../cards/display';
+import { expiryLabel, needsExpiryAlert } from '../cards/expiry';
 import { Card } from '../cards/types';
 import { useCardImage } from '../hooks/useCardImage';
 import { strings } from '../strings';
+import { ExpiryAlert } from './ExpiryAlert';
 import {
   cardPose,
   dragProgress,
@@ -248,7 +250,9 @@ export function CardStack({ cards, onOpen }: Props) {
             style={{ height: geo.height }}
             accessible
             accessibilityRole="adjustable"
-            accessibilityLabel={displayName(front)}
+            accessibilityLabel={
+              needsExpiryAlert(front, new Date()) ? `${displayName(front)}, ${expiryLabel(front, new Date())}` : displayName(front)
+            }
             accessibilityValue={{ text: strings.home.cardOf(active + 1, n) }}
             accessibilityHint={strings.home.stackHint}
             accessibilityActions={[
@@ -359,6 +363,7 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   const { from, steps, f, pull, pullIndex, flip, flipIndex } = motion;
   const { fly } = geo;
   const radius = geo.cardW * ID1_RADIUS;
+  const alert = needsExpiryAlert(card, new Date());
 
   const animated = useAnimatedStyle(() => {
     const pose = cardPose(index, n, from.value, steps.value, f.value, fly);
@@ -393,6 +398,12 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
       <Animated.View style={[faceStyle, frontFace]}>
         {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
         {uri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />}
+        {/* Top left: the flip button has the top right. */}
+        {alert && (
+          <View style={styles.alert}>
+            <ExpiryAlert size={28} pop testID={`expiry-alert-${card.id}`} />
+          </View>
+        )}
         <Animated.View style={[StyleSheet.absoluteFill, styles.shade, shade]} />
       </Animated.View>
       {card.hasBack && (
@@ -424,6 +435,7 @@ const styles = StyleSheet.create({
   card: { position: 'absolute', top: 0, left: 0, transformOrigin: '100% 50%' },
   face: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', backfaceVisibility: 'hidden' },
   shade: { backgroundColor: '#000000' },
+  alert: { position: 'absolute', top: 12, left: 12 },
   flipButtonSlot: { position: 'absolute', top: 8, width: FLIP_BUTTON, height: FLIP_BUTTON, zIndex: 1000 },
   flipButton: {
     width: FLIP_BUTTON,

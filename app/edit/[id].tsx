@@ -1,7 +1,9 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EASE_OUT } from '../../src/ui/motion';
 import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
 import { gemmaReader, releaseGemma } from '../../src/analysis/gemma';
@@ -28,7 +30,7 @@ import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { clearOriginals, cropFullPhoto, discardFile, pickImage } from '../../src/images/capture';
-import { canPickPdf, isPdfLocked, PdfTooLargeError, pickPdf, renderCover } from '../../src/images/pdf';
+import { canPickPdf, isPdfLocked, PDF_BACK_PAGE, PdfTooLargeError, pickPdf, renderCover, renderPdfPage } from '../../src/images/pdf';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { askReplace } from '../../src/ui/askReplace';
 import { strings } from '../../src/strings';
@@ -116,8 +118,13 @@ export default function EditCard() {
   };
 
   const applyImage = (side: 'front' | 'back', image: FrontImage) => {
-    // A photo of the front replaces a PDF: the card becomes a photo card again.
-    if (side === 'front') update({ front: image, pdf: null, removePdf: !!existing?.pdf });
+    // A photo of the front replaces a PDF: the card becomes a photo card again, and the back, a page of
+    // that PDF, goes with it.
+    if (side === 'front' && pdfInfo) {
+      reads.current.back++;
+      update({ front: image, pdf: null, removePdf: !!existing?.pdf, back: null, removeBack: !!existing?.hasBack });
+      setForm((f) => removeReadSide(f, 'back'));
+    } else if (side === 'front') update({ front: image, pdf: null, removePdf: !!existing?.pdf });
     else update({ back: image, removeBack: false });
     covers.current++;
     readCard(side, image.jpegBase64);
@@ -139,24 +146,42 @@ export default function EditCard() {
   };
 
   // The whole PDF is kept. Its first page is the card's picture until another is chosen, and its
-  // pages take the place of a back photo.
+  // second page, when it has one, is the card's back (the side the home stack flips to) until removed.
   const attachPdf = async () => {
     try {
       const pdf = await pickPdf();
       if (!pdf) return;
       const cover = ++covers.current;
       const front = await renderCover(pdf);
+      const back = pdf.pageCount > PDF_BACK_PAGE ? await renderPdfPage(pdf, PDF_BACK_PAGE) : null;
       if (covers.current !== cover) return;
-      reads.current.back++; // drop a read of the back photo being removed
-      update({ pdf, front, back: null, removeBack: !!existing?.hasBack, removePdf: false });
+      reads.current.back++; // drop a read of the back photo being replaced
       setForm((f) => removeReadSide(f, 'back'));
+      if (back) update({ pdf, front, back, removeBack: false, removePdf: false });
+      else update({ pdf, front, back: null, removeBack: !!existing?.hasBack, removePdf: false });
       setOriginal('front', null);
       setOriginal('back', null);
       readCard('front', front.jpegBase64);
+      if (back) readCard('back', back.jpegBase64);
     } catch (e) {
       console.warn('PDF failed', e);
       if (e instanceof PdfTooLargeError) Alert.alert(strings.edit.pdfTooLarge(PDF_MAX_BYTES / 1024 / 1024));
       else Alert.alert(isPdfLocked(e) ? strings.edit.pdfLocked : strings.edit.pdfFailed);
+    }
+  };
+
+  // Puts the PDF's second page back as the card's back, after it was removed (or on a PDF card saved without one).
+  const restorePdfBack = async () => {
+    const pdf = currentPdf();
+    if (!pdf || pdf.pageCount <= PDF_BACK_PAGE) return;
+    try {
+      const back = await renderPdfPage(pdf, PDF_BACK_PAGE);
+      reads.current.back++;
+      update({ back, removeBack: false });
+      readCard('back', back.jpegBase64);
+    } catch (e) {
+      console.warn('Rendering the back page failed', e);
+      Alert.alert(strings.edit.pdfFailed);
     }
   };
 
@@ -338,12 +363,39 @@ export default function EditCard() {
               testIDPrefix="front"
             />
             {pdfInfo ? (
-              <PdfPagePicker
-                pdfBase64={draft.pdf?.pdfBase64 ?? existingPdf}
-                pageCount={pdfInfo.pageCount}
-                coverPage={pdfInfo.coverPage}
-                onChange={chooseCoverPage}
-              />
+              <>
+                <PdfPagePicker
+                  pdfBase64={draft.pdf?.pdfBase64 ?? existingPdf}
+                  pageCount={pdfInfo.pageCount}
+                  coverPage={pdfInfo.coverPage}
+                  onChange={chooseCoverPage}
+                />
+                {backUri ? (
+                  <Animated.View key="pdf-back" entering={ENTER} exiting={EXIT}>
+                    <ImageField
+                      label={strings.edit.pdfBack}
+                      uri={backUri}
+                      onLibrary={() => capture('back')}
+                      onRemove={removeBack}
+                      removeAsCross
+                      testIDPrefix="back"
+                    />
+                  </Animated.View>
+                ) : (
+                  pdfInfo.pageCount > PDF_BACK_PAGE &&
+                  (draft.pdf || existingPdf) && (
+                    // Waits for the picture to finish fading, so the two never overlap.
+                    <Animated.View key="pdf-back-page" entering={ENTER_AFTER_EXIT}>
+                      <Button
+                        variant="secondary"
+                        label={strings.edit.pdfBackFromPage(PDF_BACK_PAGE + 1)}
+                        onPress={() => void restorePdfBack()}
+                        testID="pdf-back-page"
+                      />
+                    </Animated.View>
+                  )
+                )}
+              </>
             ) : (
               // The back waits for the front: a card starts from its front photo.
               (frontUri || backUri) && (
@@ -442,29 +494,32 @@ export default function EditCard() {
               <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>
             )}
             {draft.expiresOn !== null && (
-              <Field label={strings.edit.remindDays} error={errorText('bad-reminder')}>
-                <TextInput
-                  testID="remind-days"
-                  value={draft.remindDaysBefore}
-                  onChangeText={(text) => update({ remindDaysBefore: text.replace(/[^0-9]/g, '') })}
-                  keyboardType="number-pad"
-                  maxLength={3}
-                  placeholder={String(DEFAULT_REMIND_DAYS)}
-                  placeholderTextColor={theme.muted}
-                  accessibilityLabel={strings.edit.remindDays}
-                  style={inputStyle}
-                />
-                <Text style={{ color: theme.muted, fontSize: 14 }}>
-                  {strings.edit.remindDaysHint(parseRemindDays(draft.remindDaysBefore) ?? DEFAULT_REMIND_DAYS)}
-                </Text>
-              </Field>
+              <Animated.View entering={ENTER} exiting={EXIT}>
+                <Field label={strings.edit.remindDays} error={errorText('bad-reminder')}>
+                  <TextInput
+                    testID="remind-days"
+                    value={draft.remindDaysBefore}
+                    onChangeText={(text) => update({ remindDaysBefore: text.replace(/[^0-9]/g, '') })}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                    placeholder={String(DEFAULT_REMIND_DAYS)}
+                    placeholderTextColor={theme.muted}
+                    accessibilityLabel={strings.edit.remindDays}
+                    style={inputStyle}
+                  />
+                  <Text style={{ color: theme.muted, fontSize: 14 }}>
+                    {strings.edit.remindDaysHint(parseRemindDays(draft.remindDaysBefore) ?? DEFAULT_REMIND_DAYS)}
+                  </Text>
+                </Field>
+              </Animated.View>
             )}
           </Panel>
           {/* Destructive, so it sits at the very end of the form, well apart from the save bar. */}
           {existing && (
-            <View style={styles.danger}>
+            // Glides, rather than jumps, when a field above it appears or goes.
+            <Animated.View layout={MOVE} style={styles.danger}>
               <Button variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} />
-            </View>
+            </Animated.View>
           )}
         </ScrollView>
         {/* Pinned below the scroll so both actions are always in thumb reach and ride above the keyboard;
@@ -488,6 +543,12 @@ export default function EditCard() {
     </Screen>
   );
 }
+
+// Fields that come and go fade rather than pop. Layout animations skip themselves under reduced motion.
+const ENTER = FadeIn.duration(200).easing(EASE_OUT);
+const EXIT = FadeOut.duration(150).easing(EASE_OUT);
+const ENTER_AFTER_EXIT = FadeIn.delay(150).duration(200).easing(EASE_OUT);
+const MOVE = LinearTransition.duration(200).easing(EASE_OUT);
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },

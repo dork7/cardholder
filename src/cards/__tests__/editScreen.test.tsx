@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import { frontImage, makeCard } from '../../../test/fixtures';
+import { frontImage, image, makeCard } from '../../../test/fixtures';
 import EditCard from '../../../app/edit/[id]';
 import { gemmaReader } from '../../analysis/gemma';
 import { Folder } from '../types';
@@ -76,12 +76,15 @@ jest.mock('../../images/capture', () => ({
 }));
 const mockPickPdf = jest.fn();
 const mockRenderCover = jest.fn();
+const mockRenderPdfPage = jest.fn();
 jest.mock('../../images/pdf', () => {
   class PdfTooLargeError extends Error {}
   return {
     canPickPdf: true,
     pickPdf: () => mockPickPdf(),
     renderCover: (...a: unknown[]) => mockRenderCover(...a),
+    renderPdfPage: (...a: unknown[]) => mockRenderPdfPage(...a),
+    PDF_BACK_PAGE: 1,
     renderPages: () => Promise.resolve(),
     isPdfLocked: (e: { code?: string }) => e.code === 'E_PDF_LOCKED',
     PdfTooLargeError,
@@ -110,6 +113,7 @@ beforeEach(() => {
   mockAnalyze.mockResolvedValue({});
   mockPickPdf.mockResolvedValue(pdfDoc());
   mockRenderCover.mockImplementation((pdf: { coverPage: number }) => Promise.resolve(frontImage(`page${pdf.coverPage}`)));
+  mockRenderPdfPage.mockImplementation((_pdf: unknown, page: number) => Promise.resolve(image(`back${page}`)));
   warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
@@ -185,16 +189,47 @@ test('the back photo is offered only once there is a front', async () => {
 });
 
 describe('adding from a PDF', () => {
-  test('keeps the whole PDF, shows its first page as the thumbnail, and reads that page', async () => {
+  test('keeps the whole PDF, shows its first page as the thumbnail and its second as the back, and reads both', async () => {
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-pdf'));
     expect(mockRenderCover).toHaveBeenCalledWith(pdfDoc(0));
+    expect(mockRenderPdfPage).toHaveBeenCalledWith(pdfDoc(0), 1);
     expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64, { smart: gemmaReader });
-    // The PDF's pages take the place of a back photo.
-    expect(screen.queryByTestId('back-library')).toBeNull();
+    expect(mockAnalyze).toHaveBeenCalledWith(image('back1').jpegBase64, { smart: gemmaReader });
+    expect(screen.getByTestId('back-remove')).toBeTruthy();
     expect(screen.getByTestId('pdf-page-0').props.accessibilityState).toMatchObject({ selected: true });
     await save();
-    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page0'), back: null, pdf: pdfDoc(0) });
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page0'), back: image('back1'), pdf: pdfDoc(0) });
+  });
+
+  test('the cross over the back removes it', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    await fireEvent.press(screen.getByTestId('back-remove'));
+    expect(screen.queryByTestId('back-remove')).toBeNull();
+    await save();
+    expect(mockCreate).toHaveBeenLastCalledWith(expect.anything(), { front: frontImage('page0'), back: null, pdf: pdfDoc(0) });
+  });
+
+  test('putting the second page back after removing it', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    await fireEvent.press(screen.getByTestId('back-remove'));
+    await fireEvent.press(screen.getByTestId('pdf-back-page'));
+    expect(screen.getByTestId('back-remove')).toBeTruthy();
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page0'), back: image('back1'), pdf: pdfDoc(0) });
+  });
+
+  test('a one-page PDF has no back', async () => {
+    mockPickPdf.mockResolvedValue({ ...pdfDoc(0), pageCount: 1 });
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    expect(mockRenderPdfPage).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('back-remove')).toBeNull();
+    expect(screen.queryByTestId('pdf-back-page')).toBeNull();
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page0'), back: null, pdf: { ...pdfDoc(0), pageCount: 1 } });
   });
 
   test('choosing another page makes it the thumbnail', async () => {
@@ -204,7 +239,7 @@ describe('adding from a PDF', () => {
     expect(mockRenderCover).toHaveBeenLastCalledWith(pdfDoc(2));
     expect(screen.getByTestId('pdf-page-2').props.accessibilityState).toMatchObject({ selected: true });
     await save();
-    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page2'), back: null, pdf: pdfDoc(2) });
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page2'), back: image('back1'), pdf: pdfDoc(2) });
   });
 
   test('a photo of the front replaces the PDF', async () => {
@@ -228,13 +263,13 @@ describe('adding from a PDF', () => {
     expect(mockUpdate).toHaveBeenCalledWith('card1', expect.anything(), { front: frontImage('page1'), pdf: stored });
   });
 
-  test('a PDF on a card with a back photo removes the back', async () => {
+  test("a PDF on a card with a back photo puts the PDF's second page in its place", async () => {
     mockParams = { id: 'card1' };
     mockCards = [makeCard({ hasBack: true, backAspect: 1.586 })];
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-pdf'));
     await save();
-    expect(mockUpdate).toHaveBeenCalledWith('card1', expect.anything(), { front: frontImage('page0'), back: null, pdf: pdfDoc(0) });
+    expect(mockUpdate).toHaveBeenCalledWith('card1', expect.anything(), { front: frontImage('page0'), back: image('back1'), pdf: pdfDoc(0) });
   });
 
   test('a photo replacing a saved PDF removes it', async () => {

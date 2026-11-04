@@ -21,6 +21,13 @@ export function expiryStatus(card: Pick<Card, 'expiresOn'>, now: Date): ExpirySt
   return { kind: days <= EXPIRY_SOON_DAYS ? 'soon' : 'later', days };
 }
 
+// Worth a red alert on the card: expired, or inside its reminder window (the days it gets a daily reminder).
+export function needsExpiryAlert(card: Pick<Card, 'expiresOn' | 'remindDaysBefore'>, now: Date): boolean {
+  const status = expiryStatus(card, now);
+  if (status.kind === 'expired' || status.kind === 'today') return true;
+  return (status.kind === 'soon' || status.kind === 'later') && status.days <= card.remindDaysBefore;
+}
+
 export function expiryLabel(card: Pick<Card, 'expiresOn'>, now: Date): string {
   const status = expiryStatus(card, now);
   switch (status.kind) {

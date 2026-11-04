@@ -88,6 +88,8 @@ export const strings = {
     addPhoto: 'Add photo',
     changePhoto: 'Change photo',
     removeBack: 'Remove back',
+    pdfBack: 'Back',
+    pdfBackFromPage: (n: number) => `Use page ${n} as the back`,
     fullPhoto: 'Use full photo',
     fullPhotoHint: 'Opens the crop again with the whole photo, not just the card',
     fromPdf: 'Use a PDF',

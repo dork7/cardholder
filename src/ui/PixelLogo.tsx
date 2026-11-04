@@ -34,15 +34,15 @@ const colours = (theme: Theme): Record<Pixel, string> => ({
 });
 
 // Runs of the same colour on a row become one rect, so the mark is a few dozen shapes, not hundreds.
-export function logoRects(pixels: readonly string[]): { x: number; y: number; width: number; pixel: Pixel }[] {
-  const rects: { x: number; y: number; width: number; pixel: Pixel }[] = [];
+export function logoRects<P extends string = Pixel>(pixels: readonly string[]): { x: number; y: number; width: number; pixel: P }[] {
+  const rects: { x: number; y: number; width: number; pixel: P }[] = [];
   pixels.forEach((row, y) => {
     let x = 0;
     while (x < row.length) {
       const pixel = row[x];
       let end = x + 1;
       while (row[end] === pixel) end++;
-      if (pixel !== '.') rects.push({ x, y, width: end - x, pixel: pixel as Pixel });
+      if (pixel !== '.') rects.push({ x, y, width: end - x, pixel: pixel as P });
       x = end;
     }
   });

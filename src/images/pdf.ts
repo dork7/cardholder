@@ -97,6 +97,14 @@ export function renderCover(pdf: PdfDocument): Promise<FrontImage> {
   );
 }
 
+// The page shown as the back of a PDF card: by default its second page (index 1).
+export const PDF_BACK_PAGE = 1;
+
+// One page, whole and uncropped, as a card picture (the back of a PDF card).
+export function renderPdfPage(pdf: Pick<PdfDocument, 'pdfBase64'>, page: number): Promise<CardImage> {
+  return withTempPdf(pdf.pdfBase64, (uri) => renderPage(uri, page, IMAGE_MAX_EDGE, async (image) => image));
+}
+
 // Every page in order, each handed over as soon as it is drawn so the first shows without waiting
 // for the rest. Stops early once `cancelled` says so.
 export function renderPages(

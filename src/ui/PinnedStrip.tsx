@@ -1,9 +1,10 @@
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { displayName } from '../cards/display';
-import { expiryLabel, expiryStatus } from '../cards/expiry';
+import { expiryLabel, expiryStatus, needsExpiryAlert } from '../cards/expiry';
 import { Card } from '../cards/types';
 import { useCardImage } from '../hooks/useCardImage';
 import { strings } from '../strings';
+import { ExpiryAlert } from './ExpiryAlert';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 
@@ -50,6 +51,11 @@ function PinnedTile({ card, now, onPress }: { card: Card; now: Date; onPress: ()
       <View style={[styles.thumb, { backgroundColor: theme.surface }]}>
         {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
+        {needsExpiryAlert(card, now) && (
+          <View style={styles.alert}>
+            <ExpiryAlert size={18} testID={`expiry-alert-${card.id}`} />
+          </View>
+        )}
       </View>
       <View style={styles.label}>
         <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
@@ -74,6 +80,7 @@ const styles = StyleSheet.create({
   tile: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, padding: 6, paddingRight: 16, borderRadius: 9999, maxWidth: 240 },
   // ID-1 proportions, rounded to match the pill it sits in.
   thumb: { width: 64, height: 40, borderRadius: 20, overflow: 'hidden' },
+  alert: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
   label: { flexShrink: 1 },
   name: { fontSize: TYPE.secondary, fontWeight: '700' },
   note: { fontSize: TYPE.caption },

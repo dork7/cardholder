@@ -15,7 +15,8 @@ import { useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { PdfPager } from '../../src/ui/PdfPager';
 import { displayName } from '../../src/cards/display';
-import { expiryLabel, expiryStatus } from '../../src/cards/expiry';
+import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/expiry';
+import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
 import { shareCard } from '../../src/share/shareCard';
 import { strings } from '../../src/strings';
 
@@ -184,9 +185,12 @@ export default function CardView() {
             <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
               {displayName(card)}
             </Text>
-            <Text style={[styles.meta, { color: expiryColor }]} testID="card-expiry">
-              {expiryLabel(card, now)}
-            </Text>
+            <View style={styles.expiryRow}>
+              {needsExpiryAlert(card, now) && <ExpiryAlert size={18} pop testID="card-expiry-alert" />}
+              <Text style={[styles.meta, { color: expiryColor }]} testID="card-expiry">
+                {expiryLabel(card, now)}
+              </Text>
+            </View>
           </Panel>
         </View>
       )}
@@ -217,6 +221,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingVertical: 12, gap: 6 },
   title: { fontSize: TYPE.section, fontWeight: '700' },
   meta: { fontSize: TYPE.secondary, fontWeight: '600' },
+  expiryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sides: { flex: 1, gap: 16 },
   sidesRow: { flexDirection: 'row' },
   side: { flex: 1, gap: 4 },
