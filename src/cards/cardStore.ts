@@ -4,7 +4,8 @@ import { engine } from '../crypto/engine';
 import { BlobStore } from '../storage/blobStore';
 import { SqlDb } from '../storage/sqlDb';
 import { sortCards } from './listing';
-import { toCardText } from './validate';
+import { DEFAULT_REMIND_DAYS } from '../config';
+import { parseRemindDays, toCardText } from './validate';
 import { Card, CardCategory, CardFields, CardPdf, CATEGORIES, Folder, ImageChanges, ImageSide, NewCardImages, PdfDocument, toCategory } from './types';
 
 export class FolderNotFoundError extends Error {
@@ -120,6 +121,7 @@ export function createCardStore({
       name: card.name,
       category: card.category,
       expiresOn: card.expiresOn,
+      remindDaysBefore: card.remindDaysBefore,
       tags: card.tags,
       documentKey: card.documentKey,
       hasBack: card.hasBack,
@@ -138,6 +140,7 @@ export function createCardStore({
       name: payload.name,
       category: toCategory(payload.category) ?? 'other',
       expiresOn: payload.expiresOn,
+      remindDaysBefore: parseRemindDays(payload.remindDaysBefore) ?? DEFAULT_REMIND_DAYS, // cards saved before the setting
       tags: Array.isArray(payload.tags) ? payload.tags : [], // cards saved before tags have none
       documentKey: payload.documentKey ?? null,
       hasBack: payload.hasBack,

@@ -13,6 +13,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
     name: 'Gym',
     category: 'membership',
     expiresOn: null,
+    remindDaysBefore: 14,
     tags: [],
     documentKey: null,
     folderId: null,
@@ -30,7 +31,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
 }
 
 export function fields(overrides: Partial<CardFields> = {}): CardFields {
-  return { name: 'Gym', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null, readText: null, ...overrides };
+  return { name: 'Gym', category: 'membership', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, ...overrides };
 }
 
 // Fake "JPEGs": readable markers so tests can check what came back and that nothing leaks.

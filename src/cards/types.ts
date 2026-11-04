@@ -30,6 +30,7 @@ export interface CardFields {
   name: string; // '' when the card has no name
   category: CardCategory;
   expiresOn: string | null; // YYYY-MM-DD, local calendar day
+  remindDaysBefore: number; // daily reminders start this many days before expiresOn (1..MAX_REMIND_DAYS)
   tags: string[]; // free-form, deduplicated ignoring case; [] when there are none
   documentKey: string | null; // hash of the document's own number, for spotting duplicates (src/analysis/documentKey.ts)
   folderId: string | null; // null when the card isn't in a folder

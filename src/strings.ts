@@ -104,6 +104,9 @@ export const strings = {
     expiry: 'Expiry date (optional)',
     addExpiry: 'Add expiry date',
     clearExpiry: 'Clear',
+    remindDays: 'Remind me (days before)',
+    remindDaysHint: (days: number) =>
+      `A reminder every day from ${days} ${plural(days, 'day', 'days')} before it expires, until it expires or you change the date.`,
     suggested: 'Suggested from the photo',
     reading: 'Reading the file…',
     create: 'Add card',
@@ -129,6 +132,7 @@ export const strings = {
       'name-too-long': 'Keep the name to 60 characters or fewer.',
       'bad-category': 'Pick a category.',
       'bad-expiry': "That expiry date isn't valid.",
+      'bad-reminder': 'Type a number of days from 1 to 365.',
       'bad-tags': 'Keep each tag short, and no more than 8 of them.',
       'front-required': 'Add a photo of the front.',
     },
@@ -342,7 +346,8 @@ export const strings = {
     failed: "Couldn't open the shared photo. Try sharing it again.",
   },
   reminders: {
-    title: (name: string, days: number) => `${name} expires in ${days} ${plural(days, 'day', 'days')}`,
+    title: (name: string, days: number) =>
+      days === 0 ? `${name} expires today` : `${name} expires in ${days} ${plural(days, 'day', 'days')}`,
     body: 'Tap to open the card.',
     channelName: 'Expiry reminders',
   },

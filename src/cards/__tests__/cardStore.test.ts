@@ -279,6 +279,7 @@ test('cards saved before number and notes were removed still load, without them'
     name: 'Coffee club',
     category: 'other',
     expiresOn: null,
+    remindDaysBefore: 14,
     tags: [], // saved before tags existed
     documentKey: null,
     folderId: null,

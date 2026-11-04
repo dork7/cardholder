@@ -27,7 +27,7 @@ test('a valid new card within the free limit is created', () => {
   const plan = planSave({ ...draftFor(null), name: ' Gym ', category: 'membership', front }, free);
   expect(plan).toEqual({
     kind: 'create',
-    fields: { name: 'Gym', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null, readText: null },
+    fields: { name: 'Gym', category: 'membership', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null },
     images: { front, back: null },
     newFolder: null,
   });
@@ -45,7 +45,7 @@ test('editing is never limited and sends no image changes when none were made', 
   expect(plan).toEqual({
     kind: 'update',
     id: 'c9',
-    fields: { name: 'New', category: 'membership', expiresOn: null, tags: [], documentKey: null, folderId: null, readText: null },
+    fields: { name: 'New', category: 'membership', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null },
     changes: {},
     newFolder: null,
   });
@@ -73,6 +73,7 @@ test('draftFor fills from an existing card', () => {
     name: 'Visa',
     category: 'id',
     expiresOn: '2027-01-01',
+    remindDaysBefore: '14',
     folderId: null,
     newFolderName: null,
     front: null,
@@ -247,4 +248,14 @@ describe('text read off the card, for search', () => {
     const form = applyReadText(formFor(null), 'front', 'x'.repeat(10_000));
     expect(form.draft.readText?.front).toHaveLength(4000);
   });
+});
+
+test('reminder days are saved as a number; a bad value blocks the save only while there is an expiry date', () => {
+  const existing = makeCard({ id: 'c1', expiresOn: '2027-01-01' });
+  const ctx = { existing, cardCount: 1, unlocked: false };
+  const ok = planSave({ ...draftFor(existing), remindDaysBefore: '30' }, ctx);
+  expect(ok).toMatchObject({ kind: 'update', fields: { remindDaysBefore: 30 } });
+  expect(planSave({ ...draftFor(existing), remindDaysBefore: '' }, ctx)).toEqual({ kind: 'invalid', errors: ['bad-reminder'] });
+  const noExpiry = planSave({ ...draftFor(existing), expiresOn: null, remindDaysBefore: '' }, ctx);
+  expect(noExpiry).toMatchObject({ kind: 'update', fields: { remindDaysBefore: 14 } });
 });

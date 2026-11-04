@@ -29,7 +29,7 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 - Every image goes through a **freeform crop** before it is saved.
 - Every field and image is editable after saving.
 - Delete asks for confirmation, removes the encrypted image files immediately, and frees a slot toward the free limit.
-- Expiry reminders: **local notifications 30 days and 7 days before** the expiry date. Fixed in v1 (no per-card settings). Notification permission is requested **only the first time the user saves a card with an expiry date**, never at launch.
+- Expiry reminders: **a local notification every day at 09:00**, from a per-card number of days before the expiry date (**14 by default**, 1–365, set under the expiry date on the edit screen) through the expiry day itself. They stop once the card expires, or move when its date is changed (renewed). Notification permission is requested **only the first time the user saves a card with an expiry date**, never at launch.
 
 ## Speed at the counter (≤ 2 taps from an unlocked home screen)
 

@@ -8,6 +8,7 @@ export const fieldsOf = (card: Card): CardFields => ({
   name: card.name,
   category: card.category,
   expiresOn: card.expiresOn,
+  remindDaysBefore: card.remindDaysBefore,
   tags: card.tags,
   documentKey: card.documentKey,
   folderId: card.folderId,

@@ -1,13 +1,14 @@
 import { FolderSuggestion } from '../folders/suggest';
 import { canAddCard } from '../purchases/limits';
-import { READ_TEXT_MAX_LENGTH } from '../config';
+import { DEFAULT_REMIND_DAYS, READ_TEXT_MAX_LENGTH } from '../config';
 import { Card, CardCategory, CardFields, CardImage, CardText, FrontImage, ImageChanges, NewCardImages, PdfDocument } from './types';
-import { FieldError, validateCardFields } from './validate';
+import { FieldError, parseRemindDays, validateCardFields } from './validate';
 
 export interface EditDraft {
   name: string;
   category: CardCategory;
   expiresOn: string | null;
+  remindDaysBefore: string; // as typed; checked on save
   tags: string[]; // no longer shown or edited; kept so a card's saved tags survive an edit
   documentKey: string | null;
   folderId: string | null;
@@ -35,6 +36,7 @@ export function draftFor(card: Card | null, defaultCategory: CardCategory = 'id'
     name: card?.name ?? '',
     category: card?.category ?? defaultCategory,
     expiresOn: card?.expiresOn ?? null,
+    remindDaysBefore: String(card?.remindDaysBefore ?? DEFAULT_REMIND_DAYS),
     tags: card?.tags ?? [],
     documentKey: card?.documentKey ?? null,
     folderId: card?.folderId ?? null,
@@ -55,7 +57,9 @@ export function planSave(
   draft: EditDraft,
   ctx: { existing: Card | null; cardCount: number; unlocked: boolean },
 ): SavePlan {
-  const validation = validateCardFields(draft);
+  // The reminder field is hidden without an expiry date, so whatever it holds then can't block a save.
+  const hiddenBadReminder = draft.expiresOn === null && parseRemindDays(draft.remindDaysBefore) === null;
+  const validation = validateCardFields(hiddenBadReminder ? { ...draft, remindDaysBefore: DEFAULT_REMIND_DAYS } : draft);
   const errors: SaveError[] = validation.ok ? [] : [...validation.errors];
   if (!ctx.existing && !draft.front) errors.push('front-required');
   if (!validation.ok || errors.length > 0) return { kind: 'invalid', errors };

@@ -21,7 +21,8 @@ import {
   SaveError,
   SavePlan,
 } from '../../src/cards/editForm';
-import { FOLDERS_ENABLED, NAME_MAX_LENGTH, PDF_MAX_BYTES } from '../../src/config';
+import { DEFAULT_REMIND_DAYS, FOLDERS_ENABLED, NAME_MAX_LENGTH, PDF_MAX_BYTES } from '../../src/config';
+import { parseRemindDays } from '../../src/cards/validate';
 import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
@@ -439,6 +440,24 @@ export default function EditCard() {
             />
             {errorText('bad-expiry') && (
               <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>
+            )}
+            {draft.expiresOn !== null && (
+              <Field label={strings.edit.remindDays} error={errorText('bad-reminder')}>
+                <TextInput
+                  testID="remind-days"
+                  value={draft.remindDaysBefore}
+                  onChangeText={(text) => update({ remindDaysBefore: text.replace(/[^0-9]/g, '') })}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  placeholder={String(DEFAULT_REMIND_DAYS)}
+                  placeholderTextColor={theme.muted}
+                  accessibilityLabel={strings.edit.remindDays}
+                  style={inputStyle}
+                />
+                <Text style={{ color: theme.muted, fontSize: 14 }}>
+                  {strings.edit.remindDaysHint(parseRemindDays(draft.remindDaysBefore) ?? DEFAULT_REMIND_DAYS)}
+                </Text>
+              </Field>
             )}
           </Panel>
           {/* Destructive, so it sits at the very end of the form, well apart from the save bar. */}

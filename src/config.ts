@@ -18,10 +18,13 @@ export const FOLDERS_ENABLED = false;
 export const MIN_PASSPHRASE_LENGTH = 3;
 export const PBKDF2_ITERATIONS = 600_000;
 
-export const REMINDER_DAYS_BEFORE = [30, 7] as const;
+// Each card with an expiry date is reminded every day, at REMINDER_HOUR, from this many days before it
+// expires until the day it does. The user can change it per card.
+export const DEFAULT_REMIND_DAYS = 14;
+export const MAX_REMIND_DAYS = 365;
 export const REMINDER_HOUR = 9;
-// A card this close to expiry is flagged in the app; matches the first reminder.
-export const EXPIRY_SOON_DAYS = Math.max(...REMINDER_DAYS_BEFORE);
+// A card this close to expiry is flagged in the app.
+export const EXPIRY_SOON_DAYS = 30;
 // iOS keeps at most 64 pending local notifications per app.
 export const MAX_SCHEDULED_REMINDERS = 60;
 

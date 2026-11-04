@@ -23,11 +23,11 @@ beforeEach(() => jest.clearAllMocks());
 test('cancels everything, then schedules the plan', async () => {
   await syncReminders([makeCard({ id: 'c1', name: 'Visa', expiresOn: '2027-06-30' })], now);
   expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
-  expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+  expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(15);
   expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith({
-    identifier: 'c1:30',
-    content: { title: 'Visa expires in 30 days', body: 'Tap to open the card.', data: { cardId: 'c1' } },
-    trigger: { type: 'date', date: new Date(2027, 4, 31, 9, 0), channelId: 'reminders' },
+    identifier: 'c1:14',
+    content: { title: 'Visa expires in 14 days', body: 'Tap to open the card.', data: { cardId: 'c1' } },
+    trigger: { type: 'date', date: new Date(2027, 5, 16, 9, 0), channelId: 'reminders' },
   });
 });
 
@@ -57,6 +57,7 @@ test('tapping a reminder names its card; other actions and notifications do not'
   expect(reminderCardId(null)).toBeNull();
 });
 
-test('a reminder one day out reads "1 day"', () => {
+test('a reminder one day out reads "1 day", and on the day "today"', () => {
   expect(strings.reminders.title('Visa', 1)).toBe('Visa expires in 1 day');
+  expect(strings.reminders.title('Visa', 0)).toBe('Visa expires today');
 });

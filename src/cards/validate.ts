@@ -1,14 +1,15 @@
-import { MAX_TAGS, NAME_MAX_LENGTH, READ_TEXT_MAX_LENGTH, TAG_MAX_LENGTH } from '../config';
+import { DEFAULT_REMIND_DAYS, MAX_REMIND_DAYS, MAX_TAGS, NAME_MAX_LENGTH, READ_TEXT_MAX_LENGTH, TAG_MAX_LENGTH } from '../config';
 import { isValidIsoDate } from '../time/dates';
 import { CardFields, CardText, toCategory } from './types';
 
-export type FieldError = 'name-too-long' | 'bad-category' | 'bad-expiry' | 'bad-tags';
+export type FieldError = 'name-too-long' | 'bad-category' | 'bad-expiry' | 'bad-reminder' | 'bad-tags';
 
 // Unknown-typed so the same check guards both the edit form and untrusted backup files.
 export interface RawCardFields {
   name?: unknown;
   category?: unknown;
   expiresOn?: unknown;
+  remindDaysBefore?: unknown; // a number, or the digits typed in the edit form
   tags?: unknown;
   documentKey?: unknown;
   folderId?: unknown;
@@ -50,6 +51,13 @@ function parseTags(v: unknown): string[] | null {
   return tags;
 }
 
+// Missing means the default: cards and backups from before the setting have none.
+export function parseRemindDays(v: unknown): number | null {
+  if (v === undefined) return DEFAULT_REMIND_DAYS;
+  const n = typeof v === 'number' ? v : typeof v === 'string' && /^\s*\d+\s*$/.test(v) ? Number(v) : NaN;
+  return Number.isInteger(n) && n >= 1 && n <= MAX_REMIND_DAYS ? n : null;
+}
+
 const DOCUMENT_KEY = /^[0-9a-f]{64}$/;
 
 // Not typed by anyone either: anything malformed means "not read yet", and the card is read again.
@@ -73,14 +81,17 @@ export function validateCardFields(raw: RawCardFields): CardValidation {
   const expiresOn = optionalText(raw.expiresOn);
   if (expiresOn !== null && !isValidIsoDate(expiresOn)) errors.push('bad-expiry');
 
+  const remindDaysBefore = parseRemindDays(raw.remindDaysBefore);
+  if (remindDaysBefore === null) errors.push('bad-reminder');
+
   const tags = parseTags(raw.tags);
   if (!tags) errors.push('bad-tags');
 
-  if (errors.length > 0 || !category || !tags) return { ok: false, errors };
+  if (errors.length > 0 || !category || !tags || remindDaysBefore === null) return { ok: false, errors };
   // Never typed by anyone, so a malformed one (from an edited backup, say) is just dropped.
   const documentKey = typeof raw.documentKey === 'string' && DOCUMENT_KEY.test(raw.documentKey) ? raw.documentKey : null;
   return {
     ok: true,
-    value: { name, category, expiresOn, tags, documentKey, folderId: toFolderId(raw.folderId), readText: toCardText(raw.readText) },
+    value: { name, category, expiresOn, remindDaysBefore, tags, documentKey, folderId: toFolderId(raw.folderId), readText: toCardText(raw.readText) },
   };
 }
