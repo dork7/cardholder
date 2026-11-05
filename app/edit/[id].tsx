@@ -447,6 +447,7 @@ export default function EditCard() {
                   onChange={(category) => category && update({ category })}
                   categories={categories.includes(draft.category) ? categories : [...categories, draft.category]}
                   onAddNew={() => setNamingCategory(true)}
+                  wrap
                 />
               )}
             </Field>
