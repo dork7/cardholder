@@ -45,7 +45,11 @@ jest.mock('../../images/pdf', () => ({
   },
 }));
 const mockShareCard = jest.fn((..._a: unknown[]) => Promise.resolve());
-jest.mock('../../share/shareCard', () => ({ shareCard: (...a: unknown[]) => mockShareCard(...a) }));
+const mockShareMarkdown = jest.fn((..._a: unknown[]) => Promise.resolve());
+jest.mock('../../share/shareCard', () => ({
+  shareCard: (...a: unknown[]) => mockShareCard(...a),
+  shareCardMarkdown: (...a: unknown[]) => mockShareMarkdown(...a),
+}));
 // Stable like the real provider's memoised value; a fresh object per render would reload images forever.
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
@@ -58,7 +62,7 @@ const mockServices = {
   },
 };
 jest.mock('../../app/AppProvider', () => ({
-  useApp: () => ({ services: mockServices, cards: mockCards, refresh: () => mockRefresh() }),
+  useApp: () => ({ services: mockServices, cards: mockCards, folders: [], refresh: () => mockRefresh() }),
 }));
 
 beforeEach(() => jest.clearAllMocks());
@@ -247,4 +251,53 @@ describe('a PDF card', () => {
     expect(screen.queryByLabelText(strings.card.imageLabel('Policy', strings.card.front))).toBeNull();
   });
 
+});
+
+describe('details (.md)', () => {
+  let alert: jest.SpyInstance;
+  beforeEach(() => {
+    mockCards = [makeCard({ id: 'card1', name: 'Residence', hasBack: true, readText: { front: 'RESIDENCE PERMIT', back: 'Sponsor: ACME' } })];
+    alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  });
+  afterEach(() => alert.mockRestore());
+
+  test('the card opens on its photos; Details shows the scanned text as a Markdown file', async () => {
+    await render(<CardView />);
+    expect(screen.getByTestId('card-sides')).toBeTruthy();
+    expect(screen.queryByTestId('card-markdown')).toBeNull();
+    await fireEvent.press(screen.getByTestId('view-details'));
+    const md = screen.getByTestId('card-markdown').props.children as string;
+    expect(md).toContain('# Residence');
+    expect(md).toContain('RESIDENCE PERMIT');
+    expect(md).toContain('Sponsor: ACME');
+    expect(md).toContain('`card1`');
+    expect(screen.queryByTestId('card-sides')).toBeNull();
+    await fireEvent.press(screen.getByTestId('view-card'));
+    expect(screen.getByTestId('card-sides')).toBeTruthy();
+  });
+
+  test('Save .md file shares the same Markdown; an ID asks first', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('view-details'));
+    const md = screen.getByTestId('card-markdown').props.children;
+    await fireEvent.press(screen.getByTestId('save-markdown'));
+    expect(mockShareMarkdown).toHaveBeenCalledWith(mockCards[0], md);
+    expect(alert).not.toHaveBeenCalled();
+
+    mockShareMarkdown.mockClear();
+    mockCards = [makeCard({ id: 'card1', category: 'id' })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('view-details'));
+    await fireEvent.press(screen.getByTestId('save-markdown'));
+    expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
+    expect(mockShareMarkdown).not.toHaveBeenCalled();
+  });
+
+  test('showing the card to staff switches back to the photos and hides Details', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('view-details'));
+    await fireEvent.press(screen.getByTestId('show-to-staff'));
+    expect(screen.getByTestId('card-sides')).toBeTruthy();
+    expect(screen.queryByTestId('view-details')).toBeNull();
+  });
 });

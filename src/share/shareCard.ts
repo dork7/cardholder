@@ -3,7 +3,7 @@ import * as Sharing from 'expo-sharing';
 import { CardStore } from '../cards/cardStore';
 import { displayName } from '../cards/display';
 import { Card } from '../cards/types';
-import { base64 } from '../crypto/bytes';
+import { base64, utf8 } from '../crypto/bytes';
 import { IMAGE_MAX_EDGE } from '../config';
 import { imagesToPdf, renderPages } from '../images/pdf';
 import { toIsoDate } from '../time/dates';
@@ -62,6 +62,20 @@ export async function shareCard(store: CardStore, card: Card): Promise<void> {
     }
     // No back, or a build without the PDF module: the front photo alone.
     await Sharing.shareAsync(frontFile.uri, JPEG);
+  } finally {
+    clearShareCache();
+  }
+}
+
+// The card's details and scanned text as a Markdown file (see cardMarkdown), named after the card.
+export async function shareCardMarkdown(card: Card, markdown: string): Promise<void> {
+  clearShareCache();
+  shareDir().create({ intermediates: true });
+  try {
+    const file = new File(shareDir(), `${cardFileBase(card)}.md`);
+    file.create({ overwrite: true });
+    await file.write(utf8.encode(markdown));
+    await Sharing.shareAsync(file.uri, { mimeType: 'text/markdown', UTI: 'net.daringfireball.markdown' });
   } finally {
     clearShareCache();
   }

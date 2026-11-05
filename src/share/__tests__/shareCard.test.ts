@@ -1,7 +1,7 @@
 import * as Sharing from 'expo-sharing';
 import { makeCard } from '../../../test/fixtures';
 import { base64, utf8 } from '../../crypto/bytes';
-import { backupFileName, cardFileBase, PdfUnavailableError, shareBackupFile, shareCard, shareCards } from '../shareCard';
+import { backupFileName, cardFileBase, PdfUnavailableError, shareBackupFile, shareCard, shareCardMarkdown, shareCards } from '../shareCard';
 
 // A tiny in-memory stand-in for the cache directory: enough to see what was written and cleaned up.
 const mockDisk = new Map<string, Uint8Array>();
@@ -206,4 +206,11 @@ describe('sharing several cards', () => {
     await expect(shareCards(store, [makeCard({ id: 'a' }), makeCard({ id: 'b' })])).rejects.toThrow('no share sheet');
     expect(mockDisk.size).toBe(0);
   });
+});
+
+test('the details share as a .md file named after the card, then the copy is removed', async () => {
+  await shareCardMarkdown(makeCard({ name: 'Residence' }), '# Residence\n');
+  expect(shared).toEqual({ uri: 'cache/share/Residence.md', bytes: utf8.encode('# Residence\n') });
+  expect(shareAsync).toHaveBeenCalledWith('cache/share/Residence.md', { mimeType: 'text/markdown', UTI: 'net.daringfireball.markdown' });
+  expect(mockDisk.size).toBe(0);
 });

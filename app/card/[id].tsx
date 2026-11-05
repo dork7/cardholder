@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, BackHandler, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, BackHandler, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { useAllowLandscape } from '../../src/hooks/useAllowLandscape';
@@ -17,12 +18,15 @@ import { PdfPager } from '../../src/ui/PdfPager';
 import { displayName } from '../../src/cards/display';
 import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/expiry';
 import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
-import { shareCard } from '../../src/share/shareCard';
+import { shareCard, shareCardMarkdown } from '../../src/share/shareCard';
+import { cardMarkdown } from '../../src/cards/cardMarkdown';
+import { ChipRow } from '../../src/ui/ChipRow';
+import { EASE_OUT } from '../../src/ui/motion';
 import { strings } from '../../src/strings';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cards, services, refresh, cardBrightness } = useApp();
+  const { cards, folders, services, refresh, cardBrightness } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -32,6 +36,8 @@ export default function CardView() {
   // owner holds the finish button. Back, swipe-to-dismiss and every action are off.
   const [staff, setStaff] = useState(false);
   const [holdHint, setHoldHint] = useState(false);
+  // The photos, or the card's details and scanned text as the Markdown file it can be saved as.
+  const [view, setView] = useState<'card' | 'details'>('card');
 
   useMaxBrightness(cardBrightness);
   useAllowLandscape();
@@ -59,22 +65,34 @@ export default function CardView() {
     );
   }
 
-  const share = () => {
-    const go = () =>
-      shareCard(services.store, card).catch((e) => {
-        console.warn('Share failed', e);
-        Alert.alert(strings.common.error);
-      });
-    // An ID is the one card worth a second thought before an unencrypted copy leaves the app.
+  // An ID is the one card worth a second thought before an unencrypted copy leaves the app.
+  const confirmIfId = (action: string, go: () => void) => {
     if (card.category === 'id') {
       Alert.alert(strings.card.shareIdTitle, strings.card.shareIdBody, [
         { text: strings.common.cancel, style: 'cancel' },
-        { text: strings.card.share, onPress: go },
+        { text: action, onPress: go },
       ]);
     } else {
       go();
     }
   };
+
+  const share = () =>
+    confirmIfId(strings.card.share, () =>
+      shareCard(services.store, card).catch((e) => {
+        console.warn('Share failed', e);
+        Alert.alert(strings.common.error);
+      }),
+    );
+
+  const markdown = cardMarkdown(card, folders);
+  const saveMarkdown = () =>
+    confirmIfId(strings.card.saveMarkdown, () =>
+      shareCardMarkdown(card, markdown).catch((e) => {
+        console.warn('Saving the .md file failed', e);
+        Alert.alert(strings.common.error);
+      }),
+    );
 
   const confirmDelete = () =>
     Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
@@ -114,6 +132,11 @@ export default function CardView() {
 
   const sides = [{ label: strings.card.front, uri: frontUri }];
   if (card.hasBack) sides.push({ label: strings.card.back, uri: backUri });
+
+  const startStaff = () => {
+    setView('card');
+    setStaff(true);
+  };
 
   const finishStaff = () => {
     setStaff(false);
@@ -158,7 +181,7 @@ export default function CardView() {
           icon="present"
           label={strings.card.showToStaff}
           hint={strings.card.staffHint}
-          onPress={() => setStaff(true)}
+          onPress={startStaff}
           testID="show-to-staff"
         />
         <IconButton icon="edit" label={strings.card.edit} onPress={() => router.push(`/edit/${card.id}`)} testID="edit-card" />
@@ -180,7 +203,7 @@ export default function CardView() {
       <Stack.Screen options={{ gestureEnabled: !staff }} />
       {/* Sideways, the photos get the height; the name and details come back upright. */}
       {!landscape && (
-        <View style={styles.inset}>
+        <View style={[styles.inset, styles.top]}>
           <Panel style={styles.header} radius={24}>
             <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
               {displayName(card)}
@@ -192,23 +215,57 @@ export default function CardView() {
               </Text>
             </View>
           </Panel>
+          {!staff && (
+            <ChipRow
+              accessibilityLabel={strings.card.views}
+              chips={[
+                { key: 'card', label: strings.card.viewCard, selected: view === 'card', onPress: () => setView('card'), testID: 'view-card' },
+                {
+                  key: 'details',
+                  label: strings.card.viewDetails,
+                  selected: view === 'details',
+                  onPress: () => setView('details'),
+                  testID: 'view-details',
+                },
+              ]}
+            />
+          )}
         </View>
       )}
 
       {/* The photos sit straight on the page: the card is the card, panels are only the chrome.
           In landscape the front and back sit side by side, for staff who need to see both. */}
-      <View style={[styles.inset, styles.sides, landscape && styles.sidesRow]} testID="card-sides">
-        {card.pdf ? (
-          <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} />
-        ) : sides.map((side) => (
-          <View key={side.label} style={styles.side}>
-            <Text style={{ fontSize: 14, color: theme.muted, textAlign: 'center' }}>{side.label}</Text>
-            <View style={styles.frame}>
-              <ZoomableImage uri={side.uri} accessibilityLabel={strings.card.imageLabel(displayName(card), side.label)} />
+      {view === 'details' && !landscape && !staff ? (
+        <Animated.View key="details" entering={FadeIn.duration(180).easing(EASE_OUT)} style={[styles.inset, styles.sides]}>
+          <Panel style={styles.details} radius={24}>
+            <ScrollView contentContainerStyle={styles.detailsText}>
+              <Text selectable style={[styles.markdown, { color: theme.text }]} testID="card-markdown">
+                {markdown}
+              </Text>
+            </ScrollView>
+          </Panel>
+          <Button
+            variant="secondary"
+            label={strings.card.saveMarkdown}
+            accessibilityHint={strings.card.saveMarkdownHint}
+            onPress={saveMarkdown}
+            testID="save-markdown"
+          />
+        </Animated.View>
+      ) : (
+        <View style={[styles.inset, styles.sides, landscape && styles.sidesRow]} testID="card-sides">
+          {card.pdf ? (
+            <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} />
+          ) : sides.map((side) => (
+            <View key={side.label} style={styles.side}>
+              <Text style={{ fontSize: 14, color: theme.muted, textAlign: 'center' }}>{side.label}</Text>
+              <View style={styles.frame}>
+                <ZoomableImage uri={side.uri} accessibilityLabel={strings.card.imageLabel(displayName(card), side.label)} />
+              </View>
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
 
       <View style={styles.inset}>{footer}</View>
     </Screen>
@@ -227,6 +284,11 @@ const styles = StyleSheet.create({
   side: { flex: 1, gap: 4 },
   frame: { flex: 1 },
   footer: { gap: 12, padding: 12 },
+  top: { gap: 8 },
+  details: { flex: 1, overflow: 'hidden' },
+  detailsText: { padding: 16 },
+  // Shown as the file it saves as: monospaced, so the Markdown reads as written.
+  markdown: { fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }), fontSize: 13, lineHeight: 19 },
   // Five icon buttons: an 8 pt gap keeps each well over 44 pt wide on a 375 pt phone.
   actions: { flexDirection: 'row', gap: 8 },
   hint: { fontSize: TYPE.secondary, textAlign: 'center' },
