@@ -1,5 +1,5 @@
 import { ImportEntry } from '../cards/cardStore';
-import { Card, CardImage, Folder, PdfDocument } from '../cards/types';
+import { Card, CardImage, Folder, looksVertical, PdfDocument } from '../cards/types';
 import { validateCardFields } from '../cards/validate';
 import { FOLDER_NAME_MAX_LENGTH, PBKDF2_ITERATIONS } from '../config';
 import { createAead } from '../crypto/aead';
@@ -146,6 +146,8 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
 
   const card: Card = {
     ...fields.value,
+    // Backups made before the setting: as the card's picture looks.
+    vertical: typeof c.vertical === 'boolean' ? c.vertical : looksVertical(c.frontAspect as number),
     id: c.id,
     pinned: c.pinned,
     position: c.position,

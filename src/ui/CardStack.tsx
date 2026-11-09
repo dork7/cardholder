@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityActionEvent, Image, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityActionEvent, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import {
   GestureDetector,
   useCompetingGestures,
@@ -41,6 +41,7 @@ import { Panel } from './Surface';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
+import { CardPicture } from './CardPicture';
 
 const EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
 const DURATION = 380;
@@ -441,7 +442,7 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   return (
     <Animated.View pointerEvents="none" style={[styles.card, vertical && styles.cardVertical, { width: geo.cardW, height: geo.cardH }, animated]}>
       <Animated.View style={[faceStyle, frontFace]}>
-        {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+        {uri && <CardPicture uri={uri} vertical={card.vertical} />}
         {uri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />}
         {/* Top left: the flip button has the top right. */}
         {alert && (
@@ -453,7 +454,7 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
       </Animated.View>
       {card.hasBack && (
         <Animated.View style={[faceStyle, backFace]}>
-          {backUri && <Image source={{ uri: backUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+          {backUri && <CardPicture uri={backUri} vertical={card.vertical} />}
           {backUri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />}
           <Animated.View style={[StyleSheet.absoluteFill, styles.shade, shade]} />
         </Animated.View>

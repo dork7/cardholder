@@ -8,7 +8,7 @@ import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
 import { gemmaReader, releaseGemma } from '../../src/analysis/gemma';
 import { displayName } from '../../src/cards/display';
-import { FrontImage } from '../../src/cards/types';
+import { FrontImage, looksVertical } from '../../src/cards/types';
 import { findDuplicate } from '../../src/cards/duplicates';
 import { suggestedCategory } from '../../src/analysis/documentType';
 import {
@@ -123,9 +123,9 @@ export default function EditCard() {
     // that PDF, goes with it.
     if (side === 'front' && pdfInfo) {
       reads.current.back++;
-      update({ front: image, pdf: null, removePdf: !!existing?.pdf, back: null, removeBack: !!existing?.hasBack });
+      update({ front: image, pdf: null, removePdf: !!existing?.pdf, back: null, removeBack: !!existing?.hasBack, vertical: looksVertical(image.aspect) });
       setForm((f) => removeReadSide(f, 'back'));
-    } else if (side === 'front') update({ front: image, pdf: null, removePdf: !!existing?.pdf });
+    } else if (side === 'front') update({ front: image, pdf: null, removePdf: !!existing?.pdf, vertical: looksVertical(image.aspect) });
     else update({ back: image, removeBack: false });
     covers.current++;
     readCard(side, image.jpegBase64);
@@ -158,8 +158,9 @@ export default function EditCard() {
       if (covers.current !== cover) return;
       reads.current.back++; // drop a read of the back photo being replaced
       setForm((f) => removeReadSide(f, 'back'));
-      if (back) update({ pdf, front, back, removeBack: false, removePdf: false });
-      else update({ pdf, front, back: null, removeBack: !!existing?.hasBack, removePdf: false });
+      const vertical = looksVertical(front.aspect);
+      if (back) update({ pdf, front, back, removeBack: false, removePdf: false, vertical });
+      else update({ pdf, front, back: null, removeBack: !!existing?.hasBack, removePdf: false, vertical });
       setOriginal('front', null);
       setOriginal('back', null);
       readCard('front', front.jpegBase64);
@@ -194,7 +195,7 @@ export default function EditCard() {
     try {
       const front = await renderCover(next);
       if (covers.current !== cover) return;
-      update({ pdf: next, front });
+      update({ pdf: next, front, vertical: looksVertical(front.aspect) });
       readCard('front', front.jpegBase64);
     } catch (e) {
       console.warn('Rendering the cover page failed', e);
@@ -344,6 +345,12 @@ export default function EditCard() {
     { key: 'add', label: `+ ${strings.folders.newFolder}`, onPress: () => setNamingFolder(true), testID: 'folder-add' },
   ];
 
+  // Set from each new front picture's shape; the user can turn it either way.
+  const shapeChips: Chip[] = [
+    { key: 'horizontal', label: strings.edit.horizontal, selected: !draft.vertical, onPress: () => update({ vertical: false }), testID: 'shape-horizontal' },
+    { key: 'vertical', label: strings.edit.vertical, selected: draft.vertical, onPress: () => update({ vertical: true }), testID: 'shape-vertical' },
+  ];
+
   const frontUri = draft.front ? dataUri(draft.front.jpegBase64) : existingFront;
   const backUri = draft.back ? dataUri(draft.back.jpegBase64) : draft.removeBack ? null : existingBack;
 
@@ -362,6 +369,7 @@ export default function EditCard() {
               onPdf={canPickPdf ? attachPdf : undefined}
               pdfLabel={pdfInfo ? strings.edit.replacePdf : undefined}
               error={errorText('front-required')}
+              vertical={draft.vertical}
               testIDPrefix="front"
             />
             {pdfInfo ? (
@@ -380,6 +388,7 @@ export default function EditCard() {
                       onLibrary={() => capture('back')}
                       onRemove={removeBack}
                       removeAsCross
+                      vertical={draft.vertical}
                       testIDPrefix="back"
                     />
                   </Animated.View>
@@ -407,9 +416,15 @@ export default function EditCard() {
                   onLibrary={() => capture('back')}
                   onFullPhoto={originals.back ? () => void cropWholePhoto('back') : undefined}
                   onRemove={backUri ? removeBack : undefined}
+                  vertical={draft.vertical}
                   testIDPrefix="back"
                 />
               )
+            )}
+            {frontUri && (
+              <Field label={strings.edit.shape}>
+                <ChipRow chips={shapeChips} accessibilityLabel={strings.edit.shape} />
+              </Field>
             )}
             {reading > 0 && (
               <Text style={{ color: theme.muted, fontSize: 16 }} accessibilityLiveRegion="polite" testID="reading-card">

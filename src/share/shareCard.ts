@@ -83,6 +83,74 @@ export async function shareCardMarkdown(card: Card, markdown: string): Promise<v
 
 export class PdfUnavailableError extends Error {}
 
+// "Gym.pdf" in a folder already holding it -> "Gym (2).pdf", so saving again never replaces a file.
+export function freeFileName(name: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(name)) return name;
+  const dot = name.lastIndexOf('.');
+  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+  for (let n = 2; ; n++) {
+    const next = `${stem} (${n})${ext}`;
+    if (!taken.has(next)) return next;
+  }
+}
+
+// The whole card as one PDF in the share folder: a PDF card as its own PDF, a photo card as its
+// front then its back. Unlike shareCard, a front-only card is a PDF too. Null when nothing is stored.
+async function writeCardPdf(store: CardStore, card: Card): Promise<File | null> {
+  const base = cardFileBase(card);
+  if (card.pdf) {
+    const pdf = await store.loadPdf(card.id);
+    return pdf ? writeShareFile(`${base}.pdf`, pdf) : null;
+  }
+  const front = await store.loadImage(card.id, 'front');
+  if (!front) return null;
+  const pages = [(await writeShareFile(`${base}-front.jpg`, front)).uri];
+  const back = card.hasBack ? await store.loadImage(card.id, 'back') : null;
+  if (back) pages.push((await writeShareFile(`${base}-back.jpg`, back)).uri);
+  const combined = imagesToPdf(pages);
+  if (!combined) throw new PdfUnavailableError('This build cannot make PDFs');
+  const made = new File(await combined);
+  try {
+    await made.move(new File(shareDir(), `${base}.pdf`), { overwrite: true });
+  } catch (e) {
+    if (made.exists) made.delete();
+    throw e;
+  }
+  return made;
+}
+
+const isCancelled = (e: unknown) => /cancel/i.test(`${(e as { code?: string })?.code ?? ''} ${(e as Error)?.message ?? ''}`);
+
+// The card as a PDF, either sent through the share sheet or saved into a folder the user picks
+// (Files on iPhone, the system folder picker on Android). Resolves to the saved file's name, or null
+// when it was sent, the picker was cancelled or there was nothing to export. The decrypted copy in
+// the cache is always removed; only the copy the user chose to save stays.
+export async function exportCardPdf(store: CardStore, card: Card, to: 'send' | 'files'): Promise<string | null> {
+  clearShareCache();
+  shareDir().create({ intermediates: true });
+  try {
+    const pdf = await writeCardPdf(store, card);
+    if (!pdf) return null;
+    if (to === 'send') {
+      await Sharing.shareAsync(pdf.uri, PDF);
+      return null;
+    }
+    let folder: Directory;
+    try {
+      folder = await Directory.pickDirectoryAsync();
+    } catch (e) {
+      if (isCancelled(e)) return null;
+      throw e;
+    }
+    const name = freeFileName(pdf.name, new Set(folder.list().map((entry) => entry.name)));
+    const saved = folder.createFile(name, PDF.mimeType);
+    await saved.write(await pdf.bytes());
+    return saved.name;
+  } finally {
+    clearShareCache();
+  }
+}
+
 // Several cards as one PDF, in the order given: each photo card's front then back, and every page of a
 // PDF card. Like shareCard, the copies are deleted once the share sheet closes. A single card is shared
 // as shareCard would.

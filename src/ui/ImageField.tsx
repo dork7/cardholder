@@ -19,10 +19,11 @@ interface Props {
   // Shown when the photo was cut around the card automatically: crop again from the whole photo.
   onFullPhoto?: () => void;
   error?: string;
+  vertical?: boolean; // an upright card: the preview stands upright too
   testIDPrefix: string;
 }
 
-export function ImageField({ label, uri, onLibrary, onPdf, pdfLabel, onRemove, removeAsCross, onFullPhoto, error, testIDPrefix }: Props) {
+export function ImageField({ label, uri, onLibrary, onPdf, pdfLabel, onRemove, removeAsCross, onFullPhoto, error, vertical = false, testIDPrefix }: Props) {
   const theme = useTheme();
   return (
     <Field label={label} error={error}>
@@ -34,6 +35,7 @@ export function ImageField({ label, uri, onLibrary, onPdf, pdfLabel, onRemove, r
           testID={`${testIDPrefix}-library`}
           style={({ pressed }) => [
             styles.preview,
+            vertical && styles.previewVertical,
             { borderColor: theme.border, backgroundColor: theme.surface, opacity: pressed ? 0.7 : 1 },
           ]}
         >
@@ -110,6 +112,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  // ID-1 turned upright, narrower so the form doesn't become one long picture.
+  previewVertical: { aspectRatio: 1 / 1.586, width: '62%', alignSelf: 'center' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   // Over the picture's top right corner.
   crossSlot: { position: 'absolute', top: 8, right: 8 },

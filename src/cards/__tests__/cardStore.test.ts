@@ -290,6 +290,7 @@ test('cards saved before number and notes were removed still load, without them'
     backAspect: null,
     pdf: null, // saved before PDF cards existed
     readText: null, // saved before card text was kept: read once, later
+    vertical: false, // saved before the setting: from the picture, which is landscape
     createdAt: 1,
     updatedAt: 1,
   });
@@ -424,4 +425,26 @@ test('the text read off a card is sealed with it and comes back', async () => {
   expect((await store.get(card.id))?.readText).toEqual(readText);
   await store.update(card.id, fields({ readText: { front: 'NEW', back: '' } }));
   expect((await store.get(card.id))?.readText).toEqual({ front: 'NEW', back: '' });
+});
+
+test('a card keeps its shape, and one saved before the setting takes it from its picture', async () => {
+  const { store } = await makeStore();
+  const upright = await store.create(fields({ vertical: true }), images('a'));
+  expect((await store.get(upright.id))?.vertical).toBe(true);
+  await store.update(upright.id, fields({ vertical: false }));
+  expect((await store.get(upright.id))?.vertical).toBe(false);
+
+  const db = memoryDb();
+  await migrate(db);
+  const aead = createAead(generateKey());
+  const old = createCardStore({ db, blobs: createMemoryBlobStore(), aead });
+  const legacy = (frontAspect: number) => ({ name: 'Old', category: 'other', expiresOn: null, hasBack: false, frontAspect, backAspect: null });
+  for (const [id, aspect] of [['tall', 0.63], ['wide', 1.586]] as const) {
+    await db.runAsync(
+      'INSERT INTO cards (id, pinned, position, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, 0, 0, aead.seal(utf8.encode(JSON.stringify(legacy(aspect)))), 1, 1],
+    );
+  }
+  expect((await old.get('tall'))?.vertical).toBe(true);
+  expect((await old.get('wide'))?.vertical).toBe(false);
 });

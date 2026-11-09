@@ -1,4 +1,4 @@
-import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { categoryLabel } from '../cards/categories';
 import { displayName } from '../cards/display';
@@ -9,6 +9,7 @@ import { strings } from '../strings';
 import { ExpiryAlert } from './ExpiryAlert';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
+import { CardPicture } from './CardPicture';
 
 interface Props {
   cards: Card[];
@@ -86,7 +87,7 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
           },
         ]}
       >
-        {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+        {uri && <CardPicture uri={uri} vertical={card.vertical} />}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
         {alert && (
           <View style={styles.alert}>

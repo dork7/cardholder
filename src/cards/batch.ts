@@ -13,6 +13,7 @@ export const fieldsOf = (card: Card): CardFields => ({
   documentKey: card.documentKey,
   folderId: card.folderId,
   readText: card.readText,
+  vertical: card.vertical,
 });
 
 async function each(cards: Card[], what: string, run: (card: Card) => Promise<unknown>): Promise<number> {

@@ -415,7 +415,7 @@ describe('reading the card from its photo', () => {
     expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
     await save();
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: [], documentKey: KEY, folderId: null, readText: { front: 'UNITED ARAB EMIRATES', back: '' } },
+      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: [], documentKey: KEY, folderId: null, readText: { front: 'UNITED ARAB EMIRATES', back: '' }, vertical: false },
       expect.anything(),
     );
   });
@@ -452,7 +452,7 @@ describe('reading the card from its photo', () => {
     await save();
     expect(mockUpdate).toHaveBeenCalledWith(
       'c1',
-      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: [], documentKey: KEY, folderId: null, readText: { front: '', back: '' } }, // blanks filled; the new front was read, and this card has no back
+      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: [], documentKey: KEY, folderId: null, readText: { front: '', back: '' }, vertical: false }, // blanks filled; the new front was read, and this card has no back
       expect.anything(),
     );
   });
@@ -679,5 +679,39 @@ describe('folders', () => {
     await save();
     expect(mockCreateFolder).toHaveBeenCalledWith('Work');
     expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'made' }), expect.anything());
+  });
+});
+
+describe('card shape', () => {
+  const selected = (id: string) => screen.getByTestId(id).props.accessibilityState?.checked;
+
+  test('a tall photo makes the card vertical, and it is saved that way', async () => {
+    mockPickImage.mockResolvedValueOnce({ image: frontImage('tall', 0.63), original: null });
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(selected('shape-vertical')).toBe(true);
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ vertical: true }), expect.anything());
+  });
+
+  test('a wide photo stays horizontal, and the user can turn it upright', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(selected('shape-horizontal')).toBe(true);
+    await fireEvent.press(screen.getByTestId('shape-vertical'));
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ vertical: true }), expect.anything());
+  });
+
+  test('a portrait PDF page makes the card vertical', async () => {
+    mockRenderCover.mockResolvedValueOnce(frontImage('page0', 0.707));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    expect(selected('shape-vertical')).toBe(true);
+  });
+
+  test('there is no shape to choose before the card has a picture', async () => {
+    await render(<EditCard />);
+    expect(screen.queryByTestId('shape-vertical')).toBeNull();
   });
 });

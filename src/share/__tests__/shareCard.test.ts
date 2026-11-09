@@ -1,14 +1,30 @@
 import * as Sharing from 'expo-sharing';
 import { makeCard } from '../../../test/fixtures';
 import { base64, utf8 } from '../../crypto/bytes';
-import { backupFileName, cardFileBase, PdfUnavailableError, shareBackupFile, shareCard, shareCardMarkdown, shareCards } from '../shareCard';
+import {
+  backupFileName,
+  cardFileBase,
+  exportCardPdf,
+  freeFileName,
+  PdfUnavailableError,
+  shareBackupFile,
+  shareCard,
+  shareCardMarkdown,
+  shareCards,
+} from '../shareCard';
 
 // A tiny in-memory stand-in for the cache directory: enough to see what was written and cleaned up.
 const mockDisk = new Map<string, Uint8Array>();
+// The folder the user picks for "Save to Files"; null means the picker is cancelled.
+let mockPicked: string | null = 'picked';
 jest.mock('expo-file-system', () => {
   const pathOf = (...parts: Array<string | { uri: string }>) =>
     parts.map((p) => (typeof p === 'string' ? p : p.uri)).join('/');
   class Directory {
+    static async pickDirectoryAsync() {
+      if (mockPicked === null) throw Object.assign(new Error('File picking was cancelled by the user'), { code: 'ERR_FILE_PICKING_CANCELLED' });
+      return new Directory(mockPicked);
+    }
     uri: string;
     constructor(...parts: Array<string | { uri: string }>) {
       this.uri = pathOf(...parts);
@@ -20,6 +36,15 @@ jest.mock('expo-file-system', () => {
     delete() {
       for (const k of [...mockDisk.keys()]) if (k.startsWith(`${this.uri}/`)) mockDisk.delete(k);
     }
+    list() {
+      return [...mockDisk.keys()].filter((k) => k.startsWith(`${this.uri}/`)).map((k) => new File(k));
+    }
+    createFile(name: string) {
+      const file = new File(this, name);
+      if (mockDisk.has(file.uri)) throw new Error('Destination already exists');
+      file.create();
+      return file;
+    }
   }
   class File {
     uri: string;
@@ -28,6 +53,12 @@ jest.mock('expo-file-system', () => {
     }
     create() {
       mockDisk.set(this.uri, new Uint8Array());
+    }
+    get name() {
+      return this.uri.slice(this.uri.lastIndexOf('/') + 1);
+    }
+    async bytes() {
+      return mockDisk.get(this.uri) as Uint8Array;
     }
     async write(bytes: Uint8Array) {
       mockDisk.set(this.uri, bytes);
@@ -73,6 +104,7 @@ let shared: { uri: string; bytes?: Uint8Array } | null;
 beforeEach(() => {
   mockDisk.clear();
   mockPdfAvailable = true;
+  mockPicked = 'picked';
   shared = null;
   shareAsync.mockReset();
   shareAsync.mockImplementation(async (uri: string) => {
@@ -213,4 +245,61 @@ test('the details share as a .md file named after the card, then the copy is rem
   expect(shared).toEqual({ uri: 'cache/share/Residence.md', bytes: utf8.encode('# Residence\n') });
   expect(shareAsync).toHaveBeenCalledWith('cache/share/Residence.md', { mimeType: 'text/markdown', UTI: 'net.daringfireball.markdown' });
   expect(mockDisk.size).toBe(0);
+});
+
+describe('exporting a card as a PDF', () => {
+  const text = (uri: string) => new TextDecoder().decode(mockDisk.get(uri));
+  const pickedFiles = () => [...mockDisk.keys()].filter((k) => k.startsWith('picked/')).sort();
+
+  test('a front-only card still goes as a PDF, not a photo', async () => {
+    await exportCardPdf(store, makeCard({ name: 'Gym' }), 'send');
+    expect(shareAsync).toHaveBeenCalledWith('cache/share/Gym.pdf', PDF);
+    expect(new TextDecoder().decode(shared?.bytes)).toBe('PDF:cache/share/Gym-front.jpg');
+    expect(mockDisk.size).toBe(0);
+  });
+
+  test('a card with a back is one PDF, front then back', async () => {
+    await exportCardPdf(store, makeCard({ name: 'Gym', hasBack: true, backAspect: 1.586 }), 'send');
+    expect(new TextDecoder().decode(shared?.bytes)).toBe('PDF:cache/share/Gym-front.jpg+cache/share/Gym-back.jpg');
+  });
+
+  test('saves into the picked folder and leaves no copy in the cache', async () => {
+    const name = await exportCardPdf(store, makeCard({ name: 'Gym', hasBack: true, backAspect: 1.586 }), 'files');
+    expect(name).toBe('Gym.pdf');
+    expect(shareAsync).not.toHaveBeenCalled();
+    expect(pickedFiles()).toEqual(['picked/Gym.pdf']);
+    expect(text('picked/Gym.pdf')).toBe('PDF:cache/share/Gym-front.jpg+cache/share/Gym-back.jpg');
+    expect([...mockDisk.keys()].filter((k) => k.startsWith('cache/'))).toEqual([]);
+  });
+
+  test('a PDF card saves its own PDF', async () => {
+    await exportCardPdf(store, makeCard({ name: 'Policy', pdf: { pageCount: 2, coverPage: 0 } }), 'files');
+    expect(text('picked/Policy.pdf')).toBe('%PDF-1.7 policy');
+  });
+
+  test('saving twice keeps both files', async () => {
+    const card = makeCard({ name: 'Gym' });
+    await exportCardPdf(store, card, 'files');
+    expect(await exportCardPdf(store, card, 'files')).toBe('Gym (2).pdf');
+    expect(pickedFiles()).toEqual(['picked/Gym (2).pdf', 'picked/Gym.pdf']);
+  });
+
+  test('cancelling the folder picker saves nothing and is not an error', async () => {
+    mockPicked = null;
+    await expect(exportCardPdf(store, makeCard({ name: 'Gym' }), 'files')).resolves.toBeNull();
+    expect(mockDisk.size).toBe(0);
+  });
+
+  test('without the PDF module it says so', async () => {
+    mockPdfAvailable = false;
+    await expect(exportCardPdf(store, makeCard({ name: 'Gym' }), 'send')).rejects.toBeInstanceOf(PdfUnavailableError);
+    expect(shareAsync).not.toHaveBeenCalled();
+    expect(mockDisk.size).toBe(0);
+  });
+
+  test('free file names count up past the ones taken', () => {
+    expect(freeFileName('Gym.pdf', new Set())).toBe('Gym.pdf');
+    expect(freeFileName('Gym.pdf', new Set(['Gym.pdf', 'Gym (2).pdf']))).toBe('Gym (3).pdf');
+    expect(freeFileName('notes', new Set(['notes']))).toBe('notes (2)');
+  });
 });

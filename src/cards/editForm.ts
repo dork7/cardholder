@@ -20,6 +20,7 @@ export interface EditDraft {
   removeBack: boolean;
   pdf: PdfDocument | null; // newly picked, or the saved one with a different cover page
   removePdf: boolean; // a photo replaced the saved PDF
+  vertical: boolean; // set from each new front picture's shape; the user can change it
 }
 
 export type SaveError = FieldError | 'front-required';
@@ -50,6 +51,7 @@ export function draftFor(card: Card | null, defaultCategory: CardCategory = 'id'
     removeBack: false,
     pdf: null,
     removePdf: false,
+    vertical: card?.vertical ?? false,
   };
 }
 

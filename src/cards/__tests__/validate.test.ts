@@ -3,14 +3,14 @@ import { validateCardFields } from '../validate';
 test('accepts a minimal card and normalises blanks', () => {
   expect(validateCardFields({ name: '  Gym  ', category: 'membership', expiresOn: '' })).toEqual({
     ok: true,
-    value: { name: 'Gym', category: 'membership', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null },
+    value: { name: 'Gym', category: 'membership', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
   });
 });
 
 test('the name is optional', () => {
   expect(validateCardFields({ name: '   ', category: 'id' })).toEqual({
     ok: true,
-    value: { name: '', category: 'id', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null },
+    value: { name: '', category: 'id', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
   });
   expect(validateCardFields({ category: 'id' }).ok).toBe(true);
 });
@@ -18,7 +18,7 @@ test('the name is optional', () => {
 test('keeps a trimmed expiry date', () => {
   expect(validateCardFields({ name: 'Emirates ID', category: 'id', expiresOn: ' 2027-03-01 ' })).toEqual({
     ok: true,
-    value: { name: 'Emirates ID', category: 'id', expiresOn: '2027-03-01', remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null },
+    value: { name: 'Emirates ID', category: 'id', expiresOn: '2027-03-01', remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
   });
 });
 
@@ -37,7 +37,7 @@ test('name longer than 60 characters is rejected', () => {
 test('cards saved as Loyalty become Other', () => {
   expect(validateCardFields({ name: 'Coffee', category: 'loyalty' })).toEqual({
     ok: true,
-    value: { name: 'Coffee', category: 'other', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null },
+    value: { name: 'Coffee', category: 'other', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
   });
 });
 
@@ -81,5 +81,13 @@ test('reminder days: a whole number from 1 to 365, typed or stored; missing mean
   expect(remind(365)).toMatchObject({ ok: true });
   for (const bad of ['', '0', 0, 366, 1.5, '-3', 'ten', null]) {
     expect(remind(bad)).toEqual({ ok: false, errors: ['bad-reminder'] });
+  }
+});
+
+test('only true makes a card vertical', () => {
+  const base = { name: 'Gym', category: 'membership' };
+  expect(validateCardFields({ ...base, vertical: true })).toMatchObject({ ok: true, value: { vertical: true } });
+  for (const v of [false, 'true', 1, undefined]) {
+    expect(validateCardFields({ ...base, vertical: v })).toMatchObject({ ok: true, value: { vertical: false } });
   }
 });

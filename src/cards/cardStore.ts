@@ -6,7 +6,7 @@ import { SqlDb } from '../storage/sqlDb';
 import { sortCards } from './listing';
 import { DEFAULT_REMIND_DAYS } from '../config';
 import { parseRemindDays, toCardText } from './validate';
-import { Card, CardCategory, CardFields, CardPdf, CATEGORIES, Folder, ImageChanges, ImageSide, NewCardImages, PdfDocument, toCategory } from './types';
+import { Card, CardCategory, CardFields, CardPdf, CATEGORIES, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument, toCategory } from './types';
 
 export class FolderNotFoundError extends Error {
   constructor(id: string) {
@@ -129,6 +129,7 @@ export function createCardStore({
       backAspect: card.backAspect,
       pdf: card.pdf,
       readText: card.readText,
+      vertical: card.vertical,
     };
     return aead.seal(utf8.encode(JSON.stringify(payload)));
   };
@@ -148,6 +149,7 @@ export function createCardStore({
       backAspect: payload.backAspect,
       pdf: isCardPdf(payload.pdf) ? payload.pdf : null,
       readText: toCardText(payload.readText), // null for cards saved before text was kept
+      vertical: typeof payload.vertical === 'boolean' ? payload.vertical : looksVertical(payload.frontAspect),
       id: row.id,
       pinned: row.pinned === 1,
       position: row.position,

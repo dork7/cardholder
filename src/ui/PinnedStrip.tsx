@@ -1,4 +1,4 @@
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { displayName } from '../cards/display';
 import { expiryLabel, expiryStatus, needsExpiryAlert } from '../cards/expiry';
 import { Card } from '../cards/types';
@@ -7,6 +7,7 @@ import { strings } from '../strings';
 import { ExpiryAlert } from './ExpiryAlert';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
+import { CardPicture } from './CardPicture';
 
 interface Props {
   cards: Card[]; // pinned only, in pinned order
@@ -49,7 +50,7 @@ function PinnedTile({ card, now, onPress }: { card: Card; now: Date; onPress: ()
       style={({ pressed }) => [styles.tile, { backgroundColor: theme.bannerBg, opacity: pressed ? 0.7 : 1 }]}
     >
       <View style={[styles.thumb, { backgroundColor: theme.surface }]}>
-        {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+        {uri && <CardPicture uri={uri} vertical={card.vertical} />}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
         {needsExpiryAlert(card, now) && (
           <View style={styles.alert}>

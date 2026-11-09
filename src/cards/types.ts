@@ -35,7 +35,12 @@ export interface CardFields {
   documentKey: string | null; // hash of the document's own number, for spotting duplicates (src/analysis/documentKey.ts)
   folderId: string | null; // null when the card isn't in a folder
   readText: CardText | null; // what was read off the photos, for search; null until the card has been read
+  vertical: boolean; // an upright card: shown turned on its side in the landscape slots of the home screen
 }
+
+// A picture taller than it is wide starts as a vertical card; the user can change it on the edit screen.
+// Also the default for cards and backups saved before the setting.
+export const looksVertical = (aspect: number): boolean => aspect < 1;
 
 // The text on each side of a card, as card reading found it ('' when nothing was read). Sealed with the
 // rest of the card and searched, never shown.

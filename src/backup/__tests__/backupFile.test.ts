@@ -179,3 +179,14 @@ test('malformed tags make the backup invalid', async () => {
   bad.cards[0].card.tags = [42];
   expect(await parseCode(bad)).toBe('invalid-contents');
 });
+
+test('a card keeps its shape through a backup; one from before the setting takes it from its picture', async () => {
+  const raw = rawSnapshot();
+  raw.cards[0].card.vertical = true;
+  expect(parseSnapshot(raw).cards[0].card.vertical).toBe(true);
+  const old = rawSnapshot();
+  delete old.cards[0].card.vertical;
+  old.cards[0].card.frontAspect = 0.63;
+  delete old.cards[1].card.vertical;
+  expect(parseSnapshot(old).cards.map((c) => c.card.vertical)).toEqual([true, old.cards[1].card.frontAspect < 1]);
+});

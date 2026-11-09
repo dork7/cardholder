@@ -18,7 +18,7 @@ import { PdfPager } from '../../src/ui/PdfPager';
 import { displayName } from '../../src/cards/display';
 import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/expiry';
 import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
-import { shareCard, shareCardMarkdown } from '../../src/share/shareCard';
+import { exportCardPdf, PdfUnavailableError, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
 import { cardMarkdown } from '../../src/cards/cardMarkdown';
 import { ChipRow } from '../../src/ui/ChipRow';
 import { EASE_OUT } from '../../src/ui/motion';
@@ -84,6 +84,25 @@ export default function CardView() {
         Alert.alert(strings.common.error);
       }),
     );
+
+  // Save to Files or send: either way the whole card as one PDF, even a front-only photo card.
+  const exportPdf = () =>
+    confirmIfId(strings.card.exportPdf, () => {
+      const run = (to: 'send' | 'files') =>
+        exportCardPdf(services.store, card, to)
+          .then((saved) => {
+            if (saved) Alert.alert(strings.card.exportPdfTitle, strings.card.exportPdfSaved(saved));
+          })
+          .catch((e) => {
+            console.warn('PDF export failed', e);
+            Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.card.exportPdfNeedsUpdate : undefined);
+          });
+      Alert.alert(strings.card.exportPdfTitle, strings.card.exportPdfBody, [
+        { text: strings.common.cancel, style: 'cancel' },
+        { text: strings.card.exportPdfSend, onPress: () => void run('send') },
+        { text: strings.card.exportPdfSave, onPress: () => void run('files') },
+      ]);
+    });
 
   const markdown = cardMarkdown(card, folders);
   const saveMarkdown = () =>
@@ -171,6 +190,7 @@ export default function CardView() {
       <View style={styles.actions}>
         <IconButton icon="trash" variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} testID="delete-card" />
         <IconButton icon="share" label={strings.card.share} hint={strings.card.shareHint} onPress={share} testID="share-card" />
+        <IconButton icon="pdf" label={strings.card.exportPdf} hint={strings.card.exportPdfHint} onPress={exportPdf} testID="export-pdf" />
         <IconButton
           icon={card.pinned ? 'unpin' : 'pin'}
           label={card.pinned ? strings.card.unpin : strings.card.pin}
