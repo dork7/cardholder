@@ -29,6 +29,7 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
   - **Share to Doc Keeper** from Photos (or any app) via the system share sheet. One shared image opens the add-card screen with it as the front; two images become front and back, in the order shared; more than two is refused with a short message. If the user is at the free limit, the upgrade screen shows instead (the shared images are discarded).
 - Every image goes through a **freeform crop** before it is saved.
 - Every field and image is editable after saving.
+- Leaving the add/edit screen with unsaved changes (Close, back, or swiping it down) asks **Discard changes?** first; saving or deleting leaves without asking. A Save blocked by an error scrolls the form to the first one.
 - Delete asks for confirmation, removes the encrypted image files immediately, and frees a slot toward the free limit.
 - Expiry reminders: **a local notification every day at 09:00**, from a per-card number of days before the expiry date (**14 by default**, 1–365, set under the expiry date on the edit screen) through the expiry day itself. They stop once the card expires, or move when its date is changed (renewed). Notification permission is requested **only the first time the user saves a card with an expiry date**, never at launch.
 

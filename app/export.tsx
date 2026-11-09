@@ -14,6 +14,7 @@ import { Field, useInputStyle } from '../src/ui/Field';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
+import { LiveText } from '../src/ui/LiveText';
 
 export default function ExportScreen() {
   const { services } = useApp();
@@ -96,9 +97,9 @@ export default function ExportScreen() {
             </Field>
           </Panel>
           {busy ? (
-            <View style={styles.busy} accessibilityLiveRegion="polite">
+            <View style={styles.busy}>
               <ActivityIndicator color={theme.accent} />
-              <Text style={[styles.body, { color: theme.muted }]}>{strings.export.working}</Text>
+              <LiveText style={[styles.body, { color: theme.muted }]}>{strings.export.working}</LiveText>
             </View>
           ) : (
             <Button label={strings.export.action} onPress={run} testID="export-run" />

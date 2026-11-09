@@ -11,6 +11,7 @@ import { Button } from '../src/ui/Button';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
+import { LiveText } from '../src/ui/LiveText';
 
 // The master lookup file that asking reads first (src/ai/lookup.ts): shown as the Markdown it is, with
 // whether it still matches the documents, and buttons to make it again or save it as a .md file.
@@ -65,9 +66,9 @@ export default function LookupScreen() {
         </Text>
       ) : (
         <>
-          <Text style={[styles.note, { color: stale ? theme.danger : theme.muted }]} accessibilityLiveRegion="polite" testID="lookup-status">
+          <LiveText style={[styles.note, { color: stale ? theme.danger : theme.muted }]} testID="lookup-status">
             {stale ? strings.lookup.stale : strings.lookup.current}
-          </Text>
+          </LiveText>
           <Panel style={styles.panel} radius={24}>
             <ScrollView contentContainerStyle={styles.text}>
               {/* Tables are wide: scroll sideways rather than wrap every row. */}

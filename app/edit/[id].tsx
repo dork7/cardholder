@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EASE_OUT } from '../../src/ui/motion';
 import { useApp } from '../../src/app/AppProvider';
@@ -19,7 +19,10 @@ import {
   applyFolderSuggestion,
   editField,
   EditDraft,
+  firstErrorPanel,
   formFor,
+  FormPanel,
+  hasChanges,
   planSave,
   SaveError,
   SavePlan,
@@ -47,6 +50,8 @@ import { PdfPagePicker } from '../../src/ui/PdfPagePicker';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
+import { useConfirmDiscard } from '../../src/ui/useConfirmDiscard';
+import { LiveText } from '../../src/ui/LiveText';
 
 export default function EditCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -95,6 +100,21 @@ export default function EditCard() {
   const suggestedHint = (field: keyof typeof form.suggested) =>
     form.suggested[field] !== undefined ? strings.edit.suggested : undefined;
   const errorText = (e: SaveError) => (errors.includes(e) ? strings.edit.errors[e] : undefined);
+  // Closing with unsaved changes asks first; saving or deleting leaves without asking.
+  const initialDraft = useRef(draft).current;
+  const leave = useConfirmDiscard(hasChanges(initialDraft, draft));
+  // Where each panel sits in the scroll, so a Save that fails can bring its first error into view.
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+  const panelY = useRef<Partial<Record<FormPanel, number>>>({});
+  const reduceMotion = useReducedMotion();
+  const onPanelLayout = (panel: FormPanel) => (e: { nativeEvent: { layout: { y: number } } }) => {
+    panelY.current[panel] = e.nativeEvent.layout.y;
+  };
+  const showFirstError = (found: SaveError[]) => {
+    const first = firstErrorPanel(found);
+    const y = first && panelY.current[first];
+    if (y !== undefined) scroll.current?.scrollTo({ y: Math.max(0, y - 16), animated: !reduceMotion });
+  };
 
   if (!isNew && !existing) {
     return (
@@ -240,9 +260,11 @@ export default function EditCard() {
     const plan = planSave(draft, { existing, cardCount: cards.length, unlocked });
     if (plan.kind === 'invalid') {
       setErrors(plan.errors);
+      showFirstError(plan.errors);
       return;
     }
     if (plan.kind === 'limit-reached') {
+      leave();
       router.replace('/paywall');
       return;
     }
@@ -300,6 +322,7 @@ export default function EditCard() {
       await requestReminderPermissionOnce().catch((e) => console.warn('Reminder permission request failed', e));
     }
     await refresh().catch((e) => console.warn('Refresh after save failed', e));
+    leave();
     router.back();
   };
 
@@ -318,6 +341,7 @@ export default function EditCard() {
             Alert.alert(strings.common.error);
             return;
           }
+          leave();
           await refresh().catch((e) => console.warn('Refresh after delete failed', e));
           router.dismissAll();
         },
@@ -358,9 +382,9 @@ export default function EditCard() {
     <Screen>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Stack.Screen options={{ title: isNew ? strings.edit.newTitle : strings.edit.editTitle }} />
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Three panels, not one per field: photos, details, expiry. */}
-          <Panel style={styles.group}>
+          <Panel style={styles.group} onLayout={onPanelLayout('photos')}>
             <ImageField
               label={pdfInfo ? strings.edit.pdfFront : strings.edit.front}
               uri={frontUri}
@@ -427,12 +451,12 @@ export default function EditCard() {
               </Field>
             )}
             {reading > 0 && (
-              <Text style={{ color: theme.muted, fontSize: 16 }} accessibilityLiveRegion="polite" testID="reading-card">
+              <LiveText style={{ color: theme.muted, fontSize: 16 }} testID="reading-card">
                 {strings.edit.reading}
-              </Text>
+              </LiveText>
             )}
           </Panel>
-          <Panel style={styles.group}>
+          <Panel style={styles.group} onLayout={onPanelLayout('details')}>
             <Field label={strings.edit.name} error={errorText('name-too-long')} hint={suggestedHint('name')}>
               <TextInput
                 testID="card-name"
@@ -502,14 +526,14 @@ export default function EditCard() {
               </Field>
             )}
           </Panel>
-          <Panel style={styles.group}>
+          <Panel style={styles.group} onLayout={onPanelLayout('expiry')}>
             <ExpiryField
               value={draft.expiresOn}
               onChange={(expiresOn) => update({ expiresOn })}
               hint={suggestedHint('expiresOn')}
             />
             {errorText('bad-expiry') && (
-              <Text style={{ color: theme.danger, fontSize: 16 }}>{errorText('bad-expiry')}</Text>
+              <LiveText style={{ color: theme.danger, fontSize: 16 }}>{strings.edit.errors['bad-expiry']}</LiveText>
             )}
             {draft.expiresOn !== null && (
               <Animated.View entering={ENTER} exiting={EXIT}>

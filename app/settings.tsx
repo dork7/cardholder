@@ -23,6 +23,7 @@ import { Button } from '../src/ui/Button';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
+import { LiveText } from '../src/ui/LiveText';
 
 export default function SettingsScreen() {
   const { services, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
@@ -189,9 +190,9 @@ function AiSection() {
           <Text style={[styles.body, { color: theme.text }]}>{strings.ai.about}</Text>
           <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.sizeHint}</Text>
           {model.failure && (
-            <Text style={[styles.caption, { color: theme.danger }]} accessibilityLiveRegion="polite" testID="ai-model-failed">
+            <LiveText style={[styles.caption, { color: theme.danger }]} testID="ai-model-failed">
               {strings.ai.failed[model.failure]}
-            </Text>
+            </LiveText>
           )}
           <Button label={strings.ai.download} onPress={download} testID="download-ai-model" />
         </>
@@ -237,14 +238,14 @@ function UpdateSection() {
         </View>
       )}
       {update.status === 'up-to-date' && (
-        <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID="update-current">
+        <LiveText style={[styles.body, { color: theme.text }]} testID="update-current">
           {strings.update.upToDate}
-        </Text>
+        </LiveText>
       )}
       {failure && (
-        <Text style={[styles.caption, { color: theme.danger }]} accessibilityLiveRegion="polite" testID="update-failed">
+        <LiveText style={[styles.caption, { color: theme.danger }]} testID="update-failed">
           {strings.update.failed[failure]}
-        </Text>
+        </LiveText>
       )}
       {update.status === 'available' ? (
         <Button

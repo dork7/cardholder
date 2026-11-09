@@ -33,6 +33,7 @@ import { PinnedStrip } from '../src/ui/PinnedStrip';
 import { Panel, Screen } from '../src/ui/Surface';
 import { TYPE, useTheme } from '../src/ui/theme';
 import { useTooltip } from '../src/ui/Tooltip';
+import { LiveText } from '../src/ui/LiveText';
 
 // Panels settle in from just off their resting place; Reanimated skips this under Reduce Motion.
 const ENTER = 360;
@@ -263,14 +264,14 @@ export default function Home() {
               <ChipRow accessibilityLabel={strings.home.sortLabel} chips={sortChips} />
             )}
             {shown.length === 0 ? (
-              <Text style={[styles.promise, { color: theme.muted }]} accessibilityLiveRegion="polite">
+              <LiveText style={[styles.promise, { color: theme.muted }]}>
                 {strings.home.noResults}
-              </Text>
+              </LiveText>
             ) : gallery === 'gallery' ? (
               inGallery.length === 0 ? (
-                <Text style={[styles.promise, { color: theme.muted }]} accessibilityLiveRegion="polite">
+                <LiveText style={[styles.promise, { color: theme.muted }]}>
                   {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
-                </Text>
+                </LiveText>
               ) : (
                 <CardGrid
                   cards={inGallery}
@@ -303,9 +304,9 @@ export default function Home() {
       {selecting ? (
         <View style={[styles.selectionBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.bg }]} testID="selection-bar">
           <View style={styles.selectionRow}>
-            <Text style={[styles.selectionCount, { color: theme.text }]} accessibilityLiveRegion="polite">
+            <LiveText style={[styles.selectionCount, { color: theme.text }]}>
               {rereading ? strings.recreate.workingMany(rereading.done, rereading.of) : strings.home.selected(selected.length)}
-            </Text>
+            </LiveText>
             <View style={styles.selectionAction}>
               <Button variant="secondary" label={strings.common.cancel} onPress={clearSelection} testID="selection-cancel" />
             </View>

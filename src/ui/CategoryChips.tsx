@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
   scroller: { flexGrow: 0 },
   row: { gap: 8, paddingVertical: 4 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap' },
-  chip: { minHeight: 40, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 9999 },
+  // 44 pt: the smallest comfortable touch target.
+  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 9999 },
   text: { fontSize: TYPE.secondary },
 });

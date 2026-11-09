@@ -35,6 +35,11 @@ export function TagPill({ tag, onRemove, testID }: Props) {
       accessibilityRole="button"
       accessibilityLabel={strings.tags.label(tag)}
       accessibilityHint={strings.tags.holdHint}
+      // Screen readers can remove it from the actions menu instead of holding; it still asks first.
+      accessibilityActions={[{ name: 'remove', label: strings.tags.removeAction }]}
+      onAccessibilityAction={(e) => e.nativeEvent.actionName === 'remove' && onRemove(tag)}
+      // The pill is small; the extra reach stays inside the 6 pt gaps between pills.
+      hitSlop={{ top: 3, bottom: 3, left: 3, right: 3 }}
       testID={testID}
       style={[styles.pill, { backgroundColor: theme.bannerBg }]}
     >

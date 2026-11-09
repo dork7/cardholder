@@ -13,6 +13,7 @@ import { strings } from '../strings';
 import { Button } from './Button';
 import { FONT, Text } from './Text';
 import { TYPE, useTheme } from './theme';
+import { useAnnounce } from './LiveText';
 
 interface Props {
   visible: boolean;
@@ -122,11 +123,25 @@ export function AskSheet({ visible, cards, folders, store, onClose, onOpenCard, 
       : phase.step.kind === 'lookup'
         ? strings.ask.readingLookup
         : strings.ask.checking(displayName(phase.step.card), phase.step.n, phase.step.of);
+  // VoiceOver has no live regions: say what the live regions below say on Android.
+  useAnnounce(
+    !visible
+      ? null
+      : phase.status === 'asking'
+        ? progress
+        : phase.status === 'done'
+          ? phase.result.kind === 'answer'
+            ? `${phase.result.answer}. ${strings.ask.answerFrom(displayName(phase.result.card))}`
+            : strings.ask.notFound
+          : phase.status === 'failed'
+            ? strings.ask.failed
+            : null,
+  );
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
       <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.fill} onPress={close} accessibilityLabel={strings.common.close} />
+        <Pressable style={styles.fill} onPress={close} accessibilityRole="button" accessibilityLabel={strings.common.close} />
         <View style={[styles.sheet, { backgroundColor: theme.bannerBg, paddingBottom: insets.bottom + 16 }]} testID="ask-sheet">
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
             {strings.ask.title}
@@ -136,7 +151,7 @@ export function AskSheet({ visible, cards, folders, store, onClose, onOpenCard, 
             <Text style={[styles.body, { color: theme.text }]}>{strings.ask.noDocuments}</Text>
           ) : model.status === 'checking' || model.status === 'preparing' ? (
             <View style={styles.row}>
-              <ActivityIndicator color={theme.text} />
+              <ActivityIndicator color={theme.text} accessibilityLabel={strings.ask.checkingModel} />
               {model.status === 'preparing' && <Text style={[styles.body, { color: theme.text }]}>{strings.ask.gettingModel}</Text>}
             </View>
           ) : model.status === 'unavailable' ? (
@@ -205,7 +220,11 @@ export function AskSheet({ visible, cards, folders, store, onClose, onOpenCard, 
                   )}
                 </View>
               )}
-              {phase.status === 'failed' && <Text style={[styles.body, { color: theme.danger }]}>{strings.ask.failed}</Text>}
+              {phase.status === 'failed' && (
+                <Text style={[styles.body, { color: theme.danger }]} accessibilityLiveRegion="polite">
+                  {strings.ask.failed}
+                </Text>
+              )}
 
               <Text style={[styles.caption, { color: theme.muted }]}>
                 {model.model.kind === 'built-in' ? strings.ask.usingBuiltIn : strings.ask.usingGemma} {strings.ask.privacy}

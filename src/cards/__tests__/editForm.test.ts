@@ -6,7 +6,9 @@ import {
   applyReadText,
   draftFor,
   editField,
+  firstErrorPanel,
   formFor,
+  hasChanges,
   planSave,
   removeReadSide,
 } from '../editForm';
@@ -259,4 +261,31 @@ test('reminder days are saved as a number; a bad value blocks the save only whil
   expect(planSave({ ...draftFor(existing), remindDaysBefore: '' }, ctx)).toEqual({ kind: 'invalid', errors: ['bad-reminder'] });
   const noExpiry = planSave({ ...draftFor(existing), expiresOn: null, remindDaysBefore: '' }, ctx);
   expect(noExpiry).toMatchObject({ kind: 'update', fields: { remindDaysBefore: 14 } });
+});
+
+describe('unsaved changes', () => {
+  test('a fresh form has none, an edit has some, and undoing the edit takes them away', () => {
+    const start = formFor(makeCard({ name: 'Gym' }));
+    expect(hasChanges(start.draft, start.draft)).toBe(false);
+    const renamed = editField(start, { name: 'Gym pass' });
+    expect(hasChanges(start.draft, renamed.draft)).toBe(true);
+    expect(hasChanges(start.draft, editField(renamed, { name: 'Gym' }).draft)).toBe(false);
+  });
+
+  test('a new photo counts', () => {
+    const start = formFor(null);
+    expect(hasChanges(start.draft, editField(start, { front: frontImage('f') }).draft)).toBe(true);
+  });
+
+  test('text read off the photos does not count on its own', () => {
+    const start = formFor(makeCard({ readText: null }));
+    expect(hasChanges(start.draft, applyReadText(start, 'front', 'GYM 123').draft)).toBe(false);
+  });
+});
+
+test('a failed save points at the highest panel with an error', () => {
+  expect(firstErrorPanel([])).toBeUndefined();
+  expect(firstErrorPanel(['bad-reminder'])).toBe('expiry');
+  expect(firstErrorPanel(['bad-reminder', 'name-too-long'])).toBe('details');
+  expect(firstErrorPanel(['bad-expiry', 'front-required'])).toBe('photos');
 });

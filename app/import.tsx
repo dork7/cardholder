@@ -14,6 +14,7 @@ import { Field, useInputStyle } from '../src/ui/Field';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
+import { LiveText } from '../src/ui/LiveText';
 
 type Step =
   | { kind: 'pick' }
@@ -98,9 +99,9 @@ export default function ImportScreen() {
     ]);
 
   const busyRow = (
-    <View style={styles.busy} accessibilityLiveRegion="polite">
+    <View style={styles.busy}>
       <ActivityIndicator color={theme.accent} />
-      <Text style={[styles.body, { color: theme.muted }]}>{strings.import.working}</Text>
+      <LiveText style={[styles.body, { color: theme.muted }]}>{strings.import.working}</LiveText>
     </View>
   );
 
@@ -170,9 +171,9 @@ export default function ImportScreen() {
           )}
 
           {error && (
-            <Text style={[styles.body, { color: theme.danger }]} accessibilityLiveRegion="polite" testID="import-error">
+            <LiveText style={[styles.body, { color: theme.danger }]} testID="import-error">
               {error}
-            </Text>
+            </LiveText>
           )}
         </ScrollView>
       </KeyboardAvoidingView>

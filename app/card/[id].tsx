@@ -29,6 +29,7 @@ import { rereadCard } from '../../src/cards/readBackfill';
 import { ChipRow } from '../../src/ui/ChipRow';
 import { EASE_OUT } from '../../src/ui/motion';
 import { strings } from '../../src/strings';
+import { LiveText } from '../../src/ui/LiveText';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -226,9 +227,9 @@ export default function CardView() {
   const footer = staff ? (
     <Panel style={styles.footer} radius={28}>
       {holdHint && (
-        <Text style={[styles.hint, { color: theme.muted }]} accessibilityLiveRegion="polite">
+        <LiveText style={[styles.hint, { color: theme.muted }]}>
           {strings.card.staffHoldReminder}
-        </Text>
+        </LiveText>
       )}
       <Button
         variant="secondary"

@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
   // A horizontal ScrollView otherwise grows to fill a column, stretching every chip tall.
   scroller: { flexGrow: 0 },
   row: { gap: 8, paddingVertical: 4 },
-  chip: { minHeight: 40, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 9999 },
+  // 44 pt: the smallest comfortable touch target.
+  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 9999 },
   text: { fontSize: TYPE.secondary },
 });

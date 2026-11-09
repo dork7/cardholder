@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { FONT, Text } from './Text';
 import { useTheme } from './theme';
+import { LiveText } from './LiveText';
 
 // `hint` is a short tag beside the label, e.g. "Suggested" when the value was read from the card.
 export function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: ReactNode }) {
@@ -14,9 +15,9 @@ export function Field({ label, error, hint, children }: { label: string; error?:
       </View>
       {children}
       {error ? (
-        <Text style={[styles.error, { color: theme.danger }]} accessibilityLiveRegion="polite">
+        <LiveText style={[styles.error, { color: theme.danger }]}>
           {error}
-        </Text>
+        </LiveText>
       ) : null}
     </View>
   );

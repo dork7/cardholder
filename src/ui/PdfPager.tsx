@@ -6,6 +6,7 @@ import { strings } from '../strings';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 import { ZoomableImage } from './ZoomableImage';
+import { LiveText } from './LiveText';
 
 interface Props {
   pdfBase64: string | null; // null while the stored PDF is loading
@@ -26,9 +27,9 @@ export function PdfPager({ pdfBase64, pageCount, name }: Props) {
 
   return (
     <View style={styles.fill}>
-      <Text style={{ fontSize: TYPE.secondary, color: theme.muted, textAlign: 'center' }} accessibilityLiveRegion="polite">
+      <LiveText style={{ fontSize: TYPE.secondary, color: theme.muted, textAlign: 'center' }}>
         {strings.card.page(current + 1, pageCount)}
-      </Text>
+      </LiveText>
       <View style={styles.fill} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)} testID="pdf-pager">
         {width > 0 && (
           <FlatList

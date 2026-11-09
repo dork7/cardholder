@@ -32,6 +32,30 @@ export type SavePlan =
   | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges; newFolder: string | null };
 
 // A new card starts in `defaultCategory`: the first one offered, as built-ins can be deleted.
+// Whether the user changed anything that closing the form would lose. The text read off the photos and
+// the document key follow from the photos, so they don't count on their own. Every edit replaces only
+// the fields it changes, so the rest keep their identity and a plain comparison is enough.
+const FOLLOWS_FROM_PHOTOS: (keyof EditDraft)[] = ['readText', 'unreadSides', 'documentKey'];
+export function hasChanges(initial: EditDraft, draft: EditDraft): boolean {
+  return (Object.keys(initial) as (keyof EditDraft)[]).some((k) => !FOLLOWS_FROM_PHOTOS.includes(k) && initial[k] !== draft[k]);
+}
+
+// The edit form's panels, top to bottom, and which one shows each error, so a Save that fails can
+// scroll to the first error instead of leaving it out of sight.
+export type FormPanel = 'photos' | 'details' | 'expiry';
+const PANEL_ORDER: FormPanel[] = ['photos', 'details', 'expiry'];
+const ERROR_PANEL: Record<SaveError, FormPanel> = {
+  'front-required': 'photos',
+  'name-too-long': 'details',
+  'bad-category': 'details',
+  'bad-tags': 'details',
+  'bad-expiry': 'expiry',
+  'bad-reminder': 'expiry',
+};
+export function firstErrorPanel(errors: readonly SaveError[]): FormPanel | undefined {
+  return PANEL_ORDER.find((panel) => errors.some((e) => ERROR_PANEL[e] === panel));
+}
+
 export function draftFor(card: Card | null, defaultCategory: CardCategory = 'id'): EditDraft {
   return {
     name: card?.name ?? '',

@@ -50,6 +50,7 @@ export const strings = {
     galleryView: 'Gallery view',
     galleryViewHint: 'Shows every card in a grid instead of the stack.',
     selectHint: 'Long-press to select several cards.',
+    selectAction: 'Select', // the screen-reader action that starts selecting, as a long-press does
     selected: (n: number) => `${n} selected`,
     deleteSelected: 'Delete',
     deleteSelectedTitle: (n: number) => `Delete ${n} ${plural(n, 'card', 'cards')}?`,
@@ -136,6 +137,10 @@ export const strings = {
     coverPageHint: 'The page shown on the card. The whole PDF is kept.',
     pageLabel: (n: number) => `Page ${n}`,
     notFound: 'This card no longer exists.',
+    discardTitle: 'Discard changes?',
+    discardBody: "What you've added or changed here won't be saved.",
+    keepEditing: 'Keep editing',
+    discard: 'Discard',
     errors: {
       'name-too-long': 'Keep the name to 60 characters or fewer.',
       'bad-category': 'Pick a category.',
@@ -247,6 +252,7 @@ export const strings = {
     },
     getModel: 'Get the AI model',
     gettingModel: 'Getting the AI model…',
+    checkingModel: 'Checking for an AI model…',
     openSettings: 'Open Settings',
   },
   recreate: {
@@ -272,6 +278,7 @@ export const strings = {
       `${cards === 1 ? 'The card' : `${cards} cards`} would have more than ${max} tags. Choose fewer, or hold a tag on a card to remove it.`,
     label: (tag: string) => `Tag ${tag}`,
     holdHint: 'Hold for 2 seconds to remove it from this card.',
+    removeAction: 'Remove tag', // the screen-reader action, so the 2-second hold isn't the only way
     removeTitle: 'Remove tag?',
     removeBody: (tag: string) => `Remove "${tag}" from this card? The card itself is kept.`,
     remove: 'Remove',

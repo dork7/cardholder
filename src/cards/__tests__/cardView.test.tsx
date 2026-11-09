@@ -342,6 +342,16 @@ describe('tags', () => {
     expect(screen.getByText('family')).toBeTruthy();
   });
 
+  test('a screen reader can remove a tag from the actions menu, after the same confirmation', async () => {
+    await render(<CardView />);
+    const work = screen.getByTestId('tag-work');
+    expect(work.props.accessibilityActions).toEqual([{ name: 'remove', label: strings.tags.removeAction }]);
+    await fireEvent(work, 'accessibilityAction', { nativeEvent: { actionName: 'remove' } });
+    expect(alert).toHaveBeenCalledWith(strings.tags.removeTitle, strings.tags.removeBody('work'), expect.any(Array));
+    await pressInAlert(strings.tags.remove);
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('card1', expect.objectContaining({ tags: ['family'] })));
+  });
+
   test('a tap does nothing; it takes a two-second hold, then a confirmation, to remove a tag', async () => {
     await render(<CardView />);
     const work = screen.getByTestId('tag-work');

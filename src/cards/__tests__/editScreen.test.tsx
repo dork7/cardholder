@@ -29,10 +29,19 @@ jest.mock('../../config', () =>
     get: () => mockFoldersEnabled,
   }),
 );
+// The navigator's removal guard: what the screen last asked for, and what it does when leaving is blocked.
+const mockGuard: { on: boolean; onPrevented?: (o: { data: { action: object }; repeat: () => void }) => void } = { on: false };
+const mockDisablePrevention = jest.fn();
+const mockRepeat = jest.fn();
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   useLocalSearchParams: () => mockParams,
   useRouter: () => ({ back: mockBack, dismissAll: mockDismissAll, replace: mockReplace }),
+  usePreventRemove: (on: boolean, onPrevented: typeof mockGuard.onPrevented) => {
+    mockGuard.on = on;
+    mockGuard.onPrevented = onPrevented;
+    return mockDisablePrevention;
+  },
 }));
 // Stable like the real provider's memoised value; a fresh object per render would reload the PDF forever.
 const mockServices = {
@@ -131,6 +140,78 @@ async function fillNewCard() {
 }
 
 const save = () => fireEvent.press(screen.getByTestId('save-card'));
+
+// Close, or the back gesture: the navigator blocks it while the guard is on and hands it to the screen.
+async function tryToLeave() {
+  await fireEvent.press(screen.getByTestId('close-edit'));
+  if (mockGuard.on) await act(async () => mockGuard.onPrevented?.({ data: { action: { type: 'GO_BACK' } }, repeat: mockRepeat }));
+}
+const discardButtons = () => alert.mock.calls.find(([title]) => title === strings.edit.discardTitle)?.[2] as {
+  text: string;
+  onPress?: () => void;
+}[];
+
+describe('leaving with unsaved changes', () => {
+  test('an untouched new card closes without asking', async () => {
+    await render(<EditCard />);
+    await tryToLeave();
+    expect(mockGuard.on).toBe(false);
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  test('an unchanged saved card closes without asking', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard()];
+    await render(<EditCard />);
+    await tryToLeave();
+    expect(mockGuard.on).toBe(false);
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  test('with a photo and a name, leaving asks; Keep editing stays and Discard leaves', async () => {
+    await fillNewCard();
+    await tryToLeave();
+    expect(mockGuard.on).toBe(true);
+    const buttons = discardButtons();
+    expect(buttons.map((b) => b.text)).toEqual([strings.edit.keepEditing, strings.edit.discard]);
+    expect(mockRepeat).not.toHaveBeenCalled();
+    await act(async () => buttons[1].onPress?.());
+    expect(mockRepeat).toHaveBeenCalledTimes(1);
+    expect(mockGuard.on).toBe(false);
+  });
+
+  test('changing one field of a saved card is enough to ask', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard({ name: 'Gym' })];
+    await render(<EditCard />);
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym pass');
+    expect(mockGuard.on).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym');
+    expect(mockGuard.on).toBe(false);
+  });
+
+  test('saving leaves without asking', async () => {
+    await fillNewCard();
+    await save();
+    expect(mockDisablePrevention).toHaveBeenCalled();
+    expect(mockGuard.on).toBe(false);
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(discardButtons()).toBeUndefined();
+  });
+
+  test('deleting leaves without asking', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard({ name: 'Gym' })];
+    await render(<EditCard />);
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym pass');
+    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    const confirm = alert.mock.calls.find(([title]) => title === strings.edit.deleteConfirmTitle)?.[2];
+    await act(async () => confirm[1].onPress());
+    expect(mockDisablePrevention).toHaveBeenCalled();
+    expect(mockDismissAll).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('saving', () => {
   test('a failed reminder permission after the card was written still leaves the screen, without a second write', async () => {

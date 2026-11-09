@@ -358,6 +358,16 @@ describe('gallery view', () => {
     expect(screen.getByTestId('add-card')).toBeTruthy();
   });
 
+  test('a screen reader can start selecting from the actions menu instead of a long-press', async () => {
+    await showGallery();
+    const tile = screen.getByTestId('grid-a');
+    expect(tile.props.accessibilityActions).toEqual([{ name: 'select', label: strings.home.selectAction }]);
+    await act(async () => fireEvent(tile, 'accessibilityAction', { nativeEvent: { actionName: 'select' } }));
+    expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
+    // While selecting, a tap is the way to add or remove a card, so the action goes.
+    expect(screen.getByTestId('grid-a').props.accessibilityActions).toBeUndefined();
+  });
+
   test('deletes only the selected cards, after a confirmation', async () => {
     await showGallery();
     await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));

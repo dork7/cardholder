@@ -75,6 +75,9 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
       accessibilityLabel={alert ? `${label}, ${expiryLabel(card, now)}` : label}
       accessibilityState={selecting ? { checked } : undefined}
       accessibilityHint={selecting ? undefined : strings.home.selectHint}
+      // A screen reader can start selecting from the actions menu, as a long-press does.
+      accessibilityActions={selecting ? undefined : [{ name: 'select', label: strings.home.selectAction }]}
+      onAccessibilityAction={(e) => e.nativeEvent.actionName === 'select' && onLongPress()}
       testID={`grid-${card.id}`}
       style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.7 : 1 }]}
     >
