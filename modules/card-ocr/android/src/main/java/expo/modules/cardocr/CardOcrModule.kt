@@ -28,8 +28,9 @@ class CardOcrModule : Module() {
   private val context
     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
 
-  // ML Kit's Latin model, bundled in the app, so reading works offline from the first launch. It has
-  // no Arabic model: on UAE cards only the English side is read.
+  // ML Kit's Latin model, which Google Play services downloads once (at install). Until it has, or on
+  // phones without Play services, reading fails and the card gets no suggestions. It has no Arabic
+  // model: on UAE cards only the English side is read.
   private val textReader by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
 
   override fun definition() = ModuleDefinition {

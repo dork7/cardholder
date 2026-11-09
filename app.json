@@ -46,10 +46,27 @@
           },
           "android": {
             "minSdkVersion": 29,
-            "useLegacyPackaging": true
+            "useLegacyPackaging": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "packagingOptions": {
+              "exclude": [
+                "**/librnllama_v8.so",
+                "**/librnllama_jni_v8.so",
+                "**/librnllama_v8_2.so",
+                "**/librnllama_jni_v8_2.so",
+                "**/librnllama_v8_2_i8mm.so",
+                "**/librnllama_jni_v8_2_i8mm.so",
+                "**/librnllama_v8_2_dotprod_i8mm.so",
+                "**/librnllama_jni_v8_2_dotprod_i8mm.so",
+                "**/librnllama_v8_2_dotprod_i8mm_hexagon_opencl.so",
+                "**/librnllama_jni_v8_2_dotprod_i8mm_hexagon_opencl.so"
+              ]
+            }
           }
         }
       ],
+      "./plugins/withSmallerApk",
       "react-native-quick-crypto",
       "expo-notifications",
       "expo-quick-actions",
