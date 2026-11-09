@@ -50,15 +50,19 @@ jest.mock('../../share/shareCard', () => ({
   shareCard: (...a: unknown[]) => mockShareCard(...a),
   shareCardMarkdown: (...a: unknown[]) => mockShareMarkdown(...a),
 }));
+jest.mock('../../analysis/readPhoto', () => ({ canReadText: true, readPhotoText: async (jpeg: string) => `TEXT ${jpeg}` }));
 // Stable like the real provider's memoised value; a fresh object per render would reload images forever.
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
+const mockUpdate = jest.fn((_id: string, _fields: { tags: string[] }) => Promise.resolve());
 const mockServices = {
   store: {
     loadImage: (id: string, side: string) => mockLoadImage(id, side),
     loadPdf: (id: string) => Promise.resolve(`${id}-pdf`),
     remove: (id: string) => mockRemove(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
+    update: (id: string, fields: { tags: string[] }) => mockUpdate(id, fields),
+    get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
   },
 };
 jest.mock('../../app/AppProvider', () => ({
@@ -293,6 +297,23 @@ describe('details (.md)', () => {
     expect(mockShareMarkdown).not.toHaveBeenCalled();
   });
 
+  test('with Details open, Quick share sends only the .md file, not the pictures', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('view-details'));
+    const md = screen.getByTestId('card-markdown').props.children;
+    expect(screen.getByTestId('share-card').props.accessibilityHint).toBe(strings.card.shareMarkdownHint);
+    await fireEvent.press(screen.getByTestId('share-card'));
+    expect(mockShareMarkdown).toHaveBeenCalledWith(mockCards[0], md);
+    expect(mockShareCard).not.toHaveBeenCalled();
+
+    // Back on the photos, it shares the card again.
+    mockShareMarkdown.mockClear();
+    await fireEvent.press(screen.getByTestId('view-card'));
+    await fireEvent.press(screen.getByTestId('share-card'));
+    expect(mockShareCard).toHaveBeenCalled();
+    expect(mockShareMarkdown).not.toHaveBeenCalled();
+  });
+
   test('showing the card to staff switches back to the photos and hides Details', async () => {
     await render(<CardView />);
     await fireEvent.press(screen.getByTestId('view-details'));
@@ -300,4 +321,88 @@ describe('details (.md)', () => {
     expect(screen.getByTestId('card-sides')).toBeTruthy();
     expect(screen.queryByTestId('view-details')).toBeNull();
   });
+});
+
+describe('tags', () => {
+  let alert: jest.SpyInstance;
+  beforeEach(() => {
+    mockCards = [makeCard({ id: 'card1', name: 'Gym', tags: ['work', 'family'] }), makeCard({ id: 'card2', name: 'Bank', tags: ['finance'] })];
+    alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  });
+  afterEach(() => alert.mockRestore());
+  const pressInAlert = async (label: string) => {
+    const buttons = alert.mock.calls.at(-1)[2] as { text: string; onPress?: () => unknown }[];
+    await buttons.find((b) => b.text === label)?.onPress?.();
+  };
+
+  test("the card's tags show under its name, each saying how to remove it", async () => {
+    await render(<CardView />);
+    const work = screen.getByRole('button', { name: strings.tags.label('work') });
+    expect(work.props.accessibilityHint).toBe(strings.tags.holdHint);
+    expect(screen.getByText('family')).toBeTruthy();
+  });
+
+  test('a tap does nothing; it takes a two-second hold, then a confirmation, to remove a tag', async () => {
+    await render(<CardView />);
+    const work = screen.getByTestId('tag-work');
+    expect(work.props.delayLongPress ?? 2000).toBe(2000);
+    await fireEvent.press(work);
+    expect(alert).not.toHaveBeenCalled();
+
+    await fireEvent(work, 'longPress');
+    expect(alert).toHaveBeenCalledWith(strings.tags.removeTitle, strings.tags.removeBody('work'), expect.any(Array));
+    await pressInAlert(strings.common.cancel);
+    expect(mockUpdate).not.toHaveBeenCalled();
+
+    await fireEvent(work, 'longPress');
+    await pressInAlert(strings.tags.remove);
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('card1', expect.objectContaining({ tags: ['family'] })));
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  test('+ Tag adds several tags at once: ones used on other cards and new ones typed in', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('add-tag'));
+    // Tags this card already has aren't offered again.
+    expect(screen.queryByTestId('tag-option-work')).toBeNull();
+    await fireEvent.press(screen.getByTestId('tag-option-finance'));
+    await fireEvent.changeText(screen.getByTestId('tag-input'), '  Gym  pass ');
+    await fireEvent(screen.getByTestId('tag-input'), 'submitEditing');
+    expect(screen.getByText(strings.tags.apply(2))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('tag-sheet-apply'));
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith('card1', expect.objectContaining({ tags: ['work', 'family', 'finance', 'Gym pass'] })),
+    );
+  });
+
+  test('a card without tags still offers + Tag', async () => {
+    mockCards = [makeCard({ id: 'card1', name: 'Gym', tags: [] })];
+    await render(<CardView />);
+    expect(screen.getByTestId('add-tag')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Tag / })).toBeNull();
+  });
+
+  test('refuses to go over 8 tags on a card, and changes nothing', async () => {
+    mockCards = [makeCard({ id: 'card1', name: 'Gym', tags: ['1', '2', '3', '4', '5', '6', '7'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('add-tag'));
+    for (const t of ['a', 'b']) {
+      await fireEvent.changeText(screen.getByTestId('tag-input'), t);
+      await fireEvent.press(screen.getByTestId('tag-input-add'));
+    }
+    await fireEvent.press(screen.getByTestId('tag-sheet-apply'));
+    expect(alert).toHaveBeenCalledWith(strings.tags.tooManyTitle, strings.tags.tooMany(1, 8));
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+test('Recreate .md reads the document again and refreshes its Details', async () => {
+  mockCards = [makeCard({ id: 'card1', name: 'Gym', hasBack: true, readText: { front: 'OLD', back: '' } })];
+  await render(<CardView />);
+  await fireEvent.press(screen.getByTestId('view-details'));
+  await fireEvent.press(screen.getByTestId('recreate-markdown'));
+  await waitFor(() =>
+    expect(mockUpdate).toHaveBeenCalledWith('card1', expect.objectContaining({ readText: { front: 'TEXT card1-front', back: 'TEXT card1-back' } })),
+  );
+  expect(mockRefresh).toHaveBeenCalled();
 });

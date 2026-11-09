@@ -3,7 +3,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 
-export type IconName = 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'tag' | 'pdf';
+export type IconName = 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'tag' | 'pdf' | 'category' | 'refresh';
 
 // 24 × 24 line icons in the app's stroke style.
 const PATHS: Record<IconName, string[]> = {
@@ -17,6 +17,8 @@ const PATHS: Record<IconName, string[]> = {
   // A price tag: the card's category.
   // A page with a down arrow: export the card as a PDF file.
   pdf: ['M6 3h8l4 4v14H6z', 'M14 3v4h4', 'M12 10v7', 'M9 14l3 3 3-3'],
+  refresh: ['M20 11a8 8 0 0 0-14.9-3.9L4 8.5', 'M4 4v4.5h4.5', 'M4 13a8 8 0 0 0 14.9 3.9l1.1-1.4', 'M20 20v-4.5h-4.5'],
+  category: ['M4 4h7v7H4z', 'M13 4h7v7h-7z', 'M4 13h7v7H4z', 'M13 13h7v7h-7z'],
   tag: ['M3 4v7l9.5 9.5a1.5 1.5 0 0 0 2 0l6-6a1.5 1.5 0 0 0 0-2L11 3H4a1 1 0 0 0-1 1z', 'M7.5 7.5h.01'],
 };
 
@@ -26,11 +28,12 @@ interface Props {
   hint?: string;
   onPress: () => void;
   variant?: 'secondary' | 'danger';
+  disabled?: boolean;
   testID?: string;
 }
 
 // An outlined button with only an icon. Same outline rules as Button: 3:1 against the page.
-export function IconButton({ icon, label, hint, onPress, variant = 'secondary', testID }: Props) {
+export function IconButton({ icon, label, hint, onPress, variant = 'secondary', disabled = false, testID }: Props) {
   const theme = useTheme();
   const color = variant === 'danger' ? theme.danger : theme.text;
   const outline = variant === 'danger' ? theme.danger : theme.rosette;
@@ -41,11 +44,13 @@ export function IconButton({ icon, label, hint, onPress, variant = 'secondary', 
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
+      accessibilityState={disabled ? { disabled } : undefined}
+      disabled={disabled}
       onPress={onPress}
       onLongPress={onLongPress}
       testID={testID}
       hitSlop={4}
-      style={({ pressed }) => [styles.base, { borderColor: outline, opacity: pressed ? 0.7 : 1 }]}
+      style={({ pressed }) => [styles.base, { borderColor: outline, opacity: disabled ? 0.4 : pressed ? 0.7 : 1 }]}
     >
       <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
         {PATHS[icon].map((d) => (

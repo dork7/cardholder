@@ -1,5 +1,7 @@
+import { MAX_TAGS } from '../config';
 import { CardStore } from './cardStore';
 import { Card, CardCategory, CardFields } from './types';
+import { normalizeTags } from './validate';
 
 // Actions on several cards picked in the gallery. Each card is done on its own, so one failure doesn't
 // stop the rest; the result is how many failed.
@@ -53,3 +55,29 @@ export function moveToCategory(store: CardStore, cards: Card[], category: CardCa
 export function removeAll(store: CardStore, cards: Card[]): Promise<number> {
   return each(cards, 'Delete', (card) => store.remove(card.id));
 }
+
+// A card's tags with `tags` added after them; repeats, ignoring case, keep the spelling already there.
+export const withTags = (card: Card, tags: readonly string[]): string[] => normalizeTags([...card.tags, ...tags]);
+
+// The cards that would go over the limit if `tags` were added to them.
+export const overTagLimit = (cards: Card[], tags: readonly string[]): Card[] =>
+  cards.filter((c) => withTags(c, tags).length > MAX_TAGS);
+
+// Adds the tags to each card; a card that already has them all is left alone.
+export function addTags(store: CardStore, cards: Card[], tags: readonly string[]): Promise<number> {
+  return each(
+    cards.filter((c) => withTags(c, tags).length > c.tags.length),
+    'Adding tags',
+    (card) => store.update(card.id, { ...fieldsOf(card), tags: withTags(card, tags) }),
+  );
+}
+
+// Takes one tag off one card, matching it ignoring case.
+export function removeTag(store: CardStore, card: Card, tag: string): Promise<Card> {
+  const key = tag.toLocaleLowerCase();
+  return store.update(card.id, { ...fieldsOf(card), tags: card.tags.filter((t) => t.toLocaleLowerCase() !== key) });
+}
+
+// Every tag in use, each spelled as it first appears, in alphabetical order.
+export const allTags = (cards: readonly Card[]): string[] =>
+  normalizeTags(cards.flatMap((c) => c.tags)).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));

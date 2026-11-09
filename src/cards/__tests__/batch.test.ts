@@ -1,5 +1,5 @@
 import { fields, images, makeStore } from '../../../test/fixtures';
-import { moveToCategory, removeAll, shouldUnpin, togglePinned } from '../batch';
+import { addTags, allTags, moveToCategory, overTagLimit, removeAll, removeTag, shouldUnpin, togglePinned, withTags } from '../batch';
 import { sortCards } from '../listing';
 
 async function threeCards() {
@@ -53,4 +53,45 @@ test('one failure does not stop the rest, and is counted', async () => {
   expect(await removeAll(flaky, [a, b, c])).toBe(1);
   warn.mockRestore();
   expect([...(await byId()).keys()]).toEqual([b.id]);
+});
+
+describe('tags', () => {
+  test('adds several tags to several cards, keeping the ones they had and skipping repeats', async () => {
+    const { store, a, b, byId } = await threeCards();
+    await store.update(a.id, { ...fields({ name: 'A', category: 'id' }), tags: ['Work'] });
+    const taggedA = (await byId()).get(a.id)!;
+    expect(await addTags(store, [taggedA, b], ['work', 'Family'])).toBe(0);
+    const now = await byId();
+    expect(now.get(a.id)?.tags).toEqual(['Work', 'Family']);
+    expect(now.get(b.id)?.tags).toEqual(['work', 'Family']);
+  });
+
+  test('a card that already has every tag is not saved again', async () => {
+    const { store, a, byId } = await threeCards();
+    await store.update(a.id, { ...fields({ name: 'A', category: 'id' }), tags: ['Work'] });
+    const tagged = (await byId()).get(a.id)!;
+    const update = jest.spyOn(store, 'update');
+    await addTags(store, [tagged], ['WORK']);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  test('removes one tag, ignoring case, and keeps the rest', async () => {
+    const { store, a, byId } = await threeCards();
+    await store.update(a.id, { ...fields({ name: 'A', category: 'id' }), tags: ['Work', 'Family'] });
+    await removeTag(store, (await byId()).get(a.id)!, 'work');
+    expect((await byId()).get(a.id)?.tags).toEqual(['Family']);
+  });
+
+  test('knows which cards would go over the limit of 8', async () => {
+    const { a, b } = await threeCards();
+    const full = { ...a, tags: ['1', '2', '3', '4', '5', '6', '7'] };
+    expect(withTags(full, ['8'])).toHaveLength(8);
+    expect(overTagLimit([full, b], ['8'])).toEqual([]);
+    expect(overTagLimit([full, b], ['8', '9']).map((c) => c.id)).toEqual([a.id]);
+  });
+
+  test('lists every tag in use once, alphabetically', async () => {
+    const { a, b } = await threeCards();
+    expect(allTags([{ ...a, tags: ['work', 'Bank'] }, { ...b, tags: ['Work', 'family'] }])).toEqual(['Bank', 'family', 'work']);
+  });
 });

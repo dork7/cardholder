@@ -51,12 +51,14 @@ const mockSettingsSet = jest.fn(() => Promise.resolve());
 let mockHomeView: string | null = null;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
-const mockUpdate = jest.fn((_id: string, _fields: { category: string }) => Promise.resolve());
+const mockUpdate = jest.fn((_id: string, _fields: { category: string; tags?: string[] }) => Promise.resolve());
 const mockRefresh = jest.fn(() => Promise.resolve());
+jest.mock('../../analysis/readPhoto', () => ({ canReadText: true, readPhotoText: async (jpeg: string) => `TEXT ${jpeg}` }));
 // Stable across renders, as the real provider's services are.
 const mockServices = {
   store: {
-    loadImage: () => Promise.resolve(null),
+    loadImage: (id: string, side: string) => Promise.resolve(`${id}-${side}`),
+    get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
     remove: (id: string) => mockRemove(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
     update: (id: string, fields: { category: string }) => mockUpdate(id, fields),
@@ -124,6 +126,13 @@ async function renderHome() {
   await render(<Home />);
   if (mockCards.length > 0) await layoutStack();
 }
+
+test('Ask sits with the add button and opens the Ask window', async () => {
+  await renderHome();
+  expect(screen.getByRole('button', { name: strings.ask.button })).toBeTruthy();
+  await act(async () => fireEvent.press(screen.getByTestId('ask')));
+  expect(screen.getByTestId('ask-sheet')).toBeTruthy();
+});
 
 test('the stack shows every card until a type is chosen', async () => {
   await renderHome();
@@ -467,6 +476,35 @@ describe('gallery view', () => {
       ['a', 'membership'],
       ['b', 'membership'],
     ]);
+    expect(screen.queryByTestId('selection-bar')).toBeNull();
+  });
+
+  test('adds the tags chosen to every selected card, leaving the rest', async () => {
+    await showGallery();
+    await select('a', 'c');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-tags')));
+    expect(screen.getByText(strings.home.tagTo(2))).toBeTruthy();
+    await act(async () => fireEvent.changeText(screen.getByTestId('tag-input'), 'Work'));
+    await act(async () => fireEvent.press(screen.getByTestId('tag-input-add')));
+    await act(async () => fireEvent.changeText(screen.getByTestId('tag-input'), 'Family'));
+    await act(async () => fireEvent.press(screen.getByTestId('tag-input-add')));
+    await act(async () => fireEvent.press(screen.getByTestId('tag-sheet-apply')));
+    expect(mockUpdate.mock.calls.map(([id, f]) => [id, f.tags])).toEqual([
+      ['a', ['Work', 'Family']],
+      ['c', ['Work', 'Family']],
+    ]);
+    expect(screen.queryByTestId('selection-bar')).toBeNull();
+  });
+
+  test('Recreate .md reads each selected document again, then says so', async () => {
+    await showGallery();
+    await select('a', 'c');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-recreate')));
+    expect(mockUpdate.mock.calls.map(([id, f]) => [id, (f as unknown as { readText: unknown }).readText])).toEqual([
+      ['a', { front: 'TEXT a-front', back: '' }],
+      ['c', { front: 'TEXT c-front', back: '' }],
+    ]);
+    expect(alert).toHaveBeenCalledWith(strings.recreate.button, strings.recreate.doneMany(2));
     expect(screen.queryByTestId('selection-bar')).toBeNull();
   });
 

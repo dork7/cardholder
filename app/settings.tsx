@@ -88,6 +88,9 @@ export default function SettingsScreen() {
           />
         </Section>
         {canReadText && <AiSection />}
+        <Section title={strings.ask.title}>
+          <Button variant="secondary" label={strings.lookup.view} onPress={() => router.push('/lookup')} testID="view-lookup" />
+        </Section>
         <Section title={strings.categoriesScreen.title}>
           <Button
             variant="secondary"

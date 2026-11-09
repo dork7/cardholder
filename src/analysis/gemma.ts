@@ -60,7 +60,8 @@ function load(): Promise<LlamaContext> {
     const file = modelFile();
     if (!file.exists) throw new Error(`Model not found at ${file.uri}`);
     // CPU only: the model is small enough, and it keeps behaviour the same on every phone.
-    context = initLlama({ model: file.uri, n_ctx: 1024, n_gpu_layers: 0, use_mlock: false });
+    // 4096 tokens: room for a document's text and a question when asking (src/ai/ask.ts).
+    context = initLlama({ model: file.uri, n_ctx: 4096, n_gpu_layers: 0, use_mlock: false });
     context.catch(() => {
       context = null;
     });
@@ -100,6 +101,34 @@ export function extractWithGemma(cardText: string, signal?: AbortSignal): Promis
       };
     } finally {
       signal?.removeEventListener('abort', stop);
+    }
+  });
+}
+
+// A JSON reply to a system and user prompt, held to `schema`. Used by asking (src/ai/gemmaModel.ts).
+export function generateWithGemma(
+  prompt: { system: string; user: string },
+  options: { maxTokens: number; schema: object },
+  signal: AbortSignal,
+): Promise<string> {
+  return serially(async () => {
+    if (signal.aborted) throw new Error('Asking was stopped');
+    const llama = await load();
+    const stop = () => void llama.stopCompletion();
+    signal.addEventListener('abort', stop);
+    try {
+      const result = await llama.completion({
+        messages: [
+          { role: 'system', content: prompt.system },
+          { role: 'user', content: prompt.user },
+        ],
+        response_format: { type: 'json_schema', json_schema: { strict: true, schema: options.schema } },
+        temperature: 0,
+        n_predict: options.maxTokens,
+      });
+      return result.text;
+    } finally {
+      signal.removeEventListener('abort', stop);
     }
   });
 }

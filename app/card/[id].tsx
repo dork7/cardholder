@@ -20,6 +20,12 @@ import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/exp
 import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
 import { exportCardPdf, PdfUnavailableError, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
 import { cardMarkdown } from '../../src/cards/cardMarkdown';
+import { addTags, allTags, overTagLimit, removeTag } from '../../src/cards/batch';
+import { MAX_TAGS } from '../../src/config';
+import { AddTagPill, TagPill } from '../../src/ui/TagPill';
+import { TagSheet } from '../../src/ui/TagSheet';
+import { canReadText, readPhotoText } from '../../src/analysis/readPhoto';
+import { rereadCard } from '../../src/cards/readBackfill';
 import { ChipRow } from '../../src/ui/ChipRow';
 import { EASE_OUT } from '../../src/ui/motion';
 import { strings } from '../../src/strings';
@@ -38,6 +44,8 @@ export default function CardView() {
   const [holdHint, setHoldHint] = useState(false);
   // The photos, or the card's details and scanned text as the Markdown file it can be saved as.
   const [view, setView] = useState<'card' | 'details'>('card');
+  const [tagging, setTagging] = useState(false);
+  const [recreating, setRecreating] = useState(false);
 
   useMaxBrightness(cardBrightness);
   useAllowLandscape();
@@ -77,13 +85,44 @@ export default function CardView() {
     }
   };
 
-  const share = () =>
-    confirmIfId(strings.card.share, () =>
-      shareCard(services.store, card).catch((e) => {
-        console.warn('Share failed', e);
+  const markdown = cardMarkdown(card, folders);
+  const saveMarkdown = () =>
+    confirmIfId(strings.card.saveMarkdown, () =>
+      shareCardMarkdown(card, markdown).catch((e) => {
+        console.warn('Saving the .md file failed', e);
         Alert.alert(strings.common.error);
       }),
     );
+
+  // Recreate .md: reads the text on the document's pictures again, which its Details are made from.
+  const recreateMarkdown = async () => {
+    if (!canReadText) {
+      Alert.alert(strings.common.error, strings.recreate.unavailable);
+      return;
+    }
+    setRecreating(true);
+    try {
+      const saved = await rereadCard(services.store, card, readPhotoText);
+      await refresh().catch((e) => console.warn('Refresh after reading again failed', e));
+      if (!saved) throw new Error('The document changed while it was being read');
+    } catch (e) {
+      console.warn('Reading the document again failed', e);
+      Alert.alert(strings.common.error);
+    } finally {
+      setRecreating(false);
+    }
+  };
+
+  // With the Details (.md) view open, Quick share sends that Markdown file only, not the pictures.
+  const share = () =>
+    view === 'details'
+      ? saveMarkdown()
+      : confirmIfId(strings.card.share, () =>
+          shareCard(services.store, card).catch((e) => {
+            console.warn('Share failed', e);
+            Alert.alert(strings.common.error);
+          }),
+        );
 
   // Save to Files or send: either way the whole card as one PDF, even a front-only photo card.
   const exportPdf = () =>
@@ -103,15 +142,6 @@ export default function CardView() {
         { text: strings.card.exportPdfSave, onPress: () => void run('files') },
       ]);
     });
-
-  const markdown = cardMarkdown(card, folders);
-  const saveMarkdown = () =>
-    confirmIfId(strings.card.saveMarkdown, () =>
-      shareCardMarkdown(card, markdown).catch((e) => {
-        console.warn('Saving the .md file failed', e);
-        Alert.alert(strings.common.error);
-      }),
-    );
 
   const confirmDelete = () =>
     Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
@@ -148,6 +178,37 @@ export default function CardView() {
   const expiry = expiryStatus(card, now).kind;
   // Expired is the one state worth colour; soon is just brighter than an ordinary date.
   const expiryColor = expiry === 'expired' ? theme.danger : expiry === 'soon' || expiry === 'today' ? theme.text : theme.muted;
+
+  // Holding a tag for two seconds asks before taking it off this card.
+  const confirmRemoveTag = (tag: string) =>
+    Alert.alert(strings.tags.removeTitle, strings.tags.removeBody(tag), [
+      { text: strings.common.cancel, style: 'cancel' },
+      {
+        text: strings.tags.remove,
+        style: 'destructive',
+        onPress: () => void saveTags(() => removeTag(services.store, card, tag)),
+      },
+    ]);
+
+  const addTagsToCard = (tags: string[]) => {
+    if (overTagLimit([card], tags).length > 0) {
+      Alert.alert(strings.tags.tooManyTitle, strings.tags.tooMany(1, MAX_TAGS));
+      return;
+    }
+    setTagging(false);
+    void saveTags(() => addTags(services.store, [card], tags));
+  };
+
+  const saveTags = async (run: () => Promise<unknown>) => {
+    try {
+      const failed = await run();
+      if (typeof failed === 'number' && failed > 0) throw new Error('Saving tags failed');
+    } catch (e) {
+      console.warn('Saving tags failed', e);
+      Alert.alert(strings.common.error);
+    }
+    await refresh().catch((e) => console.warn('Refresh after tags failed', e));
+  };
 
   const sides = [{ label: strings.card.front, uri: frontUri }];
   if (card.hasBack) sides.push({ label: strings.card.back, uri: backUri });
@@ -189,7 +250,13 @@ export default function CardView() {
     <Panel style={styles.footer} radius={28}>
       <View style={styles.actions}>
         <IconButton icon="trash" variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} testID="delete-card" />
-        <IconButton icon="share" label={strings.card.share} hint={strings.card.shareHint} onPress={share} testID="share-card" />
+        <IconButton
+          icon="share"
+          label={strings.card.share}
+          hint={view === 'details' ? strings.card.shareMarkdownHint : strings.card.shareHint}
+          onPress={share}
+          testID="share-card"
+        />
         <IconButton icon="pdf" label={strings.card.exportPdf} hint={strings.card.exportPdfHint} onPress={exportPdf} testID="export-pdf" />
         <IconButton
           icon={card.pinned ? 'unpin' : 'pin'}
@@ -234,6 +301,14 @@ export default function CardView() {
                 {expiryLabel(card, now)}
               </Text>
             </View>
+            {!staff && (
+              <View style={styles.tags} testID="card-tags">
+                {card.tags.map((tag) => (
+                  <TagPill key={tag} tag={tag} onRemove={confirmRemoveTag} testID={`tag-${tag}`} />
+                ))}
+                <AddTagPill onPress={() => setTagging(true)} />
+              </View>
+            )}
           </Panel>
           {!staff && (
             <ChipRow
@@ -264,13 +339,27 @@ export default function CardView() {
               </Text>
             </ScrollView>
           </Panel>
-          <Button
-            variant="secondary"
-            label={strings.card.saveMarkdown}
-            accessibilityHint={strings.card.saveMarkdownHint}
-            onPress={saveMarkdown}
-            testID="save-markdown"
-          />
+          <View style={styles.detailsActions}>
+            <View style={styles.flex}>
+              <Button
+                variant="secondary"
+                label={recreating ? strings.recreate.working : strings.recreate.button}
+                accessibilityHint={strings.recreate.hint}
+                onPress={() => void recreateMarkdown()}
+                disabled={recreating}
+                testID="recreate-markdown"
+              />
+            </View>
+            <View style={styles.flex}>
+              <Button
+                variant="secondary"
+                label={strings.card.saveMarkdown}
+                accessibilityHint={strings.card.saveMarkdownHint}
+                onPress={saveMarkdown}
+                testID="save-markdown"
+              />
+            </View>
+          </View>
         </Animated.View>
       ) : (
         <View style={[styles.inset, styles.sides, landscape && styles.sidesRow]} testID="card-sides">
@@ -288,6 +377,13 @@ export default function CardView() {
       )}
 
       <View style={styles.inset}>{footer}</View>
+      <TagSheet
+        visible={tagging}
+        title={strings.tags.titleOne}
+        existing={allTags(cards).filter((t) => !card.tags.some((own) => own.toLocaleLowerCase() === t.toLocaleLowerCase()))}
+        onApply={addTagsToCard}
+        onClose={() => setTagging(false)}
+      />
     </Screen>
   );
 }
@@ -299,6 +395,8 @@ const styles = StyleSheet.create({
   title: { fontSize: TYPE.section, fontWeight: '700' },
   meta: { fontSize: TYPE.secondary, fontWeight: '600' },
   expiryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // The card's tags as small pills under its expiry, wrapping onto more lines when there are many.
+  tags: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   sides: { flex: 1, gap: 16 },
   sidesRow: { flexDirection: 'row' },
   side: { flex: 1, gap: 4 },
@@ -307,6 +405,8 @@ const styles = StyleSheet.create({
   top: { gap: 8 },
   details: { flex: 1, overflow: 'hidden' },
   detailsText: { padding: 16 },
+  detailsActions: { flexDirection: 'row', gap: 10 },
+  flex: { flex: 1 },
   // Shown as the file it saves as: monospaced, so the Markdown reads as written.
   markdown: { fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }), fontSize: 13, lineHeight: 19 },
   // Five icon buttons: an 8 pt gap keeps each well over 44 pt wide on a 375 pt phone.

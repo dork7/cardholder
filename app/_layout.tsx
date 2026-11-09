@@ -53,6 +53,7 @@ function RootNavigator() {
          <Stack.Screen name="export" options={{ title: strings.export.title, presentation: 'modal' }} />
          <Stack.Screen name="import" options={{ title: strings.import.title, presentation: 'modal' }} />
          <Stack.Screen name="privacy" options={{ title: strings.privacy.title }} />
+        <Stack.Screen name="lookup" options={{ title: strings.lookup.screenTitle }} />
        </Stack>
     </LockedApp>
   );

@@ -27,7 +27,7 @@ import { ExpiryAlert } from './ExpiryAlert';
 import {
   cardPose,
   dragProgress,
-  ID1_RADIUS,
+  CARD_RADIUS,
   mod,
   releaseAction,
   releaseVelocity,
@@ -397,6 +397,8 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   const theme = useTheme();
   // The card in front is shown at full size, so it swaps to the full picture once that has loaded
   // (cards saved before thumbnails were made larger look soft otherwise); the ones behind keep the thumbnail.
+  // The full picture is laid over the thumbnail rather than replacing it, so neither the swap nor
+  // dropping it again when the card leaves the front makes the picture blink.
   const thumbUri = useCardImage(card, 'thumb');
   const fullUri = useCardImage(inFront ? card : undefined, 'front');
   const uri = fullUri ?? thumbUri;
@@ -404,7 +406,7 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   const backUri = useCardImage(inFront && card.hasBack ? card : undefined, 'back');
   const { from, steps, f, pull, pullIndex, flip, flipIndex } = motion;
   const { fly, vertical } = geo;
-  const radius = geo.cardW * ID1_RADIUS;
+  const radius = geo.cardW * CARD_RADIUS;
   const alert = needsExpiryAlert(card, new Date());
 
   const animated = useAnimatedStyle(() => {
@@ -442,21 +444,21 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   return (
     <Animated.View pointerEvents="none" style={[styles.card, vertical && styles.cardVertical, { width: geo.cardW, height: geo.cardH }, animated]}>
       <Animated.View style={[faceStyle, frontFace]}>
-        {uri && <CardPicture uri={uri} vertical={card.vertical} />}
-        {uri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />}
+        <CardPicture uri={thumbUri} sharpUri={fullUri} vertical={card.vertical} radius={radius} />
+        {uri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim, borderRadius: radius }]} />}
         {/* Top left: the flip button has the top right. */}
         {alert && (
           <View style={styles.alert}>
             <ExpiryAlert size={28} pop testID={`expiry-alert-${card.id}`} />
           </View>
         )}
-        <Animated.View style={[StyleSheet.absoluteFill, styles.shade, shade]} />
+        <Animated.View style={[StyleSheet.absoluteFill, styles.shade, { borderRadius: radius }, shade]} />
       </Animated.View>
       {card.hasBack && (
         <Animated.View style={[faceStyle, backFace]}>
-          {backUri && <CardPicture uri={backUri} vertical={card.vertical} />}
-          {backUri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />}
-          <Animated.View style={[StyleSheet.absoluteFill, styles.shade, shade]} />
+          <CardPicture uri={backUri} vertical={card.vertical} radius={radius} />
+          {backUri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim, borderRadius: radius }]} />}
+          <Animated.View style={[StyleSheet.absoluteFill, styles.shade, { borderRadius: radius }, shade]} />
         </Animated.View>
       )}
     </Animated.View>

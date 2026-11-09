@@ -1,6 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { analyzeText } from '../analysis/analyze';
-import { canReadText, cardTextRecognizer } from '../analysis/recognizer';
+import { canReadText, readPhotoText } from '../analysis/readPhoto';
 import { categoryOptions } from '../cards/categories';
 import { readUnreadCards } from '../cards/readBackfill';
 import { Card, CardCategory, Folder } from '../cards/types';
@@ -15,7 +14,6 @@ import { loadCardBrightness, saveCardBrightness } from '../ui/cardBrightness';
 import { loadStackVertical, saveStackVertical } from '../ui/stackDirection';
 import { syncWidget } from '../widget/homeWidget';
 import { createFileBlobStore } from '../storage/fileBlobStore';
-import { toIsoDate } from '../time/dates';
 import { openDatabase } from '../storage/openDatabase';
 import { boot, BootDeps, bootFresh, Services } from './boot';
 import { AppSnapshot, createRefreshCoordinator } from './refreshCoordinator';
@@ -188,9 +186,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!services || !canReadText || readingOldCards.current) return;
     readingOldCards.current = true;
-    const read = async (jpegBase64: string) =>
-      analyzeText(await cardTextRecognizer.recognize(jpegBase64), toIsoDate(new Date())).text ?? '';
-    readUnreadCards(services.store, read)
+    readUnreadCards(services.store, readPhotoText)
       .then((updated) => (updated > 0 ? refresh() : undefined))
       .catch((e) => console.warn('Reading saved cards failed', e));
   }, [services, refresh]);

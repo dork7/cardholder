@@ -87,8 +87,8 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
           },
         ]}
       >
-        {uri && <CardPicture uri={uri} vertical={card.vertical} />}
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
+        <CardPicture uri={uri} vertical={card.vertical} radius={PICTURE_INNER_RADIUS} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim, borderRadius: PICTURE_INNER_RADIUS }]} />
         {alert && (
           <View style={styles.alert}>
             <ExpiryAlert size={22} testID={`expiry-alert-${card.id}`} />
@@ -130,6 +130,9 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
   );
 }
 
+// The picture sits inside the tile's 3 pt selection border, so its corners are that much tighter.
+const PICTURE_INNER_RADIUS = 13;
+
 const styles = StyleSheet.create({
   list: { flex: 1, alignSelf: 'stretch' },
   content: { gap: 16, paddingBottom: 96 }, // clear of the add button
@@ -138,7 +141,7 @@ const styles = StyleSheet.create({
   // ID-1 proportions, like the cards in the stack.
   picture: {
     aspectRatio: 1.585,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 3,
     overflow: 'hidden',
     marginBottom: 4,

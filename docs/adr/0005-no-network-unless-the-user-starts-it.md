@@ -13,6 +13,9 @@ the app works the same on a plane.
   or Restore. We accept this for a one-time utility unlock.
 - Any new feature that wants the network has to be started by the user, and has to be listed in
   `docs/design.md` next to the others.
+- Asking (ADR 0001) never goes online. On Android, **Get the AI model** in the Ask window asks the
+  system (AICore) to download Gemini Nano once; the system does it, only after that tap, and nothing
+  about the documents is sent.
 - On Android, card reading uses ML Kit through Google Play services to keep the APK small. Play
   services (not the app) downloads the text model once, at install. Until it has, or on phones
   without Play services, cards get no suggestions. Reading itself stays on the phone.

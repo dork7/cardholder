@@ -1,5 +1,5 @@
 ---
-status: accepted (not yet built)
+status: amended 2026-11-09: built-in model first, Gemma as the fallback
 ---
 
 # Asking uses only the phone's built-in model, never the cloud
@@ -37,3 +37,29 @@ is the groundwork from the spec (`docs/specs/ask-your-documents.md`): each docum
 older documents, searched, and shown in a document's Details (.md). Suggestions still come from the
 rules plus the optional Gemma 3 270M (`llama.rn`, ~290 MB, downloaded once after the user agrees,
 pinned and SHA-256 checked). It only fills fields the rules left empty.
+
+## Amended (2026-11-09): built-in first, Gemma where there is none
+
+Decided by the owner: asking is built now, and it should work on every phone, so the downloaded
+Gemma 3 270M answers where the phone has no built-in model (or it's switched off). Still nothing
+leaves the phone; no cloud model, as before. The order is in `src/ai/models.ts` (`chooseModel`):
+the built-in model when it is ready, else Gemma if downloaded, else the Ask window says how to get
+one (Gemini Nano's one-time AICore download where the phone offers it, or Gemma in Settings).
+
+- **Native module:** `modules/builtin-model`: Gemini Nano through ML Kit GenAI Prompt API
+  (`genai-prompt` 1.0.0-beta4; beta5 needs Kotlin 2.4) on Android, Apple Foundation Models on iOS 26+
+  (weakly linked, so iOS 16.4 still runs). Same four calls on both: availability, prepare,
+  generate, cancel.
+- **How a question is answered** (`src/ai/ask.ts`), as the owner asked: the model first reads the
+  **master lookup file** (`src/ai/lookup.ts`): a Markdown table of every document's name, category,
+  expiry, tags, pages, a text excerpt and its reference. It names the rows most likely to hold the
+  answer; then it reads each of those documents' own Markdown in turn and answers, or says the
+  document doesn't, and moves on to the next (at most 4). Word matching with a small synonym
+  table backs up the pick, and an answer is kept only if its evidence line (or the answer itself) is
+  in that document.
+- **The lookup file** is stored sealed (`CardStore.saveLookup`), can be viewed, saved as .md and
+  recreated (Settings → Ask your documents, or the Ask window), and is remade automatically before
+  a question if documents changed since it was made.
+- **Gemma's quality:** 270M is very small; expect it to miss answers a built-in model finds. Its
+  context was raised from 1,024 to 4,096 tokens to hold a document and a question.
+- Built-in field suggestions (replacing Gemma when adding a document) are still to do.

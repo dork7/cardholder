@@ -7,21 +7,25 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
-import { moveToCategory, removeAll, shouldUnpin, togglePinned } from '../src/cards/batch';
+import { addTags, allTags, moveToCategory, overTagLimit, removeAll, shouldUnpin, togglePinned } from '../src/cards/batch';
 import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { CardCategory } from '../src/cards/types';
-import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED } from '../src/config';
+import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { PdfUnavailableError, shareCards } from '../src/share/shareCard';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { CardGrid } from '../src/ui/CardGrid';
 import { CategorySheet } from '../src/ui/CategorySheet';
+import { TagSheet } from '../src/ui/TagSheet';
+import { canReadText, readPhotoText } from '../src/analysis/readPhoto';
+import { rereadCards } from '../src/cards/readBackfill';
 import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { CategoryChips } from '../src/ui/CategoryChips';
 import { ChipRow } from '../src/ui/ChipRow';
-import { Fab } from '../src/ui/Fab';
+import { AskFab, Fab } from '../src/ui/Fab';
+import { AskSheet } from '../src/ui/AskSheet';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { PixelLogo } from '../src/ui/PixelLogo';
@@ -85,6 +89,10 @@ export default function Home() {
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const selected = inGallery.filter((c) => selectedIds.has(c.id));
   const [choosingCategory, setChoosingCategory] = useState(false);
+  const [choosingTags, setChoosingTags] = useState(false);
+  const [asking, setAsking] = useState(false);
+  // While the selection is being read again: how many are done, out of how many.
+  const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
   const selecting = gallery === 'gallery' && selected.length > 0;
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
   const toggleSelected = (card: Card) =>
@@ -111,6 +119,37 @@ export default function Home() {
     clearSelection();
     await refresh().catch((e) => console.warn('Refresh after a batch action failed', e));
     if (failed > 0) Alert.alert(strings.common.error, strings.home.selectionFailed(failed));
+  };
+
+  // Adds the chosen tags to every selected card. If any card would go over the limit, nothing is
+  // changed and the sheet stays open, so fewer tags can be chosen.
+  const tagSelected = (tags: string[]) => {
+    const over = overTagLimit(selected, tags);
+    if (over.length > 0) {
+      Alert.alert(strings.tags.tooManyTitle, strings.tags.tooMany(over.length, MAX_TAGS));
+      return;
+    }
+    setChoosingTags(false);
+    void onSelection((picked) => addTags(services.store, picked, tags));
+  };
+
+  // Recreate .md on the selection: reads each document's text again from its pictures, which its
+  // Details (.md) are made from. Can take a while, so the bar counts through them.
+  const recreateSelected = async () => {
+    if (!canReadText) {
+      Alert.alert(strings.common.error, strings.recreate.unavailable);
+      return;
+    }
+    const picked = selected;
+    setRereading({ done: 0, of: picked.length });
+    const failed = await rereadCards(services.store, picked, readPhotoText, (done) => setRereading({ done, of: picked.length }));
+    setRereading(null);
+    clearSelection();
+    await refresh().catch((e) => console.warn('Refresh after reading again failed', e));
+    Alert.alert(
+      strings.recreate.button,
+      failed > 0 ? strings.home.selectionFailed(failed) : strings.recreate.doneMany(picked.length),
+    );
   };
 
   const deleteSelected = () =>
@@ -265,7 +304,7 @@ export default function Home() {
         <View style={[styles.selectionBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.bg }]} testID="selection-bar">
           <View style={styles.selectionRow}>
             <Text style={[styles.selectionCount, { color: theme.text }]} accessibilityLiveRegion="polite">
-              {strings.home.selected(selected.length)}
+              {rereading ? strings.recreate.workingMany(rereading.done, rereading.of) : strings.home.selected(selected.length)}
             </Text>
             <View style={styles.selectionAction}>
               <Button variant="secondary" label={strings.common.cancel} onPress={clearSelection} testID="selection-cancel" />
@@ -280,9 +319,23 @@ export default function Home() {
             />
             <IconButton
               icon="tag"
+              label={strings.home.tagSelected}
+              onPress={() => setChoosingTags(true)}
+              testID="selection-tags"
+            />
+            <IconButton
+              icon="category"
               label={strings.home.categorySelected}
               onPress={() => setChoosingCategory(true)}
               testID="selection-category"
+            />
+            <IconButton
+              icon="refresh"
+              label={strings.recreate.button}
+              hint={strings.recreate.galleryHint}
+              onPress={() => void recreateSelected()}
+              disabled={rereading !== null}
+              testID="selection-recreate"
             />
             <IconButton
               icon="share"
@@ -293,6 +346,13 @@ export default function Home() {
             />
             <IconButton icon="trash" label={strings.home.deleteSelected} onPress={deleteSelected} variant="danger" testID="selection-delete" />
           </View>
+          <TagSheet
+            visible={choosingTags}
+            title={strings.home.tagTo(selected.length)}
+            existing={allTags(cards)}
+            onApply={tagSelected}
+            onClose={() => setChoosingTags(false)}
+          />
           <CategorySheet
             visible={choosingCategory}
             title={strings.home.moveTo(selected.length)}
@@ -305,8 +365,32 @@ export default function Home() {
           />
         </View>
       ) : (
-        <Fab label={strings.home.addCard} onPress={addCard} testID="add-card" />
+        <>
+          {cards.length > 0 && (
+            <AskFab label={strings.ask.button} hint={strings.ask.buttonHint} onPress={() => setAsking(true)} testID="ask" />
+          )}
+          <Fab label={strings.home.addCard} onPress={addCard} testID="add-card" />
+        </>
       )}
+      <AskSheet
+        visible={asking}
+        cards={cards}
+        folders={folders}
+        store={services.store}
+        onClose={() => setAsking(false)}
+        onOpenCard={(card) => {
+          setAsking(false);
+          router.push(`/card/${card.id}`);
+        }}
+        onViewLookup={() => {
+          setAsking(false);
+          router.push('/lookup');
+        }}
+        onOpenSettings={() => {
+          setAsking(false);
+          router.push('/settings');
+        }}
+      />
     </Screen>
   );
 }

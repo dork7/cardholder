@@ -60,6 +60,15 @@ export interface CardStore {
   addCategory(category: CardCategory): Promise<void>;
   // Fails with CategoryInUseError while any card still uses it.
   removeCategory(category: CardCategory): Promise<void>;
+  // The master lookup file for asking (src/ai/lookup.ts), sealed. Null until one is made.
+  loadLookup(): Promise<StoredLookup | null>;
+  saveLookup(markdown: string, ids: readonly string[]): Promise<StoredLookup>;
+}
+
+export interface StoredLookup {
+  markdown: string;
+  createdAt: number;
+  ids: string[]; // the documents it lists, to tell when it is out of date
 }
 
 export interface CardStoreDeps {
@@ -96,6 +105,7 @@ const INSERT_SQL =
 const INSERT_FOLDER_SQL = 'INSERT INTO folders (id, payload, created_at) VALUES (?, ?, ?)';
 // Sealed like a folder's name, in the settings table: the user's own category names are theirs to keep private.
 const CATEGORIES_KEY = 'categories';
+const LOOKUP_KEY = 'lookup';
 
 export const blobName = (id: string, kind: BlobKind) => `${id}.${kind}`;
 
@@ -423,6 +433,23 @@ export function createCardStore({
         await db.runAsync('UPDATE cards SET folder_id = NULL WHERE folder_id = ?', [id]);
         await db.runAsync('DELETE FROM folders WHERE id = ?', [id]);
       });
+    },
+
+    async loadLookup() {
+      const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', [LOOKUP_KEY]);
+      if (!row) return null;
+      const v = JSON.parse(utf8.decode(aead.open(base64.decode(row.value)))) as Partial<StoredLookup>;
+      if (typeof v.markdown !== 'string' || typeof v.createdAt !== 'number' || !Array.isArray(v.ids)) return null;
+      return { markdown: v.markdown, createdAt: v.createdAt, ids: v.ids.filter((id): id is string => typeof id === 'string') };
+    },
+
+    async saveLookup(markdown, ids) {
+      const lookup: StoredLookup = { markdown, createdAt: now(), ids: [...ids] };
+      await db.runAsync(
+        'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [LOOKUP_KEY, base64.encode(aead.seal(utf8.encode(JSON.stringify(lookup))))],
+      );
+      return lookup;
     },
   };
 }

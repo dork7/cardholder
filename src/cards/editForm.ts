@@ -9,7 +9,7 @@ export interface EditDraft {
   category: CardCategory;
   expiresOn: string | null;
   remindDaysBefore: string; // as typed; checked on save
-  tags: string[]; // no longer shown or edited; kept so a card's saved tags survive an edit
+  tags: string[]; // not edited here (tags are added from the card screen and the gallery); kept so an edit keeps them
   documentKey: string | null;
   folderId: string | null;
   readText: CardText | null; // see CardFields; set as each photo is read

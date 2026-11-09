@@ -68,11 +68,16 @@ export async function shareCard(store: CardStore, card: Card): Promise<void> {
 }
 
 // The card's details and scanned text as a Markdown file (see cardMarkdown), named after the card.
-export async function shareCardMarkdown(card: Card, markdown: string): Promise<void> {
+export function shareCardMarkdown(card: Card, markdown: string): Promise<void> {
+  return shareMarkdown(cardFileBase(card), markdown);
+}
+
+// Any Markdown text as `<baseName>.md` through the share sheet; the copy is removed afterwards.
+export async function shareMarkdown(baseName: string, markdown: string): Promise<void> {
   clearShareCache();
   shareDir().create({ intermediates: true });
   try {
-    const file = new File(shareDir(), `${cardFileBase(card)}.md`);
+    const file = new File(shareDir(), `${baseName}.md`);
     file.create({ overwrite: true });
     await file.write(utf8.encode(markdown));
     await Sharing.shareAsync(file.uri, { mimeType: 'text/markdown', UTI: 'net.daringfireball.markdown' });
