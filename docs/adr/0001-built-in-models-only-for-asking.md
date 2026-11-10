@@ -63,3 +63,8 @@ one (Gemini Nano's one-time AICore download where the phone offers it, or Gemma 
 - **Gemma's quality:** 270M is very small; expect it to miss answers a built-in model finds. Its
   context was raised from 1,024 to 4,096 tokens to hold a document and a question.
 - Built-in field suggestions (replacing Gemma when adding a document) are still to do.
+
+## Amended (2026-11-10): a menu of downloaded models
+
+Gemma 3 270M is now one of four downloadable models (ADR 0006). The one in use answers where there
+is no built-in model, and the user can choose it over the built-in model in Settings → AI models.

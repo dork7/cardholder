@@ -24,7 +24,7 @@ export interface TextRecognizer {
   recognize(jpegBase64: string): Promise<OcrResult>;
 }
 
-// The optional language model (Gemma, once the user has downloaded it): card text → suggested fields,
+// The optional language model (the one in use, once the user has downloaded one): card text → suggested fields,
 // already checked against the text. Null when it has nothing usable. Aborting stops it.
 export interface SmartReader {
   read(cardText: string, signal: AbortSignal): Promise<SmartSuggestion | null>;

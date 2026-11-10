@@ -134,6 +134,12 @@ test('Ask sits with the add button and opens the Ask window', async () => {
   expect(screen.getByTestId('ask-sheet')).toBeTruthy();
 });
 
+test('in development builds, Test AI opens the model bench', async () => {
+  await renderHome();
+  await fireEvent.press(screen.getByTestId('open-ai-bench'));
+  expect(mockPush).toHaveBeenCalledWith('/dev/models');
+});
+
 test('the stack shows every card until a type is chosen', async () => {
   await renderHome();
   expect(screen.getByTestId('card-stack').props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 3) });

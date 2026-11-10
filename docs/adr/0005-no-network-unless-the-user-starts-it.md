@@ -1,8 +1,9 @@
 # The app never goes online on its own
 
 There is no analytics, crash reporting, ads, accounts or sync. The only network traffic happens when
-the user starts it: the store's purchase flow (Buy / Restore), the one-time Gemma model download from
-Hugging Face after a confirmation that states its size and source, and on Android the update check
+the user starts it: the store's purchase flow (Buy / Restore), a model download from Hugging Face, one
+per model the user picks in Settings → AI models, after a confirmation that states its size and
+source (ADR 0006), and on Android the update check
 and APK download. This is what lets the store privacy labels say "No data collected". It also means
 the app works the same on a plane.
 
