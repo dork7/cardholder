@@ -18,7 +18,7 @@ graph TD
         Classify[Classifier - classify.ts]
         Extract[Field Extractor - fields.ts]
         MRZ[MRZ Parser - mrz.ts]
-        Gemma[Local model - localModel.ts]
+        LocalModel[Downloaded model in use - localModel.ts]
         SmartExtract[Smart Extraction - smartExtract.ts]
         Recognizer[Text Recognizer - recognizer.ts]
     end
@@ -43,8 +43,8 @@ graph TD
     CardOCR -->|4. Text Lines| Analyze
     Analyze -->|5. Run Rules| Classify
     Analyze -->|6. Parse MRZ| MRZ
-    Analyze -->|7. Call LLM| Gemma
-    Gemma -->|8. Structured JSON| SmartExtract
+    Analyze -->|7. Call LLM| LocalModel
+    LocalModel -->|8. Structured JSON| SmartExtract
     SmartExtract -->|9. Suggestions| AddEdit
     
     %% State and Storage

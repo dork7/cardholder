@@ -52,5 +52,13 @@ The exact line of document text an answer rests on, shown with it so the user ca
 _Avoid_: quote, snippet, highlight
 
 **Built-in model**:
-The language model that comes with the phone (Apple Foundation Models on iPhone, Gemini Nano on Android). Phones without one cannot ask.
-_Avoid_: AI, Siri, Gemini (cloud), LLM
+The language model that comes with the phone (Apple Foundation Models on iPhone, Gemini Nano on Android). It answers questions where it is ready, unless the user chose the downloaded model in use instead.
+_Avoid_: AI, Siri, Gemini (cloud), LLM, this phone's AI
+
+**Downloaded model**:
+One of the fixed menu of language models the user can download in Settings → AI models (ADR 0006). Several can be downloaded; phones with neither a built-in model nor a downloaded one cannot ask.
+_Avoid_: local model (in wording the user sees), Gemma (for any of them), offline model
+
+**Model in use**:
+The one downloaded model the user picked: it suggests a new document's name, expiry date and category, and answers questions where there is no built-in model or the user chose it under "Answer questions with".
+_Avoid_: active model (in wording the user sees), current model, selected model

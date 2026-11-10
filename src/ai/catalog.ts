@@ -16,7 +16,6 @@ export interface LocalModelEntry {
   gpu: boolean; // whether to try OpenCL first (Q4_0 / Q6_K only)
   thinking: boolean | null; // false: turn a thinking model's reasoning off; null: not a thinking model
   readTimeoutMs: number; // card reading's limit for this model, on top of the rules' own
-  license: string;
 }
 
 const hf = (repo: string, revision: string, file: string) => `https://huggingface.co/${repo}/resolve/${revision}/${file}`;
@@ -33,7 +32,6 @@ export const CATALOG: readonly LocalModelEntry[] = [
     gpu: false,
     thinking: null,
     readTimeoutMs: 8_000,
-    license: 'Gemma 3 270M by Google, under the Gemma Terms of Use.',
   },
   {
     id: 'qwen2.5-0.5b',
@@ -46,7 +44,6 @@ export const CATALOG: readonly LocalModelEntry[] = [
     gpu: true,
     thinking: null,
     readTimeoutMs: 12_000,
-    license: 'Qwen2.5 0.5B by Alibaba Cloud, under the Apache 2.0 licence.',
   },
   {
     id: 'qwen3-0.6b',
@@ -59,7 +56,6 @@ export const CATALOG: readonly LocalModelEntry[] = [
     gpu: true,
     thinking: false,
     readTimeoutMs: 14_000,
-    license: 'Qwen3 0.6B by Alibaba Cloud, under the Apache 2.0 licence.',
   },
   {
     id: 'llama3.2-1b',
@@ -72,7 +68,6 @@ export const CATALOG: readonly LocalModelEntry[] = [
     gpu: true,
     thinking: null,
     readTimeoutMs: 20_000,
-    license: 'Llama 3.2 1B by Meta, under the Llama 3.2 Community License. Built with Llama.',
   },
 ];
 
@@ -82,10 +77,13 @@ export function entry(id: string): LocalModelEntry | null {
   return CATALOG.find((e) => e.id === id) ?? null;
 }
 
-// Roughly three characters a token, less the answer and room for Arabic (more tokens per character).
-// 4,096 tokens gives the 7,000 characters asking was tuned with.
+// The prompt a context of about 4,000 tokens holds: roughly three characters a token, less the answer
+// and room for Arabic (more tokens per character). Asking was tuned with it.
+export const PROMPT_CHARS_AT_4K = 7000;
+
+// The same share of a bigger or smaller context: 4,096 tokens gives PROMPT_CHARS_AT_4K.
 export function promptCharsFor(nCtx: number): number {
-  return Math.round(((nCtx - 1500) * 7000) / 2596);
+  return Math.round(((nCtx - 1500) * PROMPT_CHARS_AT_4K) / 2596);
 }
 
 // The file is mapped into memory, plus its working memory and the app: under 3× the file is tight.

@@ -1,3 +1,5 @@
+import type { LocalModelId } from './ai/catalog';
+
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 export const strings = {
@@ -241,7 +243,7 @@ export const strings = {
     failed: 'Something went wrong. Try again.',
     privacy: 'Runs on this phone. Your documents and questions are never sent anywhere.',
     usingBuiltIn: "Using this phone's built-in AI.",
-    usingGemma: 'Using the AI model you downloaded.', // key kept: AskSheet has uncommitted work on main
+    usingDownloaded: 'Using the AI model you downloaded.',
     lookupRemade: 'The lookup file was out of date, so it was made again first.',
     noDocuments: 'Add a document first, then ask about it.',
     unavailable: {
@@ -366,32 +368,43 @@ export const strings = {
   ai: {
     title: 'AI models',
     about:
-      "Doc Keeper can suggest a document's name, expiry date and type, and answer questions about your documents, using an AI model that runs on this phone. Pick one to download. Your documents are never sent anywhere.",
+      "Doc Keeper can suggest a document's name, expiry date and category, and answer questions about your documents, using an AI model that runs on this phone. Pick one to download. Your documents are never sent anywhere.",
     recommended: 'Recommended',
     notes: {
       'gemma-270m': 'Fastest, least accurate.',
       'qwen2.5-0.5b': 'Good all-rounder.',
       'qwen3-0.6b': 'Smarter, a little slower.',
       'llama3.2-1b': 'Best answers. Needs a newer phone.',
-    } as Record<string, string>,
+    } satisfies Record<LocalModelId, string>,
+    // Who made each model and the terms it is used under, shown for the one in use.
+    licenses: {
+      'gemma-270m': 'Gemma 3 270M by Google, under the Gemma Terms of Use.',
+      'qwen2.5-0.5b': 'Qwen2.5 0.5B by Alibaba Cloud, under the Apache 2.0 licence.',
+      'qwen3-0.6b': 'Qwen3 0.6B by Alibaba Cloud, under the Apache 2.0 licence.',
+      'llama3.2-1b': 'Llama 3.2 1B by Meta, under the Llama 3.2 Community Licence. Built with Llama.',
+    } satisfies Record<LocalModelId, string>,
     size: (mb: number) => `${mb} MB`,
     lowMemory: 'May be slow or close on this phone.',
     download: 'Download',
-    oneAtATime: 'Another model is downloading.',
+    downloadNamed: (name: string) => `Download ${name}`,
+    oneAtATime: 'Another model is downloading. Wait for it to finish, or stop it, then try again.',
     confirmTitle: (name: string) => `Download ${name}?`,
     confirmMessage: (mb: number) =>
       `Doc Keeper will download about ${mb} MB from Hugging Face, once. Nothing about your documents is sent. Use Wi-Fi if your data plan is limited.`,
     confirm: 'Download',
     downloading: (percent: number | null) => (percent === null ? 'Downloading…' : `Downloading… ${percent}%`),
     stop: 'Stop',
+    stopNamed: (name: string) => `Stop downloading ${name}`,
     inUse: 'In use',
     use: 'Use',
+    useNamed: (name: string) => `Use ${name}`,
     remove: 'Delete',
+    removeNamed: (name: string) => `Delete ${name}`,
     removeTitle: (name: string) => `Delete ${name}?`,
     removeMessage: 'You can download it again at any time.',
     runningOn: (gpu: boolean) => (gpu ? 'Running on GPU.' : 'Running on CPU.'),
     askWith: 'Answer questions with',
-    askWithBuiltIn: "This phone's AI",
+    askWithBuiltIn: 'Built-in model',
     failed: {
       network: "The download didn't finish. Check your connection and try again.",
       space: "There isn't enough free space on this phone for this model. Free up some space and try again.",
@@ -510,7 +523,7 @@ export const strings = {
       'Card photos and details are encrypted on the phone with a key that never leaves it.',
       'Quick share sends a card through your phone\'s own share sheet (AirDrop, Quick Share or another app you choose). Doc Keeper hands the file to the app you pick and keeps no copy; the file is not encrypted once it leaves the app.',
       'If you turn on app lock, Face ID, fingerprint and passcode checks are done by your phone itself. Doc Keeper only learns whether the check succeeded, never your face, fingerprint or passcode.',
-      'AI models are optional. If you pick one in Settings, Doc Keeper downloads it (about 290 MB to 1 GB) once, from Hugging Face. Like any download, the request shows Hugging Face your IP address. Nothing about your cards is sent: the model reads them on this phone. You can delete it in Settings at any time.',
+      'AI models are optional. If you pick one in Settings, Doc Keeper downloads it (about 290 MB to 1 GB) once, from Hugging Face. Like any download, the request shows Hugging Face your IP address. Nothing about your documents is sent: the model reads them on this phone. You can delete it in Settings at any time.',
       'On Android, Settings can check GitHub for a newer version of the app and download it, only when you tap Check for updates. Like any download, the request shows GitHub your IP address. Nothing about your cards is sent, and Android asks you before installing.',
       'Doc Keeper collects no personal data, analytics or crash reports. If you choose to share crash data with Apple or Google, they handle it under their own policies.',
       'Backups you export are encrypted with a passphrase you choose. Where you keep the file is up to you.',

@@ -18,7 +18,7 @@ run adds a row to a Markdown table you can select and copy into the results belo
 | Card fields | Expected name / expiry / category values read exactly. |
 | Answers | Questions over five made-up documents answered with the expected value. |
 | Slowest card | The longest single card reading: card reading's time limit (`readTimeoutMs`) is set to 1.5× this on the Pixel, rounded up to a second. |
-| Median first reply | How long the first model call of a question takes (reading the lookup table): most of the wait before an answer. |
+| Median first word | From putting a question to the model until it starts to write its first reply (reading the lookup table), over all the questions. The app shows nothing until the answer is whole, so the real wait is longer. |
 
 The test set (`src/ai/eval/cases.ts`) is made-up text only. To add cases from the sample documents in
 `dataSet/`, add one in a development build, copy the recognised text from its Details (.md), and write
@@ -29,7 +29,7 @@ the expected values from the document itself.
 1. Run every model at its own context (4,096), on a Snapdragon 8 Gen 1 or later phone (GPU) and on a
    Pixel (CPU).
 2. Also run Qwen2.5 0.5B and Llama 3.2 1B at 8,192. Keep 8,192 for a model only if it answers more
-   questions **and** the Pixel's median first reply stays under about 30 s.
+   questions **and** the Pixel's median first word stays under about 30 s.
 3. A model that doesn't beat Gemma 3 270M on card fields and answers is proposed for removal from the
    menu. The owner decides.
 

@@ -18,11 +18,18 @@ test('existing Gemma file becomes the active model', () => {
 
 test('unknown or corrupt prefs fall back to defaults', () => {
   expect(createPrefs(memory('{not json').store, () => false).get()).toEqual({ active: null, cpuOnly: [], askWith: 'built-in' });
-  const p = createPrefs(memory(JSON.stringify({ active: 'phi-3', cpuOnly: ['phi-3', 'qwen3-0.6b'], askWith: 'cloud' })).store, () => true);
+  const p = createPrefs(memory(JSON.stringify({ active: 'phi-3', cpuOnly: ['phi-3', 'qwen3-0.6b'], askWith: 'cloud' })).store, () => false);
   expect(p.get()).toEqual({ active: null, cpuOnly: ['qwen3-0.6b'], askWith: 'built-in' });
 });
 
-test('an active model whose file is gone is not active', () => {
+test('a model dropped from the app, or a corrupt file, hands over to the first downloaded model', () => {
+  const downloaded = (id: string) => id === 'qwen3-0.6b' || id === 'llama3.2-1b';
+  expect(createPrefs(memory(JSON.stringify({ active: 'phi-3' })).store, downloaded).get().active).toBe('qwen3-0.6b');
+  expect(createPrefs(memory('{not json').store, downloaded).get().active).toBe('qwen3-0.6b');
+  expect(createPrefs(memory(JSON.stringify({ active: 'gemma-270m' })).store, downloaded).get().active).toBe('qwen3-0.6b');
+});
+
+test('an active model whose file is gone is not active when nothing else is downloaded', () => {
   const p = createPrefs(memory(JSON.stringify({ active: 'llama3.2-1b' })).store, () => false);
   expect(p.get().active).toBeNull();
 });
@@ -34,4 +41,12 @@ test('updates and CPU-only marks persist', () => {
   p.markCpuOnly('qwen2.5-0.5b');
   p.markCpuOnly('qwen2.5-0.5b');
   expect(createPrefs(m.store, () => true).get()).toEqual({ active: 'qwen2.5-0.5b', cpuOnly: ['qwen2.5-0.5b'], askWith: 'downloaded' });
+});
+
+test('a CPU-only mark can be cleared', () => {
+  const p = createPrefs(memory().store, () => true);
+  p.markCpuOnly('qwen2.5-0.5b');
+  p.markCpuOnly('llama3.2-1b');
+  p.clearCpuOnly('qwen2.5-0.5b');
+  expect(p.get().cpuOnly).toEqual(['llama3.2-1b']);
 });

@@ -9,10 +9,11 @@ export interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'danger';
   disabled?: boolean;
   testID?: string;
+  accessibilityLabel?: string; // when the label alone doesn't say what it acts on ("Delete" in a list)
   accessibilityHint?: string;
 }
 
-export function Button({ label, onPress, onLongPress, variant = 'primary', disabled = false, testID, accessibilityHint }: ButtonProps) {
+export function Button({ label, onPress, onLongPress, variant = 'primary', disabled = false, testID, accessibilityLabel, accessibilityHint }: ButtonProps) {
   const theme = useTheme();
   const primary = variant === 'primary';
   // Green is for the primary action only; a secondary button is white text in a grey outline.
@@ -23,7 +24,7 @@ export function Button({ label, onPress, onLongPress, variant = 'primary', disab
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled }}
       disabled={disabled}

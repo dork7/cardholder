@@ -1,10 +1,11 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { initLlama, LlamaContext } from 'llama.rn';
+import { Platform } from 'react-native';
 import { CATALOG, entry, LocalModelEntry, LocalModelId } from '../ai/catalog';
 import { Loaded, loadWithFallback, runWithFallback } from '../ai/loadWithFallback';
 import { createPrefs } from '../ai/localModelPrefs';
 import { buildMessages, parseSuggestion, SmartSuggestion, SUGGESTION_SCHEMA } from './smartExtract';
-import { SmartReader } from './types';
+import { SMART_TIMEOUT_MS, SmartReader } from './types';
 
 // The downloaded models (src/ai/catalog.ts), run on the phone with llama.rn. None is shipped in the
 // app: each is downloaded once, only when the user picks it in Settings → AI models (development builds
@@ -80,9 +81,24 @@ export function setContextOverride(nCtx: number | null): void {
   if (__DEV__) contextOverride = nCtx;
 }
 
+// Only Android tries the GPU (OpenCL): iPhone runs the downloaded models on the CPU (ADR 0006).
+const gpuAllowed = () => Platform.OS === 'android';
+
+// Screens that show where the model runs hear when it loads or is freed.
+const loadListeners = new Set<() => void>();
+export function onLoadChange(listener: () => void): () => void {
+  loadListeners.add(listener);
+  return () => loadListeners.delete(listener);
+}
+const loadChanged = () => {
+  for (const listener of loadListeners) listener();
+};
+
 let loaded: Promise<Loaded<LlamaContext>> | null = null;
 let loadedKey: string | null = null; // which model, at which context size
-let lastOnGpu: { key: string; onGpu: boolean } | null = null;
+let loadedId: LocalModelId | null = null;
+// Where a model ran when it last loaded. Kept after it is freed, so Settings can still say.
+let lastOnGpu: { id: LocalModelId; key: string; onGpu: boolean } | null = null;
 
 const keyOf = (e: LocalModelEntry) => `${e.id}@${contextOverride ?? e.nCtx}`;
 
@@ -91,34 +107,43 @@ async function releaseNow(): Promise<void> {
   const current = loaded;
   loaded = null;
   loadedKey = null;
-  lastOnGpu = null;
-  if (current) await (await current.catch(() => null))?.context.release();
+  loadedId = null;
+  if (current) {
+    await (await current.catch(() => null))?.context.release();
+    loadChanged();
+  }
 }
 
 // The active model, loaded GPU first (src/ai/loadWithFallback.ts). Another model, or another context
 // size, frees the old one first: two at once would not fit on many phones.
-async function load(): Promise<{ e: LocalModelEntry; current: Loaded<LlamaContext> }> {
-  const e = activeEntry();
+// `forceCpu` is the retry after a failed GPU run; `e` keeps a job on the model it started with.
+async function load(e = activeEntry(), forceCpu = false): Promise<{ e: LocalModelEntry; current: Loaded<LlamaContext> }> {
   if (!e) throw new Error('No model is active');
-  const key = keyOf(e);
+  // A forced-CPU copy is kept apart, so the next ordinary job tries the GPU again unless the model has
+  // been remembered as CPU-only.
+  const key = forceCpu ? `${keyOf(e)}:cpu` : keyOf(e);
   if (loadedKey !== key) await releaseNow();
   if (!loaded) {
     loadedKey = key;
+    loadedId = e.id;
     const attempt = loadWithFallback(
       e,
-      prefs.get().cpuOnly.includes(e.id),
+      forceCpu || !gpuAllowed() || prefs.get().cpuOnly.includes(e.id),
       (nGpuLayers) => initLlama({ model: modelFile(e).uri, n_ctx: contextOverride ?? e.nCtx, n_gpu_layers: nGpuLayers, use_mlock: false }),
       () => prefs.markCpuOnly(e.id),
     );
     loaded = attempt;
     attempt.then(
       (l) => {
-        if (loaded === attempt) lastOnGpu = { key, onGpu: l.onGpu };
+        // The CPU retry after a failed GPU run is a one-off, not where the model runs.
+        if (loaded === attempt && !forceCpu) lastOnGpu = { id: e.id, key, onGpu: l.onGpu };
+        loadChanged();
       },
       () => {
         if (loaded === attempt) {
           loaded = null;
           loadedKey = null;
+          loadedId = null;
         }
       },
     );
@@ -126,35 +151,48 @@ async function load(): Promise<{ e: LocalModelEntry; current: Loaded<LlamaContex
   return { e, current: await loaded };
 }
 
-// Whether the active model is running on the GPU; null until it has loaded.
+// Whether the active model runs on the GPU: as it last loaded (still known after it is freed), or
+// false when it can only use the CPU here (a CPU-only file, an iPhone, or remembered as failing on
+// this phone's GPU); null until it is known. Another model, or deleting this one, starts over.
 export function onGpu(): boolean | null {
   const e = activeEntry();
-  return e && lastOnGpu?.key === keyOf(e) ? lastOnGpu.onGpu : null;
+  if (!e) return null;
+  // The CPU-only mark comes first: a later run can fail on the GPU after it loaded there.
+  if (!e.gpu || !gpuAllowed() || prefs.get().cpuOnly.includes(e.id)) return false;
+  return lastOnGpu?.key === keyOf(e) ? lastOnGpu.onGpu : null;
 }
 
 type CompletionParams = Parameters<LlamaContext['completion']>[0];
 
 // One completion on the active model. A run that fails on the GPU is tried again on the CPU, and the
 // model is remembered as CPU-only on this phone. Aborting stops whichever context is running.
-async function complete(params: CompletionParams, signal: AbortSignal | undefined) {
+// `onFirstWord` hears when the model writes its first piece of text (the bench times it).
+async function complete(params: CompletionParams, signal: AbortSignal | undefined, onFirstWord?: () => void) {
   const { e, current } = await load();
+  // A stop that came while the model was loading: the listener below would never hear it.
+  if (signal?.aborted) throw new Error('Stopped while the model was loading');
   const full: CompletionParams = e.thinking === null ? params : { ...params, enable_thinking: e.thinking };
   let running: LlamaContext | null = null;
-  const stop = () => void running?.stopCompletion();
+  const stop = () => void running?.stopCompletion().catch(() => {});
   signal?.addEventListener('abort', stop);
   try {
     return await runWithFallback(
       current,
       (c) => {
         running = c;
-        return c.completion(full);
+        if (!onFirstWord) return c.completion(full);
+        let heard = false;
+        return c.completion(full, () => {
+          if (!heard) onFirstWord();
+          heard = true;
+        });
       },
       async () => {
         await releaseNow();
-        prefs.markCpuOnly(e.id);
-        return (await load()).current;
+        return (await load(e, true)).current;
       },
       () => signal?.aborted ?? false,
+      () => prefs.markCpuOnly(e.id),
     );
   } finally {
     signal?.removeEventListener('abort', stop);
@@ -198,6 +236,7 @@ export function generateWithLocalModel(
   prompt: { system: string; user: string },
   options: { maxTokens: number; schema: object },
   signal: AbortSignal,
+  onFirstWord?: () => void,
 ): Promise<string> {
   return serially(async () => {
     if (signal.aborted) throw new Error('Asking was stopped');
@@ -212,6 +251,7 @@ export function generateWithLocalModel(
         n_predict: options.maxTokens,
       },
       signal,
+      onFirstWord,
     );
     return result.text;
   });
@@ -222,7 +262,7 @@ export function generateWithLocalModel(
 export const localReader: SmartReader = {
   read: async (cardText, signal) => (activeEntry() ? (await extractWithLocalModel(cardText, signal)).suggestion : null),
   get timeoutMs() {
-    return activeEntry()?.readTimeoutMs ?? 8_000;
+    return activeEntry()?.readTimeoutMs ?? SMART_TIMEOUT_MS;
   },
 };
 
@@ -232,8 +272,11 @@ export function deleteModel(id: LocalModelId): Promise<void> {
   return serially(async () => {
     const e = entry(id)!;
     const wasActive = prefs.get().active === id;
-    if (loadedKey?.startsWith(`${id}@`)) await releaseNow();
+    if (loadedId === id) await releaseNow();
+    if (lastOnGpu?.id === id) lastOnGpu = null;
     for (const file of [modelFile(e), partFile(e)]) if (file.exists) file.delete();
+    // A fresh download tries the GPU again.
+    prefs.clearCpuOnly(id);
     if (wasActive) prefs.update({ active: CATALOG.find((c) => isDownloaded(c.id))?.id ?? null });
   });
 }

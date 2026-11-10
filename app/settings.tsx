@@ -6,7 +6,6 @@ import { useApp } from '../src/app/AppProvider';
 import * as Device from 'expo-device';
 import { CATALOG, entry, LocalModelEntry, lowMemory, RECOMMENDED } from '../src/ai/catalog';
 import { builtInStatus, BuiltInStatus } from '../src/ai/models';
-import { onGpu } from '../src/analysis/localModel';
 import {
   cancelModelDownload,
   ModelState,
@@ -173,7 +172,6 @@ function AiSection() {
     };
   }, []);
   const active = menu.active ? entry(menu.active) : null;
-  const gpu = active ? onGpu() : null;
 
   return (
     <Section title={strings.ai.title}>
@@ -181,20 +179,20 @@ function AiSection() {
       {CATALOG.map((model) => (
         <ModelRow key={model.id} model={model} state={menu.models[model.id]} active={menu.active === model.id} busy={menu.downloading !== null} />
       ))}
-      {gpu !== null && <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.runningOn(gpu)}</Text>}
+      {active && menu.onGpu !== null && <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.runningOn(menu.onGpu)}</Text>}
       {active && builtIn !== 'unsupported' && (
         <View style={styles.notes}>
           <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.askWith}</Text>
           <ChipRow
             accessibilityLabel={strings.ai.askWith}
             chips={[
-              { key: 'built-in', label: strings.ai.askWithBuiltIn, selected: menu.askWith === 'built-in', onPress: () => void setAskWith('built-in'), testID: 'ask-with-built-in' },
-              { key: 'downloaded', label: active.name, selected: menu.askWith === 'downloaded', onPress: () => void setAskWith('downloaded'), testID: 'ask-with-downloaded' },
+              { key: 'built-in', label: strings.ai.askWithBuiltIn, selected: menu.askWith === 'built-in', onPress: () => setAskWith('built-in'), testID: 'ask-with-built-in' },
+              { key: 'downloaded', label: active.name, selected: menu.askWith === 'downloaded', onPress: () => setAskWith('downloaded'), testID: 'ask-with-downloaded' },
             ]}
           />
         </View>
       )}
-      {active && <Text style={[styles.caption, { color: theme.muted }]}>{active.license}</Text>}
+      {active && <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.licenses[active.id]}</Text>}
     </Section>
   );
 }
@@ -229,7 +227,7 @@ function ModelRow({ model, state, active, busy }: { model: LocalModelEntry; stat
     <View style={styles.model} testID={`model-${model.id}`}>
       <View style={styles.modelHead}>
         <Text style={[styles.modelName, { color: theme.text }]}>{model.name}</Text>
-        {model.id === RECOMMENDED && <Text style={[styles.tag, { color: theme.accent }]}>{strings.ai.recommended}</Text>}
+        {model.id === RECOMMENDED && <Text style={[styles.tag, { color: theme.muted }]}>{strings.ai.recommended}</Text>}
         {active && <Text style={[styles.tag, { color: theme.muted }]}>{strings.ai.inUse}</Text>}
       </View>
       <Text style={[styles.caption, { color: theme.muted }]}>
@@ -237,16 +235,39 @@ function ModelRow({ model, state, active, busy }: { model: LocalModelEntry; stat
       </Text>
       {lowMemory(model, Device.totalMemory) && <Text style={[styles.caption, { color: theme.danger }]}>{strings.ai.lowMemory}</Text>}
       {state.status === 'present' ? (
-        <View style={styles.row}>
-          {!active && <Button label={strings.ai.use} onPress={() => void setActive(model.id)} testID={`use-${model.id}`} />}
-          <Button variant="danger" label={strings.ai.remove} onPress={remove} testID={`delete-${model.id}`} />
+        // Delete sits at the far end, away from Use, and neither is the screen's main action.
+        <View style={styles.modelActions}>
+          {!active && (
+            <Button
+              variant="secondary"
+              label={strings.ai.use}
+              accessibilityLabel={strings.ai.useNamed(model.name)}
+              onPress={() => void setActive(model.id)}
+              testID={`use-${model.id}`}
+            />
+          )}
+          <View style={styles.modelActionsEnd}>
+            <Button
+              variant="danger"
+              label={strings.ai.remove}
+              accessibilityLabel={strings.ai.removeNamed(model.name)}
+              onPress={remove}
+              testID={`delete-${model.id}`}
+            />
+          </View>
         </View>
       ) : state.status === 'downloading' ? (
         <>
           <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID={`progress-${model.id}`}>
             {strings.ai.downloading(state.progress === null ? null : Math.round(state.progress * 100))}
           </Text>
-          <Button variant="secondary" label={strings.ai.stop} onPress={() => cancelModelDownload(model.id)} testID={`stop-${model.id}`} />
+          <Button
+            variant="secondary"
+            label={strings.ai.stop}
+            accessibilityLabel={strings.ai.stopNamed(model.name)}
+            onPress={() => cancelModelDownload(model.id)}
+            testID={`stop-${model.id}`}
+          />
         </>
       ) : (
         <>
@@ -258,9 +279,8 @@ function ModelRow({ model, state, active, busy }: { model: LocalModelEntry; stat
           <Button
             variant="secondary"
             label={strings.ai.download}
-            onPress={download}
-            disabled={busy}
-            accessibilityHint={busy ? strings.ai.oneAtATime : undefined}
+            accessibilityLabel={strings.ai.downloadNamed(model.name)}
+            onPress={busy ? () => Alert.alert(strings.ai.oneAtATime) : download}
             testID={`download-${model.id}`}
           />
         </>
@@ -400,6 +420,8 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, gap: 4 },
   notes: { gap: 4 },
   model: { gap: 6, paddingTop: 4 },
+  modelActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  modelActionsEnd: { marginStart: 'auto' },
   modelHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   modelName: { fontSize: TYPE.body, fontWeight: '700' },
   tag: { fontSize: TYPE.secondary, fontWeight: '700' },

@@ -14,12 +14,14 @@ const mockDownloads: {
 }[] = [];
 const mockRelease = jest.fn(async () => {});
 let mockPrefsText: string | null = null;
+let mockGpu: boolean | null = null;
 jest.mock('../localModel', () => {
   const { createPrefs } = jest.requireActual('../../ai/localModelPrefs');
   const { CATALOG } = jest.requireActual('../../ai/catalog');
   class ModelCheckError extends Error {}
   class NoSpaceError extends Error {}
   const isDownloaded = (id: string) => mockPresent.has(id);
+  const loadListeners: (() => void)[] = [];
   const prefs = createPrefs({ read: () => mockPrefsText, write: (t: string) => void (mockPrefsText = t) }, isDownloaded);
   return {
     ModelCheckError,
@@ -27,6 +29,13 @@ jest.mock('../localModel', () => {
     isDownloaded,
     prefs,
     releaseLocalModel: () => mockRelease(),
+    onGpu: () => mockGpu,
+    // Kept on the mock: the store subscribes when it is imported, before this file's variables exist.
+    loadListeners,
+    onLoadChange: (l: () => void) => {
+      loadListeners.push(l);
+      return () => {};
+    },
     deleteModel: async (id: string) => {
       const wasActive = prefs.get().active === id;
       mockPresent.delete(id);
@@ -165,4 +174,15 @@ test('deleting the active model hands over to another downloaded one', async () 
   await act(() => store.removeModel('llama3.2-1b'));
   expect(result.current.models['llama3.2-1b']).toEqual({ status: 'absent' });
   expect(result.current.active).toBe('gemma-270m');
+});
+
+test('says where the model runs, and updates when it loads', async () => {
+  mockPresent.add('qwen2.5-0.5b');
+  store.refresh();
+  const result = await all();
+  expect(result.current.onGpu).toBeNull();
+  mockGpu = true;
+  await act(() => (local as unknown as { loadListeners: (() => void)[] }).loadListeners.forEach((l) => l()));
+  expect(result.current.onGpu).toBe(true);
+  mockGpu = null;
 });
