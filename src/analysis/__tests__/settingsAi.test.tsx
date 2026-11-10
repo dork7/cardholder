@@ -2,9 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, AlertButton } from 'react-native';
 import SettingsScreen from '../../../app/settings';
 import { strings } from '../../strings';
-import { entry } from '../../ai/catalog';
-
-const entryLicense = (id: string) => entry(id)!.license;
 import { MenuState, ModelState } from '../modelDownload';
 
 let mockCanReadText = true;
@@ -108,15 +105,15 @@ test('nothing is downloaded until the user agrees, and the alert says the size a
   expect(mockStart).toHaveBeenCalledWith('llama3.2-1b');
 });
 
-test('one download at a time: progress and Stop on that model, the others disabled', async () => {
+test('one download at a time: progress and Stop on that model, the others say why they must wait', async () => {
   mockMenu = menu({ downloading: 'qwen3-0.6b', models: { 'qwen3-0.6b': { status: 'downloading', progress: 0.42 } } });
   await render(<SettingsScreen />);
   expect(screen.getByTestId('progress-qwen3-0.6b')).toHaveTextContent(strings.ai.downloading(42));
   await fireEvent.press(screen.getByTestId('stop-qwen3-0.6b'));
   expect(mockCancel).toHaveBeenCalledWith('qwen3-0.6b');
   await fireEvent.press(screen.getByTestId('download-gemma-270m'));
-  expect(alert).not.toHaveBeenCalled();
-  expect(screen.getByTestId('download-gemma-270m')).toBeDisabled();
+  expect(alert).toHaveBeenCalledWith(strings.ai.oneAtATime);
+  expect(mockStart).not.toHaveBeenCalled();
 });
 
 test('warns on a phone with little memory, without hiding the model', async () => {
@@ -141,7 +138,10 @@ test('a downloaded model can be put in use; the one in use says so, and where it
   expect(screen.getByText(strings.ai.runningOn(true))).toBeTruthy();
   await fireEvent.press(screen.getByTestId('use-qwen2.5-0.5b'));
   expect(mockSetActive).toHaveBeenCalledWith('qwen2.5-0.5b');
-  expect(screen.getByText(entryLicense('gemma-270m'))).toBeTruthy();
+  expect(screen.getByText(strings.ai.licenses['gemma-270m'])).toBeTruthy();
+  // In a list of models, each button says which one it acts on.
+  expect(screen.getByLabelText(strings.ai.useNamed('Qwen2.5 0.5B'))).toBeTruthy();
+  expect(screen.getByLabelText(strings.ai.removeNamed('Gemma 3 270M'))).toBeTruthy();
 });
 
 test('says nothing about GPU or CPU before the model has run', async () => {

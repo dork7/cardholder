@@ -205,3 +205,53 @@ test('listeners hear when a model loads and when it is freed', async () => {
   expect(heard).toHaveBeenCalled();
   stop();
 });
+
+test('where it ran is still known after the model is freed, until it is deleted', async () => {
+  download('qwen2.5-0.5b');
+  local.prefs.update({ active: 'qwen2.5-0.5b', cpuOnly: [] });
+  await ask();
+  await local.releaseLocalModel();
+  expect(local.onGpu()).toBe(true);
+  await local.deleteModel('qwen2.5-0.5b');
+  download('qwen2.5-0.5b');
+  local.prefs.update({ active: 'qwen2.5-0.5b' });
+  expect(local.onGpu()).toBeNull();
+});
+
+test('another model in use starts over: nothing is said until it has loaded', async () => {
+  download('qwen2.5-0.5b');
+  download('llama3.2-1b');
+  local.prefs.update({ active: 'qwen2.5-0.5b', cpuOnly: [] });
+  await ask();
+  local.prefs.update({ active: 'llama3.2-1b' });
+  expect(local.onGpu()).toBeNull();
+});
+
+test('a failed GPU run is retried on the model it started with, even if another is put in use meanwhile', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  download('qwen3-0.6b');
+  download('llama3.2-1b');
+  local.prefs.update({ active: 'qwen3-0.6b', cpuOnly: [] });
+  mockCompletion.mockImplementationOnce(async () => {
+    local.prefs.update({ active: 'llama3.2-1b' });
+    throw new Error('GPU driver');
+  });
+  await ask();
+  expect(mockInit).toHaveBeenLastCalledWith(expect.objectContaining({ n_gpu_layers: 0, model: expect.stringContaining('Qwen3-0.6B-Q6_K.gguf') }));
+  expect(mockCompletion).toHaveBeenLastCalledWith(expect.objectContaining({ enable_thinking: false }));
+  expect(local.prefs.get().cpuOnly).toEqual(['qwen3-0.6b']);
+  jest.restoreAllMocks();
+});
+
+test('tells the bench when the model starts to write, once', async () => {
+  download('gemma-270m');
+  local.prefs.update({ active: 'gemma-270m' });
+  mockCompletion.mockImplementationOnce((async (_params: object, onToken?: () => void) => {
+    onToken?.();
+    onToken?.();
+    return { text: '{}', timings: { prompt_ms: 1, predicted_ms: 1, predicted_per_second: 1 } };
+  }) as never);
+  const heard = jest.fn();
+  await local.generateWithLocalModel({ system: 's', user: 'u' }, { maxTokens: 8, schema: {} }, signal(), heard);
+  expect(heard).toHaveBeenCalledTimes(1);
+});

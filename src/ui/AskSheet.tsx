@@ -227,7 +227,7 @@ export function AskSheet({ visible, cards, folders, store, onClose, onOpenCard, 
               )}
 
               <Text style={[styles.caption, { color: theme.muted }]}>
-                {model.model.kind === 'built-in' ? strings.ask.usingBuiltIn : strings.ask.usingGemma} {strings.ask.privacy}
+                {model.model.kind === 'built-in' ? strings.ask.usingBuiltIn : strings.ask.usingDownloaded} {strings.ask.privacy}
               </Text>
             </ScrollView>
           )}

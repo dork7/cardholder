@@ -1,5 +1,5 @@
 ---
-status: amended 2026-11-09: built-in model first, Gemma as the fallback
+status: amended 2026-11-10: built-in model first, the downloaded model in use as the fallback or by choice (ADR 0006)
 ---
 
 # Asking uses only the phone's built-in model, never the cloud

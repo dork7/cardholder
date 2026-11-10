@@ -1,6 +1,6 @@
 import { requireOptionalNativeModule } from 'expo';
 import { activeEntry, generateWithLocalModel, prefs } from '../analysis/localModel';
-import { LocalModelEntry, promptCharsFor } from './catalog';
+import { PROMPT_CHARS_AT_4K, promptCharsFor } from './catalog';
 import { AskModel, ModelChoice } from './model';
 
 // The phone's built-in model, through modules/builtin-model: Gemini Nano (ML Kit GenAI) on Android,
@@ -15,11 +15,6 @@ interface BuiltInModelModule {
 }
 
 const native = requireOptionalNativeModule<BuiltInModelModule>('BuiltInModel');
-
-// Both built-in models have a context of about 4,000 tokens. Roughly three characters a token, less the
-// answer and some room for Arabic, which takes more tokens per character. Downloaded models get theirs
-// from their own context size (promptCharsFor).
-const PROMPT_CHARS = 7000;
 
 export async function builtInStatus(): Promise<BuiltInStatus> {
   if (!native) return 'unsupported';
@@ -38,7 +33,9 @@ export async function prepareBuiltIn(): Promise<boolean> {
 
 const builtInModel: AskModel = {
   kind: 'built-in',
-  promptChars: PROMPT_CHARS,
+  // Both built-in models have a context of about 4,000 tokens; downloaded models get theirs from
+  // their own context size.
+  promptChars: PROMPT_CHARS_AT_4K,
   async generate(prompt, options, signal) {
     if (!native) throw new Error('No built-in model');
     if (signal.aborted) throw new Error('Asking was stopped');
@@ -53,10 +50,11 @@ const builtInModel: AskModel = {
   },
 };
 
-const localModel = (e: LocalModelEntry): AskModel => ({
+// The downloaded model in use, as asking sees it. `onFirstWord` is the bench's stopwatch.
+export const localAskModel = (nCtx: number, onFirstWord?: () => void): AskModel => ({
   kind: 'local',
-  promptChars: promptCharsFor(e.nCtx),
-  generate: generateWithLocalModel,
+  promptChars: promptCharsFor(nCtx),
+  generate: (prompt, options, signal) => generateWithLocalModel(prompt, options, signal, onFirstWord),
 });
 
 // The built-in model first, unless the user chose the downloaded one in Settings (and has one);
@@ -64,9 +62,9 @@ const localModel = (e: LocalModelEntry): AskModel => ({
 export async function chooseModel(): Promise<ModelChoice> {
   const status = await builtInStatus();
   const active = activeEntry();
-  if (active && prefs.get().askWith === 'downloaded') return { status: 'ready', model: localModel(active) };
+  if (active && prefs.get().askWith === 'downloaded') return { status: 'ready', model: localAskModel(active.nCtx) };
   if (status === 'available') return { status: 'ready', model: builtInModel };
-  if (active) return { status: 'ready', model: localModel(active) };
+  if (active) return { status: 'ready', model: localAskModel(active.nCtx) };
   if (status === 'downloadable') return { status: 'unavailable', reason: 'built-in-downloadable' };
   if (status === 'downloading') return { status: 'unavailable', reason: 'built-in-preparing' };
   if (status === 'off') return { status: 'unavailable', reason: 'built-in-off' };

@@ -7,14 +7,14 @@ import { ASK_CASES, ASK_DOCS, CARD_CASES } from './cases';
 import { BenchRow, scoreAnswer, scoreCard } from './score';
 
 // One bench run (app/dev/models.tsx): every card case through card reading, every question through
-// asking, on the model that is loaded. "First reply" is how long the first model call of a question
-// takes: reading the lookup table, which is most of the wait before an answer appears.
+// asking, on the model that is loaded. "First word" is the time from putting a question to the model
+// until it starts to write: loading it if need be, and reading the lookup table.
 
 export interface EvalInput {
   label: string;
   nCtx: number;
   extract: (text: string) => Promise<ExtractRun>;
-  model: AskModel;
+  askModel: (onFirstWord: () => void) => AskModel; // tells the bench when the model starts to write
   onGpu: () => boolean | null;
   now: () => number;
   signal: AbortSignal;
@@ -29,7 +29,7 @@ const median = (xs: number[]) => {
 };
 
 export async function runEval(input: EvalInput): Promise<BenchRow> {
-  const { extract, model, now, signal } = input;
+  const { extract, now, signal } = input;
   const total = CARD_CASES.length + ASK_CASES.length;
   let done = 0;
   const step = () => input.onStep?.(++done, total);
@@ -54,18 +54,20 @@ export async function runEval(input: EvalInput): Promise<BenchRow> {
   }
 
   const lookup = buildLookup(ASK_DOCS, new Date());
-  const firstReplies: number[] = [];
+  const firstWords: number[] = [];
   let answers = 0;
   for (const q of ASK_CASES) {
     stopped();
+    let start: number | null = null;
     let first: number | null = null;
+    const model = input.askModel(() => {
+      if (first === null && start !== null) first = now() - start;
+    });
     const timed: AskModel = {
       ...model,
-      generate: async (prompt, options, s) => {
-        const start = now();
-        const reply = await model.generate(prompt, options, s);
-        if (first === null) first = now() - start;
-        return reply;
+      generate: (prompt, options, s) => {
+        start ??= now();
+        return model.generate(prompt, options, s);
       },
     };
     const result = await askDocuments({
@@ -76,7 +78,7 @@ export async function runEval(input: EvalInput): Promise<BenchRow> {
       model: timed,
       signal,
     });
-    if (first !== null) firstReplies.push(first);
+    if (first !== null) firstWords.push(first);
     if (scoreAnswer(q, result.kind === 'answer' ? result.answer : null)) answers++;
     step();
   }
@@ -92,6 +94,6 @@ export async function runEval(input: EvalInput): Promise<BenchRow> {
     answers,
     questions: ASK_CASES.length,
     slowestCardMs,
-    medianFirstReplyMs: median(firstReplies),
+    medianFirstWordMs: median(firstWords),
   };
 }

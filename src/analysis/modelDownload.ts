@@ -127,7 +127,7 @@ export async function setActive(id: LocalModelId): Promise<void> {
   await releaseLocalModel();
 }
 
-export async function setAskWith(askWith: AskWith): Promise<void> {
+export function setAskWith(askWith: AskWith): void {
   prefs.update({ askWith });
   refresh();
 }

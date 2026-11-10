@@ -1,13 +1,13 @@
 import { Redirect, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { CATALOG, entry, promptCharsFor } from '../../src/ai/catalog';
+import { CATALOG, entry } from '../../src/ai/catalog';
 import { runEval } from '../../src/ai/eval/runEval';
 import { BenchRow, toMarkdown } from '../../src/ai/eval/score';
+import { localAskModel } from '../../src/ai/models';
 import {
   ExtractRun,
   extractWithLocalModel,
-  generateWithLocalModel,
   onGpu,
   releaseLocalModel,
   setContextOverride,
@@ -93,7 +93,7 @@ function Bench() {
         label: active.name,
         nCtx: ctx,
         extract: (t) => extractWithLocalModel(t, controller.signal),
-        model: { kind: 'local', promptChars: promptCharsFor(ctx), generate: generateWithLocalModel },
+        askModel: (onFirstWord) => localAskModel(ctx, onFirstWord),
         onGpu,
         now: () => Date.now(),
         signal: controller.signal,

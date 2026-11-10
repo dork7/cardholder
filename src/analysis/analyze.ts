@@ -6,7 +6,7 @@ import { extractExpiry, extractName } from './fields';
 import { findMrz } from './mrz';
 import { cardTextRecognizer } from './recognizer';
 import { SmartSuggestion } from './smartExtract';
-import { CardAnalysis, Guess, OcrResult, SmartReader, TextRecognizer } from './types';
+import { CardAnalysis, Guess, OcrResult, SMART_TIMEOUT_MS, SmartReader, TextRecognizer } from './types';
 
 // Below this, a field stays empty instead of showing a guess.
 export const SUGGEST_THRESHOLD = 0.5;
@@ -44,9 +44,6 @@ export function analyzeText(result: OcrResult, today: string): CardAnalysis {
 // card's own structure (MRZ check digits, a labelled date); the model's answers are only checked
 // against the text, so where both have one the rules win. Shown as suggestions, like any other.
 export const SMART_CONFIDENCE = 0.6;
-// On top of TIMEOUT_MS: a low-end phone takes a few seconds to run the model. A reader can set its own
-// (bigger models take longer: src/ai/catalog.ts).
-const SMART_TIMEOUT_MS = 8_000;
 
 export function fillGaps(analysis: CardAnalysis, smart: SmartSuggestion): CardAnalysis {
   const guess = <T>(value: T | null): Guess<T> | undefined =>

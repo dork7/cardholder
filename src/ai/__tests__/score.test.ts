@@ -16,8 +16,8 @@ test('an answer counts when it contains the expected value, ignoring case and sp
 
 test('a run becomes a Markdown table row per model', () => {
   const md = toMarkdown([
-    { model: 'Qwen2.5 0.5B', nCtx: 4096, onGpu: true, validJson: 4, cards: 4, fields: 10, correct: 8, answers: 3, questions: 4, slowestCardMs: 2100, medianFirstReplyMs: 900 },
+    { model: 'Qwen2.5 0.5B', nCtx: 4096, onGpu: true, validJson: 4, cards: 4, fields: 10, correct: 8, answers: 3, questions: 4, slowestCardMs: 2100, medianFirstWordMs: 900 },
   ]);
-  expect(md.split('\n')[0]).toBe('| Model | Context | Runs on | Valid JSON | Card fields | Answers | Slowest card | Median first reply |');
+  expect(md.split('\n')[0]).toBe('| Model | Context | Runs on | Valid JSON | Card fields | Answers | Slowest card | Median first word |');
   expect(md).toContain('| Qwen2.5 0.5B | 4096 | GPU | 4/4 | 8/10 | 3/4 | 2.1 s | 0.9 s |');
 });

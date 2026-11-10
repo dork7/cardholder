@@ -26,7 +26,7 @@ export interface BenchRow {
   answers: number;
   questions: number;
   slowestCardMs: number;
-  medianFirstReplyMs: number;
+  medianFirstWordMs: number; // from asking the model to its first written text, first call of a question
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -47,11 +47,11 @@ export function scoreAnswer(c: AskCase, answer: string | null): boolean {
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 
 export function toMarkdown(rows: readonly BenchRow[]): string {
-  const head = '| Model | Context | Runs on | Valid JSON | Card fields | Answers | Slowest card | Median first reply |';
+  const head = '| Model | Context | Runs on | Valid JSON | Card fields | Answers | Slowest card | Median first word |';
   const rule = '|---|---|---|---|---|---|---|---|';
   const body = rows.map(
     (r) =>
-      `| ${r.model} | ${r.nCtx} | ${r.onGpu === null ? '?' : r.onGpu ? 'GPU' : 'CPU'} | ${r.validJson}/${r.cards} | ${r.correct}/${r.fields} | ${r.answers}/${r.questions} | ${seconds(r.slowestCardMs)} | ${seconds(r.medianFirstReplyMs)} |`,
+      `| ${r.model} | ${r.nCtx} | ${r.onGpu === null ? '?' : r.onGpu ? 'GPU' : 'CPU'} | ${r.validJson}/${r.cards} | ${r.correct}/${r.fields} | ${r.answers}/${r.questions} | ${seconds(r.slowestCardMs)} | ${seconds(r.medianFirstWordMs)} |`,
   );
   return [head, rule, ...body].join('\n');
 }

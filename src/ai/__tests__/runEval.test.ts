@@ -17,16 +17,19 @@ test('runs every card and question, scoring them, with timings', async () => {
       tokensPerSecond: 10,
     };
   });
-  // Picks nothing and finds nothing: every question goes unanswered.
-  const model: AskModel = {
+  // Picks nothing and finds nothing: every question goes unanswered. Each call starts to write after
+  // 300 ms and is done after 500.
+  const askModel = (onFirstWord: () => void): AskModel => ({
     kind: 'local',
     promptChars: 7000,
     generate: async () => {
-      t += 500;
+      t += 300;
+      onFirstWord();
+      t += 200;
       return '{"rows":[],"found":false,"answer":"","evidence":""}';
     },
-  };
-  const row = await runEval({ label: 'Fake', nCtx: 4096, extract, model, onGpu: () => false, now: () => t, signal: signal() });
+  });
+  const row = await runEval({ label: 'Fake', nCtx: 4096, extract, askModel, onGpu: () => false, now: () => t, signal: signal() });
   expect(extract).toHaveBeenCalledTimes(CARD_CASES.length);
   expect(row).toMatchObject({
     model: 'Fake',
@@ -37,7 +40,7 @@ test('runs every card and question, scoring them, with timings', async () => {
     answers: 0,
     questions: ASK_CASES.length,
     slowestCardMs: 1000,
-    medianFirstReplyMs: 500,
+    medianFirstWordMs: 300,
   });
   expect(row.correct).toBe(row.fields);
 });
@@ -47,7 +50,7 @@ test('a stopped run stops', async () => {
   controller.abort();
   const extract = jest.fn();
   await expect(
-    runEval({ label: 'x', nCtx: 4096, extract, model: { kind: 'local', promptChars: 1, generate: jest.fn() }, onGpu: () => null, now: Date.now, signal: controller.signal }),
+    runEval({ label: 'x', nCtx: 4096, extract, askModel: () => ({ kind: 'local', promptChars: 1, generate: jest.fn() }), onGpu: () => null, now: Date.now, signal: controller.signal }),
   ).rejects.toThrow();
   expect(extract).not.toHaveBeenCalled();
 });
