@@ -58,9 +58,7 @@
                 "**/librnllama_v8_2_i8mm.so",
                 "**/librnllama_jni_v8_2_i8mm.so",
                 "**/librnllama_v8_2_dotprod_i8mm.so",
-                "**/librnllama_jni_v8_2_dotprod_i8mm.so",
-                "**/librnllama_v8_2_dotprod_i8mm_hexagon_opencl.so",
-                "**/librnllama_jni_v8_2_dotprod_i8mm_hexagon_opencl.so"
+                "**/librnllama_jni_v8_2_dotprod_i8mm.so"
               ]
             }
           }
@@ -91,7 +89,7 @@
         "llama.rn",
         {
           "enableEntitlements": false,
-          "enableOpenCL": false
+          "enableOpenCLAndHexagon": true
         }
       ]
     ],
