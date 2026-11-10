@@ -1,7 +1,12 @@
 import { Redirect, Stack } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { deleteModel, downloadModel, ExtractRun, extractWithGemma, modelFile, releaseGemma } from '../../src/analysis/gemma';
+import { entry } from '../../src/ai/catalog';
+import { deleteModel, downloadModel as downloadEntry, ExtractRun, extractWithLocalModel, modelFile as fileOf, prefs, releaseLocalModel } from '../../src/analysis/localModel';
+
+const GEMMA = entry('gemma-270m')!;
+const modelFile = () => fileOf(GEMMA);
+const downloadModel = (progress?: (f: number | null) => void, signal?: AbortSignal) => downloadEntry(GEMMA, progress, signal).then(() => void prefs.update({ active: GEMMA.id }));
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { Field, useInputStyle } from '../../src/ui/Field';
@@ -70,7 +75,7 @@ function Bench() {
     setRun(null);
     setError(null);
     try {
-      await deleteModel();
+      await deleteModel(GEMMA.id);
     } catch (e) {
       setDownloadError(e instanceof Error ? e.message : String(e));
     }
@@ -91,7 +96,7 @@ function Bench() {
   useEffect(
     () => () => {
       abort.current?.abort();
-      void releaseGemma();
+      void releaseLocalModel();
     },
     [],
   );
@@ -101,7 +106,7 @@ function Bench() {
     setError(null);
     setRun(null);
     try {
-      setRun(await extractWithGemma(text));
+      setRun(await extractWithLocalModel(text));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

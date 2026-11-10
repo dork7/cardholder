@@ -28,6 +28,7 @@ export interface TextRecognizer {
 // already checked against the text. Null when it has nothing usable. Aborting stops it.
 export interface SmartReader {
   read(cardText: string, signal: AbortSignal): Promise<SmartSuggestion | null>;
+  timeoutMs?: number; // how long the model may take on top of the rules; analyze.ts has a default
 }
 
 export interface Guess<T> {

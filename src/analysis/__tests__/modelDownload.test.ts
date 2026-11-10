@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
-import * as gemma from '../gemma';
+import * as gemma from '../localModel';
 import * as store from '../modelDownload';
 
 // The real gemma module downloads ~290 MB; here the download is driven by hand.
@@ -8,15 +8,15 @@ let mockDownload: { progress: (f: number | null) => void; resolve: () => void; r
 const mockDelete = jest.fn(async () => {
   mockExists = false;
 });
-jest.mock('../gemma', () => {
+jest.mock('../localModel', () => {
   class ModelCheckError extends Error {}
   class NoSpaceError extends Error {}
   return {
     ModelCheckError,
     NoSpaceError,
-    modelFile: () => ({ exists: mockExists }),
+    isDownloaded: () => mockExists,
     deleteModel: () => mockDelete(),
-    downloadModel: (progress: (f: number | null) => void, signal?: AbortSignal) =>
+    downloadModel: (_e: unknown, progress: (f: number | null) => void, signal?: AbortSignal) =>
       new Promise<void>((resolve, reject) => {
         mockDownload = {
           progress,

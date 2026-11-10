@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { frontImage, image, makeCard } from '../../../test/fixtures';
 import EditCard from '../../../app/edit/[id]';
-import { gemmaReader } from '../../analysis/gemma';
+import { localReader } from '../../analysis/localModel';
 import { Folder } from '../types';
 import { strings } from '../../strings';
 
@@ -275,8 +275,8 @@ describe('adding from a PDF', () => {
     await fireEvent.press(screen.getByTestId('front-pdf'));
     expect(mockRenderCover).toHaveBeenCalledWith(pdfDoc(0));
     expect(mockRenderPdfPage).toHaveBeenCalledWith(pdfDoc(0), 1);
-    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64, { smart: gemmaReader });
-    expect(mockAnalyze).toHaveBeenCalledWith(image('back1').jpegBase64, { smart: gemmaReader });
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64, { smart: localReader });
+    expect(mockAnalyze).toHaveBeenCalledWith(image('back1').jpegBase64, { smart: localReader });
     expect(screen.getByTestId('back-remove')).toBeTruthy();
     expect(screen.getByTestId('pdf-page-0').props.accessibilityState).toMatchObject({ selected: true });
     await save();
@@ -491,7 +491,7 @@ describe('reading the card from its photo', () => {
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-library'));
     // With the AI model's reader, which suggests nothing until the user has downloaded the model.
-    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64, { smart: gemmaReader });
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64, { smart: localReader });
     expect(screen.getByTestId('card-name').props.value).toBe('Emirates ID');
     expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
     await save();

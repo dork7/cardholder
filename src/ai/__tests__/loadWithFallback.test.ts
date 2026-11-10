@@ -8,7 +8,7 @@ beforeEach(() => jest.spyOn(console, 'warn').mockImplementation(() => {}));
 afterEach(() => jest.restoreAllMocks());
 
 test('loads on the GPU when it can', async () => {
-  const init = jest.fn(async () => ctx(true));
+  const init = jest.fn(async (_n: number) => ctx(true));
   const mark = jest.fn();
   const loaded = await loadWithFallback(qwen, false, init, mark);
   expect(init).toHaveBeenCalledWith(99);
@@ -39,7 +39,7 @@ test('a load that reports no GPU is released, reloaded on CPU and remembered', a
 });
 
 test('CPU-only models and remembered ones never try the GPU', async () => {
-  const init = jest.fn(async () => ctx(false));
+  const init = jest.fn(async (_n: number) => ctx(false));
   await loadWithFallback(entry('gemma-270m')!, false, init, jest.fn());
   await loadWithFallback(qwen, true, init, jest.fn());
   expect(init.mock.calls.map((c) => c[0])).toEqual([0, 0]);

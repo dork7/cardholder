@@ -1,5 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { deleteModel, downloadModel, modelFile, ModelCheckError, NoSpaceError } from './gemma';
+import { entry } from '../ai/catalog';
+import { deleteModel, downloadModel, isDownloaded, ModelCheckError, NoSpaceError } from './localModel';
+
+const GEMMA = entry('gemma-270m')!;
 
 // The AI model's one-time download, which only runs when the user starts it in Settings. Kept out of
 // the screen, so it carries on if the user leaves Settings and is still showing when they come back.
@@ -19,7 +22,7 @@ const listeners = new Set<() => void>();
 // too). The same object comes back while nothing changes, as useSyncExternalStore needs.
 function current(): ModelState {
   if (state?.status === 'downloading') return state;
-  const present = modelFile().exists;
+  const present = isDownloaded(GEMMA.id);
   if (present && state?.status !== 'present') state = { status: 'present' };
   if (!present && state?.status !== 'absent') state = { status: 'absent' };
   return state!;
@@ -47,7 +50,7 @@ export async function startModelDownload(): Promise<void> {
   // Whole percents only: the download reports far more often than the screen needs.
   let shown = 0;
   try {
-    await downloadModel((fraction) => {
+    await downloadModel(GEMMA, (fraction) => {
       const percent = fraction === null ? null : Math.floor(fraction * 100);
       if (percent !== null && percent === shown) return;
       shown = percent ?? -1;
@@ -71,6 +74,6 @@ export function cancelModelDownload(): void {
 }
 
 export async function removeModel(): Promise<void> {
-  await deleteModel();
+  await deleteModel(GEMMA.id);
   set({ status: 'absent' });
 }

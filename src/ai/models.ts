@@ -1,5 +1,5 @@
 import { requireOptionalNativeModule } from 'expo';
-import { generateWithGemma, modelFile } from '../analysis/gemma';
+import { activeEntry, generateWithLocalModel } from '../analysis/localModel';
 import { AskModel, ModelChoice } from './model';
 
 // The phone's built-in model, through modules/builtin-model: Gemini Nano (ML Kit GenAI) on Android,
@@ -54,14 +54,14 @@ const builtInModel: AskModel = {
 const gemmaModel: AskModel = {
   kind: 'gemma',
   promptChars: PROMPT_CHARS,
-  generate: generateWithGemma,
+  generate: generateWithLocalModel,
 };
 
 // The phone's own model when it has one ready, otherwise Gemma if the user downloaded it.
 export async function chooseModel(): Promise<ModelChoice> {
   const status = await builtInStatus();
   if (status === 'available') return { status: 'ready', model: builtInModel };
-  if (modelFile().exists) return { status: 'ready', model: gemmaModel };
+  if (activeEntry()) return { status: 'ready', model: gemmaModel };
   if (status === 'downloadable') return { status: 'unavailable', reason: 'built-in-downloadable' };
   if (status === 'downloading') return { status: 'unavailable', reason: 'built-in-preparing' };
   if (status === 'off') return { status: 'unavailable', reason: 'built-in-off' };
