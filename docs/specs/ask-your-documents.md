@@ -109,7 +109,7 @@ Doc Keeper reads and keeps each document's text, encrypted on the phone, so sear
 - **Backup:** extend the backup file and backup service tests: text round-trips; older backups without text import and are queued for backfill.
 - **Search:** extend the listing tests: a word only inside a document's text finds it; digits normalised; names and categories still match.
 - **Screens:** extend the home screen tests: Ask row only with an available model and documents; answer shows source, evidence and Open; not-found message; nothing remains after leaving. Extend the edit screen tests: the built-in model fills suggestions when available. Prior art: the existing home and edit screen tests with mocked services.
-- **Not unit-tested:** the native Foundation Models and Gemini Nano modules and PDF text extraction; check them on a real iPhone and Android phone with the sample documents in `dataSet/`.
+- **Not unit-tested:** the native Foundation Models and Gemini Nano modules and PDF text extraction; check them on a real iPhone and Android phone with the sample documents in `dataSet/` (`npm run test-files` copies them onto a running emulator or simulator).
 
 ## Out of Scope
 

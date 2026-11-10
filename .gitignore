@@ -40,7 +40,7 @@ yarn-error.*
 /ios
 /android
 
-# local test data (card photos etc.), never committed
+# local test data (card photos etc.), never committed; scripts/push-test-files.sh copies it onto emulators and simulators
 /dataSet
 
 # Gradle output of the local native modules

@@ -57,7 +57,8 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test-files": "bash scripts/push-test-files.sh"
   },
   "private": true
 }
