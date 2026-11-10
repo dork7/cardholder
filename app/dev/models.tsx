@@ -1,12 +1,18 @@
 import { Redirect, Stack } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { entry } from '../../src/ai/catalog';
-import { deleteModel, downloadModel as downloadEntry, ExtractRun, extractWithLocalModel, modelFile as fileOf, prefs, releaseLocalModel } from '../../src/analysis/localModel';
-
-const GEMMA = entry('gemma-270m')!;
-const modelFile = () => fileOf(GEMMA);
-const downloadModel = (progress?: (f: number | null) => void, signal?: AbortSignal) => downloadEntry(GEMMA, progress, signal).then(() => void prefs.update({ active: GEMMA.id }));
+import { CATALOG, entry, promptCharsFor } from '../../src/ai/catalog';
+import { runEval } from '../../src/ai/eval/runEval';
+import { BenchRow, toMarkdown } from '../../src/ai/eval/score';
+import {
+  ExtractRun,
+  extractWithLocalModel,
+  generateWithLocalModel,
+  onGpu,
+  releaseLocalModel,
+  setContextOverride,
+} from '../../src/analysis/localModel';
+import { cancelModelDownload, removeModel, setActive, startModelDownload, useMenuState } from '../../src/analysis/modelDownload';
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { Field, useInputStyle } from '../../src/ui/Field';
@@ -14,8 +20,9 @@ import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { TYPE, useTheme } from '../../src/ui/theme';
 
-// Development-only test bench for the phase 5 sample: paste card text, run Gemma 3 270M on the
-// phone, see what it suggests after validation. Open it with cardholder://dev/gemma.
+// Development-only bench for the downloaded models (docs/model-bench.md): download and pick a model,
+// pick a context size, then run the whole test set (src/ai/eval) and copy the results table; or paste
+// one card's text and see what the model suggests. Open it with cardholder://dev/models.
 // Strings stay inline: this screen never ships to users.
 
 const SAMPLES: { label: string; text: string }[] = [
@@ -37,69 +44,69 @@ const SAMPLES: { label: string; text: string }[] = [
   },
 ];
 
-export default function GemmaBench() {
+export default function ModelBench() {
   if (!__DEV__) return <Redirect href="/" />;
   return <Bench />;
 }
 
+const CONTEXTS = [4096, 8192] as const;
+
 function Bench() {
   const theme = useTheme();
   const inputStyle = useInputStyle();
+  const menu = useMenuState();
   const [text, setText] = useState(SAMPLES[0].text);
   const [run, setRun] = useState<ExtractRun | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [hasModel, setHasModel] = useState(() => modelFile().exists);
-  // null while idle; a number (0–1) or 'unknown' while downloading.
-  const [progress, setProgress] = useState<number | 'unknown' | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [nCtx, setNCtx] = useState<number | null>(null); // null: the model's own
+  const [rows, setRows] = useState<BenchRow[]>([]);
+  const [step, setStep] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const active = menu.active ? entry(menu.active) : null;
+  const hasModel = active !== null;
 
-  const download = useCallback(async () => {
-    abort.current?.abort();
-    const controller = new AbortController();
-    abort.current = controller;
-    setDownloadError(null);
-    setProgress(0);
-    try {
-      await downloadModel((f) => setProgress(f ?? 'unknown'), controller.signal);
-      setHasModel(true);
-    } catch (e) {
-      if (!controller.signal.aborted) setDownloadError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (!controller.signal.aborted) setProgress(null);
-    }
-  }, []);
-
-  const remove = async () => {
-    setRun(null);
-    setError(null);
-    try {
-      await deleteModel(GEMMA.id);
-    } catch (e) {
-      setDownloadError(e instanceof Error ? e.message : String(e));
-    }
-    setHasModel(modelFile().exists);
-  };
-
-  const redownload = async () => {
-    await remove();
-    if (!modelFile().exists) void download();
-  };
-
-  // Fetch the model if it's missing when the bench opens (a fresh install, or deleted by hand).
-  useEffect(() => {
-    if (!modelFile().exists) void download();
-  }, [download]);
-
-  // Stop any download and free the ~300 MB model as soon as the bench closes.
+  // Free the model and forget the context override as soon as the bench closes.
   useEffect(
     () => () => {
       abort.current?.abort();
+      setContextOverride(null);
       void releaseLocalModel();
     },
     [],
   );
+
+  const chooseContext = (n: number | null) => {
+    setNCtx(n);
+    setContextOverride(n);
+  };
+
+  const runAll = async () => {
+    if (!active) return;
+    const controller = new AbortController();
+    abort.current = controller;
+    setBusy(true);
+    setError(null);
+    const ctx = nCtx ?? active.nCtx;
+    try {
+      const row = await runEval({
+        label: active.name,
+        nCtx: ctx,
+        extract: (t) => extractWithLocalModel(t, controller.signal),
+        model: { kind: 'local', promptChars: promptCharsFor(ctx), generate: generateWithLocalModel },
+        onGpu,
+        now: () => Date.now(),
+        signal: controller.signal,
+        onStep: (done, of) => setStep(`${done}/${of}`),
+      });
+      setRows((r) => [...r, row]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      setStep(null);
+    }
+  };
 
   const extract = async () => {
     setBusy(true);
@@ -115,7 +122,7 @@ function Bench() {
   };
 
   const s = run?.suggestion;
-  const rows: [string, string][] = s
+  const fields: [string, string][] = s
     ? [
         ['Name', s.name ?? '—'],
         ['Expiry', s.expiresOn ?? '—'],
@@ -125,41 +132,46 @@ function Bench() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: 'Gemma 3 270M' }} />
+      <Stack.Screen options={{ title: 'Model bench' }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {!hasModel && (
-          <Panel style={styles.group} testID="model-download">
-            {progress !== null ? (
-              <Text style={[styles.body, { color: theme.text }]}>
-                Downloading {modelFile().name} (~290 MB)…{' '}
-                {progress === 'unknown' ? '' : `${Math.round(progress * 100)}%`}
-              </Text>
-            ) : (
-              <>
-                <Text style={[styles.body, { color: theme.danger }]}>
-                  Model missing{downloadError ? ` — download failed: ${downloadError}` : '.'}
+        <Panel style={styles.group} testID="models">
+          {CATALOG.map((m) => {
+            const state = menu.models[m.id];
+            return (
+              <View key={m.id} style={styles.row}>
+                <Text style={[styles.body, { color: theme.text, fontWeight: menu.active === m.id ? '700' : '400' }]}>
+                  {m.name} · {Math.round(m.bytes / 1e6)} MB
+                  {state.status === 'downloading' ? ` · ${state.progress === null ? '…' : `${Math.round(state.progress * 100)}%`}` : ''}
+                  {state.status === 'absent' && state.failure ? ` · ${state.failure}` : ''}
                 </Text>
-                <Button label="Download model" onPress={download} testID="download-model" />
-              </>
-            )}
-          </Panel>
-        )}
-
-        {hasModel && (
-          <Panel style={styles.group} testID="model-actions">
-            <Text style={[styles.body, { color: theme.muted }]}>
-              {modelFile().name} · {Math.round((modelFile().size ?? 0) / 1e6)} MB
+                <View style={styles.chips}>
+                  {state.status === 'present' && menu.active !== m.id && <Chip label="Use" onPress={() => void setActive(m.id)} />}
+                  {state.status === 'present' && <Chip label="Delete" onPress={() => void removeModel(m.id)} />}
+                  {state.status === 'downloading' && <Chip label="Stop" onPress={() => cancelModelDownload(m.id)} />}
+                  {state.status === 'absent' && menu.downloading === null && <Chip label="Download" onPress={() => void startModelDownload(m.id)} />}
+                </View>
+              </View>
+            );
+          })}
+          <View style={styles.chips}>
+            <Chip label={`Own (${active?.nCtx ?? '—'})`} selected={nCtx === null} onPress={() => chooseContext(null)} />
+            {CONTEXTS.map((n) => (
+              <Chip key={n} label={String(n)} selected={nCtx === n} onPress={() => chooseContext(n)} />
+            ))}
+          </View>
+          <Button
+            label={busy ? `Running… ${step ?? ''}` : 'Run all'}
+            onPress={() => void runAll()}
+            disabled={busy || !hasModel}
+            testID="run-all"
+          />
+          {busy && <Button label="Stop" variant="secondary" onPress={() => abort.current?.abort()} />}
+          {rows.length > 0 && (
+            <Text selectable style={[styles.mono, { color: theme.text }]} testID="bench-table">
+              {toMarkdown(rows)}
             </Text>
-            <View style={styles.actions}>
-              <View style={styles.action}>
-                <Button label="Re-download" variant="secondary" onPress={redownload} disabled={busy} testID="redownload-model" />
-              </View>
-              <View style={styles.action}>
-                <Button label="Delete model" variant="danger" onPress={remove} disabled={busy} testID="delete-model" />
-              </View>
-            </View>
-          </Panel>
-        )}
+          )}
+        </Panel>
 
         <Panel style={styles.group}>
           <View style={styles.chips}>
@@ -195,7 +207,7 @@ function Bench() {
         {run && (
           <Panel style={styles.group} testID="result">
             {s ? (
-              rows.map(([label, value]) => (
+              fields.map(([label, value]) => (
                 <View key={label} style={styles.row}>
                   <Text style={[styles.body, { color: theme.muted }]}>{label}</Text>
                   <Text style={[styles.body, { color: theme.text, fontWeight: '600' }]}>{value}</Text>
@@ -216,12 +228,23 @@ function Bench() {
   );
 }
 
+function Chip({ label, onPress, selected }: { label: string; onPress: () => void; selected?: boolean }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={[styles.chip, { borderColor: selected ? theme.accent : theme.muted }]}
+    >
+      <Text style={{ color: theme.text, fontSize: TYPE.caption }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 16 },
   group: { padding: 16, gap: 16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  actions: { flexDirection: 'row', gap: 12 },
-  action: { flex: 1 },
   chip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
   input: { minHeight: 140, textAlignVertical: 'top' },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
