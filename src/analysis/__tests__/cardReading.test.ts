@@ -280,6 +280,30 @@ describe('analyzeImage with the AI model', () => {
     warn.mockRestore();
   });
 
+  test("the smart reader's own time limit is used: a slow model gets longer, a quick one is cut off sooner", async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // The rules find no category here, so a model that answers in time fills it.
+    const recognizer = { recognize: async () => ocr(['ARK 7', 'Valid thru 12/2029']) };
+    const suggestion: SmartSuggestion = { name: null, expiresOn: null, category: 'membership' };
+    const slowButAllowed: SmartReader = { read: () => new Promise((r) => setTimeout(() => r(suggestion), 50)), timeoutMs: 1_000 };
+    expect((await analyzeImage('JPEG', { recognizer, today: TODAY, smart: slowButAllowed })).category).toEqual({
+      value: 'membership',
+      confidence: SMART_CONFIDENCE,
+    });
+    let signal: AbortSignal | undefined;
+    const neverAnswers: SmartReader = {
+      read: (_, s) => {
+        signal = s;
+        return new Promise(() => {});
+      },
+      timeoutMs: 10,
+    };
+    const plain = await analyzeImage('JPEG', { recognizer, today: TODAY });
+    expect(await analyzeImage('JPEG', { recognizer, today: TODAY, smart: neverAnswers })).toEqual(plain);
+    expect(signal?.aborted).toBe(true);
+    warn.mockRestore();
+  });
+
   test('a model that takes too long is stopped, and the rules answer alone', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     let signal: AbortSignal | undefined;

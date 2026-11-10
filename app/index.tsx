@@ -221,10 +221,10 @@ export default function Home() {
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
             {strings.home.title}
           </Text>
-          {/* Development builds only: opens the on-device AI test bench (app/dev/gemma.tsx). */}
+          {/* Development builds only: opens the on-device model bench (app/dev/models.tsx). */}
           {__DEV__ && (
             <Pressable
-              onPress={() => router.push('/dev/gemma')}
+              onPress={() => router.push('/dev/models')}
               accessibilityRole="button"
               hitSlop={8}
               style={({ pressed }) => [styles.devButton, { borderColor: theme.muted, opacity: pressed ? 0.7 : 1 }]}

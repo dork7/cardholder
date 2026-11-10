@@ -18,7 +18,7 @@ graph TD
         Classify[Classifier - classify.ts]
         Extract[Field Extractor - fields.ts]
         MRZ[MRZ Parser - mrz.ts]
-        Gemma[Gemma Extraction - gemma.ts]
+        Gemma[Local model - localModel.ts]
         SmartExtract[Smart Extraction - smartExtract.ts]
         Recognizer[Text Recognizer - recognizer.ts]
     end

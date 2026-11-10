@@ -1,22 +1,22 @@
 // The language model that answers questions about the documents. Either the phone's own (Gemini Nano
-// on Android, Apple Foundation Models on iPhone) or, where there is none, the downloaded Gemma.
+// on Android, Apple Foundation Models on iPhone) or the downloaded model the user picked in Settings.
 // Everything runs on the phone. Tests pass a fake.
 
 export interface AskModel {
-  kind: 'built-in' | 'gemma';
+  kind: 'built-in' | 'local';
   // How much prompt text fits, in characters, leaving room for the answer.
   promptChars: number;
-  // A JSON object, as text. `schema` constrains the output where the model supports it (Gemma);
+  // A JSON object, as text. `schema` constrains the output where the model supports it (downloaded ones);
   // the built-in models are asked for the shape in the prompt. Aborting stops it.
   generate(prompt: { system: string; user: string }, options: { maxTokens: number; schema: object }, signal: AbortSignal): Promise<string>;
 }
 
 // Why no model can answer right now, so the Ask window can say what to do.
 export type ModelUnavailable =
-  | 'needs-download' // no built-in model, and Gemma isn't downloaded (Settings → AI)
+  | 'needs-download' // no built-in model, and no model downloaded (Settings → AI models)
   | 'built-in-downloadable' // the phone can fetch its built-in model (Gemini Nano)
   | 'built-in-preparing' // the built-in model is downloading or getting ready
-  | 'built-in-off'; // Apple Intelligence is turned off, and Gemma isn't downloaded
+  | 'built-in-off'; // Apple Intelligence is turned off, and no model downloaded
 
 export type ModelChoice = { status: 'ready'; model: AskModel } | { status: 'unavailable'; reason: ModelUnavailable };
 
