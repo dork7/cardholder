@@ -29,7 +29,7 @@ const rowOf = (card: Card) => parseLookup(lookup).find((r) => r.id === card.id)!
 function fakeModel(script: { pick: unknown; answers: Record<string, unknown> }): AskModel & { shown: string[] } {
   const shown: string[] = [];
   return {
-    kind: 'gemma',
+    kind: 'local',
     promptChars: 7000,
     shown,
     async generate(prompt) {
@@ -136,7 +136,7 @@ test(`checks at most ${MAX_CHECKED} documents, then says it could not find it`, 
 test('stopping ends it straight away', async () => {
   const controller = new AbortController();
   const model: AskModel = {
-    kind: 'gemma',
+    kind: 'local',
     promptChars: 7000,
     async generate() {
       controller.abort();
@@ -151,7 +151,7 @@ test('a lookup file too long for the model keeps the rows that best match the qu
   const all = [...many, insurance];
   let lookupSeen = '';
   const model: AskModel = {
-    kind: 'gemma',
+    kind: 'local',
     promptChars: 1500,
     async generate(prompt) {
       if (prompt.user.includes('Lookup table:')) lookupSeen = prompt.user;

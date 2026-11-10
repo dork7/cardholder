@@ -1,5 +1,6 @@
 import { requireOptionalNativeModule } from 'expo';
-import { activeEntry, generateWithLocalModel } from '../analysis/localModel';
+import { activeEntry, generateWithLocalModel, prefs } from '../analysis/localModel';
+import { LocalModelEntry, promptCharsFor } from './catalog';
 import { AskModel, ModelChoice } from './model';
 
 // The phone's built-in model, through modules/builtin-model: Gemini Nano (ML Kit GenAI) on Android,
@@ -15,8 +16,9 @@ interface BuiltInModelModule {
 
 const native = requireOptionalNativeModule<BuiltInModelModule>('BuiltInModel');
 
-// Both built-in models have a context of about 4,000 tokens; Gemma is loaded with 4,096. Roughly three
-// characters a token, less the answer and some room for Arabic, which takes more tokens per character.
+// Both built-in models have a context of about 4,000 tokens. Roughly three characters a token, less the
+// answer and some room for Arabic, which takes more tokens per character. Downloaded models get theirs
+// from their own context size (promptCharsFor).
 const PROMPT_CHARS = 7000;
 
 export async function builtInStatus(): Promise<BuiltInStatus> {
@@ -51,17 +53,20 @@ const builtInModel: AskModel = {
   },
 };
 
-const gemmaModel: AskModel = {
-  kind: 'gemma',
-  promptChars: PROMPT_CHARS,
+const localModel = (e: LocalModelEntry): AskModel => ({
+  kind: 'local',
+  promptChars: promptCharsFor(e.nCtx),
   generate: generateWithLocalModel,
-};
+});
 
-// The phone's own model when it has one ready, otherwise Gemma if the user downloaded it.
+// The built-in model first, unless the user chose the downloaded one in Settings (and has one);
+// otherwise whichever is ready.
 export async function chooseModel(): Promise<ModelChoice> {
   const status = await builtInStatus();
+  const active = activeEntry();
+  if (active && prefs.get().askWith === 'downloaded') return { status: 'ready', model: localModel(active) };
   if (status === 'available') return { status: 'ready', model: builtInModel };
-  if (activeEntry()) return { status: 'ready', model: gemmaModel };
+  if (active) return { status: 'ready', model: localModel(active) };
   if (status === 'downloadable') return { status: 'unavailable', reason: 'built-in-downloadable' };
   if (status === 'downloading') return { status: 'unavailable', reason: 'built-in-preparing' };
   if (status === 'off') return { status: 'unavailable', reason: 'built-in-off' };

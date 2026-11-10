@@ -44,7 +44,8 @@ export function analyzeText(result: OcrResult, today: string): CardAnalysis {
 // card's own structure (MRZ check digits, a labelled date); the model's answers are only checked
 // against the text, so where both have one the rules win. Shown as suggestions, like any other.
 export const SMART_CONFIDENCE = 0.6;
-// On top of TIMEOUT_MS: a low-end phone takes a few seconds to run the model.
+// On top of TIMEOUT_MS: a low-end phone takes a few seconds to run the model. A reader can set its own
+// (bigger models take longer: src/ai/catalog.ts).
 const SMART_TIMEOUT_MS = 8_000;
 
 export function fillGaps(analysis: CardAnalysis, smart: SmartSuggestion): CardAnalysis {
@@ -81,7 +82,7 @@ export async function analyzeImage(
     today = toIsoDate(new Date()),
     timeoutMs = TIMEOUT_MS,
     smart = null as SmartReader | null,
-    smartTimeoutMs = SMART_TIMEOUT_MS,
+    smartTimeoutMs = undefined as number | undefined,
   } = {},
 ): Promise<CardAnalysis> {
   const analysis = analyzeText(await within(recognizer.recognize(jpegBase64), timeoutMs, 'Card reading timed out'), today);
@@ -89,7 +90,7 @@ export async function analyzeImage(
   // The model is extra: if it fails or is slow, the rules' answers still stand.
   const stop = new AbortController();
   try {
-    const suggestion = await within(smart.read(analysis.text, stop.signal), smartTimeoutMs, 'Smart reading timed out', () => stop.abort());
+    const suggestion = await within(smart.read(analysis.text, stop.signal), smartTimeoutMs ?? smart.timeoutMs ?? SMART_TIMEOUT_MS, 'Smart reading timed out', () => stop.abort());
     return suggestion ? fillGaps(analysis, suggestion) : analysis;
   } catch (e) {
     console.warn('Smart reading failed', e);
