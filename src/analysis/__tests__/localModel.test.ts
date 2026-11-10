@@ -41,14 +41,19 @@ jest.mock('llama.rn', () => ({
   initLlama: (p: { n_gpu_layers: number }) => mockInit(p),
 }));
 
+import { Platform } from 'react-native';
 import { entry } from '../../ai/catalog';
 import * as local from '../localModel';
+
+let mockOS = 'android';
+Object.defineProperty(Platform, 'OS', { get: () => mockOS, configurable: true });
 
 const signal = () => new AbortController().signal;
 const ask = () => local.generateWithLocalModel({ system: 's', user: 'u' }, { maxTokens: 8, schema: {} }, signal());
 const download = (id: string) => mockFiles.set(local.modelFile(entry(id)!).uri, '');
 
 beforeEach(async () => {
+  mockOS = 'android';
   await local.releaseLocalModel();
   mockFiles.clear();
   mockRelease.mockClear();
@@ -133,4 +138,70 @@ test('a context override is used in development builds', async () => {
   await ask();
   expect(mockInit).toHaveBeenCalledWith(expect.objectContaining({ n_ctx: 8192 }));
   local.setContextOverride(null);
+});
+
+test('on iPhone every model runs on the CPU: no Metal', async () => {
+  mockOS = 'ios';
+  download('qwen2.5-0.5b');
+  local.prefs.update({ active: 'qwen2.5-0.5b' });
+  await ask();
+  expect(mockInit).toHaveBeenCalledWith(expect.objectContaining({ n_gpu_layers: 0 }));
+  expect(local.onGpu()).toBe(false);
+});
+
+test('a stop that comes while the model loads stops before it runs', async () => {
+  download('qwen2.5-0.5b');
+  local.prefs.update({ active: 'qwen2.5-0.5b' });
+  const controller = new AbortController();
+  mockInit.mockImplementationOnce(async (p: { n_gpu_layers: number }) => {
+    controller.abort();
+    return { gpu: p.n_gpu_layers > 0, release: mockRelease, completion: mockCompletion, stopCompletion: jest.fn() };
+  });
+  await expect(
+    local.generateWithLocalModel({ system: 's', user: 'u' }, { maxTokens: 8, schema: {} }, controller.signal),
+  ).rejects.toThrow();
+  expect(mockCompletion).not.toHaveBeenCalled();
+});
+
+test('a run that fails on the CPU too leaves the model on the GPU', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  download('llama3.2-1b');
+  local.prefs.update({ active: 'llama3.2-1b' });
+  mockCompletion.mockRejectedValueOnce(new Error('too long')).mockRejectedValueOnce(new Error('too long'));
+  await expect(ask()).rejects.toThrow('too long');
+  expect(local.prefs.get().cpuOnly).toEqual([]);
+  await ask();
+  expect(mockInit).toHaveBeenLastCalledWith(expect.objectContaining({ n_gpu_layers: 99 }));
+  jest.restoreAllMocks();
+});
+
+test('deleting a model clears its CPU-only mark, so a fresh download tries the GPU again', async () => {
+  download('qwen3-0.6b');
+  local.prefs.markCpuOnly('qwen3-0.6b');
+  await local.deleteModel('qwen3-0.6b');
+  expect(local.prefs.get().cpuOnly).toEqual([]);
+});
+
+test('where it runs is known before loading when it can only be the CPU', async () => {
+  download('gemma-270m');
+  download('qwen2.5-0.5b');
+  local.prefs.update({ active: 'gemma-270m', cpuOnly: [] });
+  expect(local.onGpu()).toBe(false);
+  local.prefs.update({ active: 'qwen2.5-0.5b' });
+  expect(local.onGpu()).toBeNull();
+  local.prefs.markCpuOnly('qwen2.5-0.5b');
+  expect(local.onGpu()).toBe(false);
+});
+
+test('listeners hear when a model loads and when it is freed', async () => {
+  const heard = jest.fn();
+  const stop = local.onLoadChange(heard);
+  download('qwen2.5-0.5b');
+  local.prefs.update({ active: 'qwen2.5-0.5b', cpuOnly: [] });
+  await ask();
+  expect(heard).toHaveBeenCalled();
+  heard.mockClear();
+  await local.releaseLocalModel();
+  expect(heard).toHaveBeenCalled();
+  stop();
 });

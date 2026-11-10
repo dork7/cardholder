@@ -6,7 +6,6 @@ import { useApp } from '../src/app/AppProvider';
 import * as Device from 'expo-device';
 import { CATALOG, entry, LocalModelEntry, lowMemory, RECOMMENDED } from '../src/ai/catalog';
 import { builtInStatus, BuiltInStatus } from '../src/ai/models';
-import { onGpu } from '../src/analysis/localModel';
 import {
   cancelModelDownload,
   ModelState,
@@ -173,7 +172,6 @@ function AiSection() {
     };
   }, []);
   const active = menu.active ? entry(menu.active) : null;
-  const gpu = active ? onGpu() : null;
 
   return (
     <Section title={strings.ai.title}>
@@ -181,7 +179,7 @@ function AiSection() {
       {CATALOG.map((model) => (
         <ModelRow key={model.id} model={model} state={menu.models[model.id]} active={menu.active === model.id} busy={menu.downloading !== null} />
       ))}
-      {gpu !== null && <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.runningOn(gpu)}</Text>}
+      {active && menu.onGpu !== null && <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.runningOn(menu.onGpu)}</Text>}
       {active && builtIn !== 'unsupported' && (
         <View style={styles.notes}>
           <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.askWith}</Text>

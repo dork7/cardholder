@@ -1,5 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { initLlama, LlamaContext } from 'llama.rn';
+import { Platform } from 'react-native';
 import { CATALOG, entry, LocalModelEntry, LocalModelId } from '../ai/catalog';
 import { Loaded, loadWithFallback, runWithFallback } from '../ai/loadWithFallback';
 import { createPrefs } from '../ai/localModelPrefs';
@@ -80,6 +81,19 @@ export function setContextOverride(nCtx: number | null): void {
   if (__DEV__) contextOverride = nCtx;
 }
 
+// Only Android tries the GPU (OpenCL): iPhone runs the downloaded models on the CPU (ADR 0006).
+const gpuAllowed = () => Platform.OS === 'android';
+
+// Screens that show where the model runs hear when it loads or is freed.
+const loadListeners = new Set<() => void>();
+export function onLoadChange(listener: () => void): () => void {
+  loadListeners.add(listener);
+  return () => loadListeners.delete(listener);
+}
+const loadChanged = () => {
+  for (const listener of loadListeners) listener();
+};
+
 let loaded: Promise<Loaded<LlamaContext>> | null = null;
 let loadedKey: string | null = null; // which model, at which context size
 let lastOnGpu: { key: string; onGpu: boolean } | null = null;
@@ -92,21 +106,26 @@ async function releaseNow(): Promise<void> {
   loaded = null;
   loadedKey = null;
   lastOnGpu = null;
-  if (current) await (await current.catch(() => null))?.context.release();
+  if (current) {
+    await (await current.catch(() => null))?.context.release();
+    loadChanged();
+  }
 }
 
 // The active model, loaded GPU first (src/ai/loadWithFallback.ts). Another model, or another context
 // size, frees the old one first: two at once would not fit on many phones.
-async function load(): Promise<{ e: LocalModelEntry; current: Loaded<LlamaContext> }> {
-  const e = activeEntry();
+// `forceCpu` is the retry after a failed GPU run; `e` keeps a job on the model it started with.
+async function load(e = activeEntry(), forceCpu = false): Promise<{ e: LocalModelEntry; current: Loaded<LlamaContext> }> {
   if (!e) throw new Error('No model is active');
-  const key = keyOf(e);
+  // A forced-CPU copy is kept apart, so the next ordinary job tries the GPU again unless the model has
+  // been remembered as CPU-only.
+  const key = forceCpu ? `${keyOf(e)}:cpu` : keyOf(e);
   if (loadedKey !== key) await releaseNow();
   if (!loaded) {
     loadedKey = key;
     const attempt = loadWithFallback(
       e,
-      prefs.get().cpuOnly.includes(e.id),
+      forceCpu || !gpuAllowed() || prefs.get().cpuOnly.includes(e.id),
       (nGpuLayers) => initLlama({ model: modelFile(e).uri, n_ctx: contextOverride ?? e.nCtx, n_gpu_layers: nGpuLayers, use_mlock: false }),
       () => prefs.markCpuOnly(e.id),
     );
@@ -114,6 +133,7 @@ async function load(): Promise<{ e: LocalModelEntry; current: Loaded<LlamaContex
     attempt.then(
       (l) => {
         if (loaded === attempt) lastOnGpu = { key, onGpu: l.onGpu };
+        loadChanged();
       },
       () => {
         if (loaded === attempt) {
@@ -126,10 +146,13 @@ async function load(): Promise<{ e: LocalModelEntry; current: Loaded<LlamaContex
   return { e, current: await loaded };
 }
 
-// Whether the active model is running on the GPU; null until it has loaded.
+// Whether the active model runs on the GPU: as it loaded, or false when it can only use the CPU here
+// (a CPU-only file, an iPhone, or remembered as failing on this phone's GPU); null until it is known.
 export function onGpu(): boolean | null {
   const e = activeEntry();
-  return e && lastOnGpu?.key === keyOf(e) ? lastOnGpu.onGpu : null;
+  if (!e) return null;
+  if (lastOnGpu?.key === keyOf(e)) return lastOnGpu.onGpu;
+  return !e.gpu || !gpuAllowed() || prefs.get().cpuOnly.includes(e.id) ? false : null;
 }
 
 type CompletionParams = Parameters<LlamaContext['completion']>[0];
@@ -138,9 +161,11 @@ type CompletionParams = Parameters<LlamaContext['completion']>[0];
 // model is remembered as CPU-only on this phone. Aborting stops whichever context is running.
 async function complete(params: CompletionParams, signal: AbortSignal | undefined) {
   const { e, current } = await load();
+  // A stop that came while the model was loading: the listener below would never hear it.
+  if (signal?.aborted) throw new Error('Stopped while the model was loading');
   const full: CompletionParams = e.thinking === null ? params : { ...params, enable_thinking: e.thinking };
   let running: LlamaContext | null = null;
-  const stop = () => void running?.stopCompletion();
+  const stop = () => void running?.stopCompletion().catch(() => {});
   signal?.addEventListener('abort', stop);
   try {
     return await runWithFallback(
@@ -151,10 +176,10 @@ async function complete(params: CompletionParams, signal: AbortSignal | undefine
       },
       async () => {
         await releaseNow();
-        prefs.markCpuOnly(e.id);
-        return (await load()).current;
+        return (await load(e, true)).current;
       },
       () => signal?.aborted ?? false,
+      () => prefs.markCpuOnly(e.id),
     );
   } finally {
     signal?.removeEventListener('abort', stop);
@@ -234,6 +259,8 @@ export function deleteModel(id: LocalModelId): Promise<void> {
     const wasActive = prefs.get().active === id;
     if (loadedKey?.startsWith(`${id}@`)) await releaseNow();
     for (const file of [modelFile(e), partFile(e)]) if (file.exists) file.delete();
+    // A fresh download tries the GPU again.
+    prefs.clearCpuOnly(id);
     if (wasActive) prefs.update({ active: CATALOG.find((c) => isDownloaded(c.id))?.id ?? null });
   });
 }

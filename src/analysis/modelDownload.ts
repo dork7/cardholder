@@ -1,7 +1,17 @@
 import { useSyncExternalStore } from 'react';
 import { CATALOG, entry, LocalModelId } from '../ai/catalog';
 import { AskWith } from '../ai/localModelPrefs';
-import { deleteModel, downloadModel, isDownloaded, ModelCheckError, NoSpaceError, prefs, releaseLocalModel } from './localModel';
+import {
+  deleteModel,
+  downloadModel,
+  isDownloaded,
+  ModelCheckError,
+  NoSpaceError,
+  onGpu,
+  onLoadChange,
+  prefs,
+  releaseLocalModel,
+} from './localModel';
 
 // The AI models' downloads, which only run when the user starts one in Settings, and which one is in
 // use. Kept out of the screen, so a download carries on if the user leaves Settings and is still
@@ -17,6 +27,7 @@ export type ModelState =
 export interface MenuState {
   models: Record<LocalModelId, ModelState>;
   downloading: LocalModelId | null;
+  onGpu: boolean | null; // where the model in use runs; null until known
   active: LocalModelId | null;
   askWith: AskWith;
 }
@@ -43,7 +54,7 @@ function current(): MenuState {
             : { status: 'absent' };
   }
   const { active, askWith } = prefs.get();
-  const next: MenuState = { models, downloading: downloading?.id ?? null, active, askWith };
+  const next: MenuState = { models, downloading: downloading?.id ?? null, onGpu: onGpu(), active, askWith };
   const key = JSON.stringify(next);
   if (key !== stateKey) {
     state = next;
@@ -57,6 +68,9 @@ export function refresh(): void {
   current();
   for (const listener of listeners) listener();
 }
+
+// Loading or freeing the model changes where it runs.
+onLoadChange(refresh);
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -87,8 +101,9 @@ export async function startModelDownload(id: LocalModelId): Promise<void> {
       },
       abort.signal,
     );
-    // The first model downloaded is the one in use; later ones wait until the user picks them.
-    if (prefs.get().active === null) prefs.update({ active: id });
+    // The first model downloaded is the one in use; later ones wait until the user picks them. The
+    // choice is saved, so a later download earlier in the catalogue doesn't take over.
+    prefs.update({ active: prefs.get().active ?? id });
   } catch (e) {
     if (!abort.signal.aborted) {
       console.warn('Downloading the AI model failed', e);

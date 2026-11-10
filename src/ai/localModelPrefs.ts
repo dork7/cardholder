@@ -1,4 +1,4 @@
-import { entry, LocalModelId } from './catalog';
+import { CATALOG, entry, LocalModelId } from './catalog';
 
 // Which downloaded model is in use, which ones failed on this phone's GPU, and what asking uses.
 // Kept in models/prefs.json beside the model files (see src/analysis/localModel.ts), because the model
@@ -26,7 +26,7 @@ function parse(text: string | null): Partial<LocalModelPrefs> {
     const raw = JSON.parse(text) as Record<string, unknown>;
     if (!raw || typeof raw !== 'object') return {};
     return {
-      active: isId(raw.active) ? raw.active : null,
+      active: isId(raw.active) ? raw.active : raw.active === null ? null : undefined,
       cpuOnly: Array.isArray(raw.cpuOnly) ? raw.cpuOnly.filter(isId) : [],
       askWith: raw.askWith === 'downloaded' ? 'downloaded' : 'built-in',
     };
@@ -38,9 +38,10 @@ function parse(text: string | null): Partial<LocalModelPrefs> {
 export function createPrefs(store: PrefsStore, isDownloaded: (id: LocalModelId) => boolean) {
   const get = (): LocalModelPrefs => {
     const saved = parse(store.read());
-    // Before the menu there was only Gemma and no prefs file: a Gemma file on the phone is the active model.
-    let active = saved.active === undefined && isDownloaded('gemma-270m') ? 'gemma-270m' : (saved.active ?? null);
-    if (active && !isDownloaded(active)) active = null;
+    // No choice saved (before the menu there was only Gemma, and no prefs file), a corrupt file, a model
+    // the app no longer offers, or one whose file is gone: the first downloaded model takes over.
+    let active = saved.active ?? null;
+    if (!active || !isDownloaded(active)) active = CATALOG.find((c) => isDownloaded(c.id))?.id ?? null;
     return { active, cpuOnly: saved.cpuOnly ?? [], askWith: saved.askWith ?? 'built-in' };
   };
   const update = (patch: Partial<LocalModelPrefs>): LocalModelPrefs => {
@@ -54,6 +55,10 @@ export function createPrefs(store: PrefsStore, isDownloaded: (id: LocalModelId) 
     markCpuOnly(id: LocalModelId) {
       const { cpuOnly } = get();
       if (!cpuOnly.includes(id)) update({ cpuOnly: [...cpuOnly, id] });
+    },
+    clearCpuOnly(id: LocalModelId) {
+      const { cpuOnly } = get();
+      if (cpuOnly.includes(id)) update({ cpuOnly: cpuOnly.filter((c) => c !== id) });
     },
   };
 }

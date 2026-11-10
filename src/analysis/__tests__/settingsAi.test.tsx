@@ -27,8 +27,6 @@ jest.mock('../modelDownload', () => ({
   setActive: (id: string) => mockSetActive(id),
   setAskWith: (w: string) => mockSetAskWith(w),
 }));
-let mockGpu: boolean | null = null;
-jest.mock('../localModel', () => ({ onGpu: () => mockGpu }));
 let mockRam: number | null = 8e9;
 jest.mock('expo-device', () => ({
   get totalMemory() {
@@ -59,6 +57,7 @@ jest.mock('../../app/AppProvider', () => ({
 const absent: ModelState = { status: 'absent' };
 const menu = (patch: Partial<Omit<MenuState, 'models'>> & { models?: Partial<MenuState['models']> } = {}): MenuState => ({
   downloading: null,
+  onGpu: null,
   active: null,
   askWith: 'built-in',
   ...patch,
@@ -70,7 +69,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockCanReadText = true;
   mockMenu = menu();
-  mockGpu = null;
   mockRam = 8e9;
   mockBuiltIn = 'unsupported';
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -137,8 +135,7 @@ test('says why a download failed, on that model only', async () => {
 });
 
 test('a downloaded model can be put in use; the one in use says so, and where it runs', async () => {
-  mockGpu = true;
-  mockMenu = menu({ active: 'gemma-270m', models: { 'gemma-270m': { status: 'present' }, 'qwen2.5-0.5b': { status: 'present' } } });
+  mockMenu = menu({ onGpu: true, active: 'gemma-270m', models: { 'gemma-270m': { status: 'present' }, 'qwen2.5-0.5b': { status: 'present' } } });
   await render(<SettingsScreen />);
   expect(screen.getByTestId('model-gemma-270m')).toHaveTextContent(strings.ai.inUse, { exact: false });
   expect(screen.getByText(strings.ai.runningOn(true))).toBeTruthy();

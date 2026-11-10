@@ -53,8 +53,33 @@ test('a GPU run that throws is retried once on CPU and remembered', async () => 
     if (c.gpu) throw new Error('kernel');
     return 'ok';
   });
-  await expect(runWithFallback(gpu, run, reload, () => false)).resolves.toBe('ok');
+  const mark = jest.fn();
+  await expect(runWithFallback(gpu, run, reload, () => false, mark)).resolves.toBe('ok');
   expect(reload).toHaveBeenCalledTimes(1);
+  expect(mark).toHaveBeenCalledTimes(1);
+});
+
+test('a run that fails on the CPU too was not the GPU\'s fault: the model is not marked CPU-only', async () => {
+  const mark = jest.fn();
+  const fail = async () => {
+    throw new Error('prompt too long');
+  };
+  await expect(runWithFallback({ context: ctx(true), onGpu: true }, fail, async () => ({ context: ctx(false), onGpu: false }), () => false, mark)).rejects.toThrow('prompt too long');
+  expect(mark).not.toHaveBeenCalled();
+});
+
+test('a stop that comes while reloading on the CPU is not run', async () => {
+  let stopped = false;
+  const run = jest.fn(async (c: { gpu: boolean }) => {
+    if (c.gpu) throw new Error('kernel');
+    return 'ok';
+  });
+  const reload = async () => {
+    stopped = true;
+    return { context: ctx(false), onGpu: false };
+  };
+  await expect(runWithFallback({ context: ctx(true), onGpu: true }, run, reload, () => stopped, jest.fn())).rejects.toThrow('kernel');
+  expect(run).toHaveBeenCalledTimes(1);
 });
 
 test('a CPU run that throws, or a stopped run, is not retried', async () => {
@@ -62,7 +87,7 @@ test('a CPU run that throws, or a stopped run, is not retried', async () => {
   const fail = async () => {
     throw new Error('x');
   };
-  await expect(runWithFallback({ context: ctx(false), onGpu: false }, fail, reload, () => false)).rejects.toThrow('x');
-  await expect(runWithFallback({ context: ctx(true), onGpu: true }, fail, reload, () => true)).rejects.toThrow('x');
+  await expect(runWithFallback({ context: ctx(false), onGpu: false }, fail, reload, () => false, jest.fn())).rejects.toThrow('x');
+  await expect(runWithFallback({ context: ctx(true), onGpu: true }, fail, reload, () => true, jest.fn())).rejects.toThrow('x');
   expect(reload).not.toHaveBeenCalled();
 });
