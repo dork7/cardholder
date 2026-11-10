@@ -3,7 +3,19 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
-import { cancelModelDownload, removeModel, startModelDownload, useMenuState } from '../src/analysis/modelDownload';
+import * as Device from 'expo-device';
+import { CATALOG, entry, LocalModelEntry, lowMemory, RECOMMENDED } from '../src/ai/catalog';
+import { builtInStatus, BuiltInStatus } from '../src/ai/models';
+import { onGpu } from '../src/analysis/localModel';
+import {
+  cancelModelDownload,
+  ModelState,
+  removeModel,
+  setActive,
+  setAskWith,
+  startModelDownload,
+  useMenuState,
+} from '../src/analysis/modelDownload';
 import { canReadText } from '../src/analysis/recognizer';
 import { FOLDERS_ENABLED } from '../src/config';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
@@ -24,6 +36,7 @@ import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 import { LiveText } from '../src/ui/LiveText';
+import { ChipRow } from '../src/ui/ChipRow';
 
 export default function SettingsScreen() {
   const { services, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
@@ -145,26 +158,67 @@ export default function SettingsScreen() {
   );
 }
 
-// The AI model is never downloaded without the user saying so here, after being told the size and
-// where it comes from.
+// The AI models (src/ai/catalog.ts). None is downloaded without the user saying so here, after being
+// told its size and where it comes from. One downloads at a time; the one in use reads cards and
+// answers questions.
 function AiSection() {
   const theme = useTheme();
-  const model = useMenuState().models['gemma-270m']; // replaced by the model menu in the next commit
+  const menu = useMenuState();
+  const [builtIn, setBuiltIn] = useState<BuiltInStatus>('unsupported');
+  useEffect(() => {
+    let live = true;
+    void builtInStatus().then((status) => live && setBuiltIn(status));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const active = menu.active ? entry(menu.active) : null;
+  const gpu = active ? onGpu() : null;
+
+  return (
+    <Section title={strings.ai.title}>
+      <Text style={[styles.body, { color: theme.text }]}>{strings.ai.about}</Text>
+      {CATALOG.map((model) => (
+        <ModelRow key={model.id} model={model} state={menu.models[model.id]} active={menu.active === model.id} busy={menu.downloading !== null} />
+      ))}
+      {gpu !== null && <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.runningOn(gpu)}</Text>}
+      {active && builtIn !== 'unsupported' && (
+        <View style={styles.notes}>
+          <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.askWith}</Text>
+          <ChipRow
+            accessibilityLabel={strings.ai.askWith}
+            chips={[
+              { key: 'built-in', label: strings.ai.askWithBuiltIn, selected: menu.askWith === 'built-in', onPress: () => void setAskWith('built-in'), testID: 'ask-with-built-in' },
+              { key: 'downloaded', label: active.name, selected: menu.askWith === 'downloaded', onPress: () => void setAskWith('downloaded'), testID: 'ask-with-downloaded' },
+            ]}
+          />
+        </View>
+      )}
+      {active && <Text style={[styles.caption, { color: theme.muted }]}>{active.license}</Text>}
+    </Section>
+  );
+}
+
+const megabytes = (bytes: number) => Math.round(bytes / 1e6);
+
+function ModelRow({ model, state, active, busy }: { model: LocalModelEntry; state: ModelState; active: boolean; busy: boolean }) {
+  const theme = useTheme();
+  const mb = megabytes(model.bytes);
 
   const download = () =>
-    Alert.alert(strings.ai.confirmTitle, strings.ai.confirmMessage, [
+    Alert.alert(strings.ai.confirmTitle(model.name), strings.ai.confirmMessage(mb), [
       { text: strings.common.cancel, style: 'cancel' },
-      { text: strings.ai.confirm, onPress: () => void startModelDownload('gemma-270m') },
+      { text: strings.ai.confirm, onPress: () => void startModelDownload(model.id) },
     ]);
 
   const remove = () =>
-    Alert.alert(strings.ai.removeTitle, strings.ai.removeMessage, [
+    Alert.alert(strings.ai.removeTitle(model.name), strings.ai.removeMessage, [
       { text: strings.common.cancel, style: 'cancel' },
       {
         text: strings.common.delete,
         style: 'destructive',
         onPress: () =>
-          void removeModel('gemma-270m').catch((e) => {
+          void removeModel(model.id).catch((e) => {
             console.warn('Deleting the AI model failed', e);
             Alert.alert(strings.common.error);
           }),
@@ -172,33 +226,46 @@ function AiSection() {
     ]);
 
   return (
-    <Section title={strings.ai.title}>
-      {model.status === 'present' ? (
+    <View style={styles.model} testID={`model-${model.id}`}>
+      <View style={styles.modelHead}>
+        <Text style={[styles.modelName, { color: theme.text }]}>{model.name}</Text>
+        {model.id === RECOMMENDED && <Text style={[styles.tag, { color: theme.accent }]}>{strings.ai.recommended}</Text>}
+        {active && <Text style={[styles.tag, { color: theme.muted }]}>{strings.ai.inUse}</Text>}
+      </View>
+      <Text style={[styles.caption, { color: theme.muted }]}>
+        {strings.ai.notes[model.id]} {strings.ai.size(mb)}
+      </Text>
+      {lowMemory(model, Device.totalMemory) && <Text style={[styles.caption, { color: theme.danger }]}>{strings.ai.lowMemory}</Text>}
+      {state.status === 'present' ? (
+        <View style={styles.row}>
+          {!active && <Button label={strings.ai.use} onPress={() => void setActive(model.id)} testID={`use-${model.id}`} />}
+          <Button variant="danger" label={strings.ai.remove} onPress={remove} testID={`delete-${model.id}`} />
+        </View>
+      ) : state.status === 'downloading' ? (
         <>
-          <Text style={[styles.body, { color: theme.text }]}>{strings.ai.ready}</Text>
-          <Button variant="danger" label={strings.ai.remove} onPress={remove} testID="delete-ai-model" />
-        </>
-      ) : model.status === 'downloading' ? (
-        <>
-          <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID="ai-model-progress">
-            {strings.ai.downloading(model.progress === null ? null : Math.round(model.progress * 100))}
+          <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID={`progress-${model.id}`}>
+            {strings.ai.downloading(state.progress === null ? null : Math.round(state.progress * 100))}
           </Text>
-          <Button variant="secondary" label={strings.ai.stop} onPress={() => cancelModelDownload('gemma-270m')} testID="stop-ai-model" />
+          <Button variant="secondary" label={strings.ai.stop} onPress={() => cancelModelDownload(model.id)} testID={`stop-${model.id}`} />
         </>
       ) : (
         <>
-          <Text style={[styles.body, { color: theme.text }]}>{strings.ai.about}</Text>
-          <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.sizeHint}</Text>
-          {model.failure && (
-            <LiveText style={[styles.caption, { color: theme.danger }]} testID="ai-model-failed">
-              {strings.ai.failed[model.failure]}
+          {state.failure && (
+            <LiveText style={[styles.caption, { color: theme.danger }]} testID={`failed-${model.id}`}>
+              {strings.ai.failed[state.failure]}
             </LiveText>
           )}
-          <Button label={strings.ai.download} onPress={download} testID="download-ai-model" />
+          <Button
+            variant="secondary"
+            label={strings.ai.download}
+            onPress={download}
+            disabled={busy}
+            accessibilityHint={busy ? strings.ai.oneAtATime : undefined}
+            testID={`download-${model.id}`}
+          />
         </>
       )}
-      <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.license}</Text>
-    </Section>
+    </View>
   );
 }
 
@@ -332,4 +399,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowText: { flex: 1, gap: 4 },
   notes: { gap: 4 },
+  model: { gap: 6, paddingTop: 4 },
+  modelHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  modelName: { fontSize: TYPE.body, fontWeight: '700' },
+  tag: { fontSize: TYPE.secondary, fontWeight: '700' },
 });
