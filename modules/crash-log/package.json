@@ -1,0 +1,7 @@
+{
+  "name": "crash-log",
+  "version": "0.1.0",
+  "description": "Keeps a record on the phone when Doc Keeper's native code crashes, and reads Android's exit reasons, for the report the user can send from Settings.",
+  "license": "UNLICENSED",
+  "private": true
+}

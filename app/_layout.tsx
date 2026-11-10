@@ -7,10 +7,16 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppProvider, useApp, useBoot } from '../src/app/AppProvider';
 import { AppLockGate } from '../src/security/AppLockGate';
 import { BootScreen } from '../src/app/BootScreen';
+import { CrashPrompt } from '../src/diagnostics/CrashPrompt';
+import { ErrorBoundary } from '../src/diagnostics/ErrorBoundary';
+import { installDiagnostics } from '../src/diagnostics/install';
 import { setupNotifications } from '../src/reminders/scheduler';
 import { strings } from '../src/strings';
 import { FONTS } from '../src/ui/fonts';
 import { useTheme } from '../src/ui/theme';
+
+// Before the first render, so a crash anywhere after this is recorded (src/diagnostics/).
+installDiagnostics();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts(FONTS);
@@ -23,9 +29,11 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppProvider>
-        <RootNavigator />
-      </AppProvider>
+      <ErrorBoundary>
+        <AppProvider>
+          <RootNavigator />
+        </AppProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }
@@ -37,6 +45,7 @@ function RootNavigator() {
   return (
     <LockedApp>
       <StatusBar style="auto" />
+      <CrashPrompt />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: theme.surface },

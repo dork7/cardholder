@@ -62,3 +62,16 @@ _Avoid_: local model (in wording the user sees), Gemma (for any of them), offlin
 **Model in use**:
 The one downloaded model the user picked: it suggests a new document's name, expiry date and category, and answers questions where there is no built-in model or the user chose it under "Answer questions with".
 _Avoid_: active model (in wording the user sees), current model, selected model
+
+## Problems
+
+**Crash report**:
+The text the user can send after Doc Keeper closes unexpectedly: what went wrong, the phone model and
+app version, and the app's recent log lines. Never a document. It exists only on the phone until the
+user emails or shares it from Settings → Problems (ADR 0007).
+_Avoid_: crashlytics, telemetry, analytics, diagnostics (in wording the user sees)
+
+**Log**:
+What the app writes about its own work ("Reading a document failed"), kept on the phone for a crash
+report. Never a document's text or name.
+_Avoid_: console, trace

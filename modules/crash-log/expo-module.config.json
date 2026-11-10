@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["CrashLogModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.crashlog.CrashLogModule"]
+  }
+}

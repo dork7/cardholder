@@ -45,3 +45,11 @@ export const PDF_MAX_BYTES = 10 * 1024 * 1024;
 // Page previews in the page picker.
 export const PDF_PICKER_EDGE = 320;
 
+// Diagnostics (src/diagnostics/). The log and the last crash stay on the phone until the user sends
+// them from Settings → Problems (ADR 0007). The email button needs an address; empty hides it and
+// leaves the share sheet, which works anywhere.
+export const CRASH_REPORT_EMAIL = '';
+export const LOG_KEEP_LINES = 300;
+export const LOG_FILE_MAX_BYTES = 128 * 1024;
+// What a mailto: link can carry safely; the share sheet sends the whole report.
+export const REPORT_EMAIL_MAX_CHARS = 8000;

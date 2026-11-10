@@ -17,6 +17,7 @@ import {
 } from '../src/analysis/modelDownload';
 import { canReadText } from '../src/analysis/recognizer';
 import { FOLDERS_ENABLED } from '../src/config';
+import { ProblemsSettings } from '../src/diagnostics/ProblemsSettings';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
 import { strings } from '../src/strings';
 import { formatAgo } from '../src/time/dates';
@@ -145,6 +146,9 @@ export default function SettingsScreen() {
           </>
         )}
         {canSelfUpdate && <UpdateSection />}
+        <Section title={strings.report.title}>
+          <ProblemsSettings />
+        </Section>
         <Section title={strings.settings.about}>
           <Text style={[styles.body, { color: theme.text }]}>{strings.promise}</Text>
           <Button variant="secondary" label={strings.settings.privacyPolicy} onPress={() => router.push('/privacy')} />
