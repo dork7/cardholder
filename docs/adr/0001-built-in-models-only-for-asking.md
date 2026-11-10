@@ -57,6 +57,17 @@ one (Gemini Nano's one-time AICore download where the phone offers it, or Gemma 
   document doesn't, and moves on to the next (at most 4). Word matching with a small synonym
   table backs up the pick, and an answer is kept only if its evidence line (or the answer itself) is
   in that document.
+- **Amended 2026-11-10, long documents and reworded answers.** A document too long for the model is
+  read in parts split between lines: the start first, then the parts holding the most of the
+  question's words, at most 3 parts a document (about 19,000 characters with a 7,000-character
+  prompt; text beyond that is not read for a question). If the model fails on a part, its two halves
+  are tried once each. Small models reword what they copy ("31 May 2027" for "31/05/2027"), so an
+  answer that is not in the document as written is still kept when **one line** of the document
+  backs all of it: every number in the answer is on that line (a month's name may be its number
+  there), or, for an answer with no numbers, every word is. Numbers taken from different lines, a
+  different month or amount, or a word the line doesn't have are turned away. The evidence shown is
+  always that line of the document, never the model's own wording, and a reply cut off partway
+  through its answer is not used.
 - **The lookup file** is stored sealed (`CardStore.saveLookup`), can be viewed, saved as .md and
   recreated (Settings → Ask your documents, or the Ask window), and is remade automatically before
   a question if documents changed since it was made.

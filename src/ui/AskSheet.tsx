@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { askDocuments, AskResult, AskStep, AskStoppedError } from '../ai/ask';
+import { askDocuments, AskResult, AskStep, AskStoppedError, MAX_QUESTION_CHARS } from '../ai/ask';
 import { lookupForAsking } from '../ai/lookupStore';
 import { AskModel, ModelUnavailable } from '../ai/model';
 import { chooseModel, prepareBuiltIn } from '../ai/models';
@@ -14,6 +14,7 @@ import { Button } from './Button';
 import { FONT, Text } from './Text';
 import { TYPE, useTheme } from './theme';
 import { useAnnounce } from './LiveText';
+import { useKeyboardHeight } from './useKeyboardHeight';
 
 interface Props {
   visible: boolean;
@@ -44,6 +45,10 @@ type Phase =
 export function AskSheet({ visible, cards, folders, store, onClose, onOpenCard, onViewLookup, onOpenSettings }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const keyboard = useKeyboardHeight();
+  const keyboardOpen = keyboard > 0;
+  const roomAbove = windowHeight - keyboard - insets.top; // what's left of the screen above the keyboard
   const [model, setModel] = useState<ModelState>({ status: 'checking' });
   const [question, setQuestion] = useState('');
   const [phase, setPhase] = useState<Phase>({ status: 'idle' });
@@ -140,9 +145,21 @@ export function AskSheet({ visible, cards, folders, store, onClose, onOpenCard, 
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* With the keyboard open the window sits on top of it and gets shorter; the question area scrolls. */}
+      <View style={styles.fill}>
         <Pressable style={styles.fill} onPress={close} accessibilityRole="button" accessibilityLabel={strings.common.close} />
-        <View style={[styles.sheet, { backgroundColor: theme.bannerBg, paddingBottom: insets.bottom + 16 }]} testID="ask-sheet">
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: theme.bannerBg,
+              marginBottom: keyboard,
+              paddingBottom: keyboardOpen ? 16 : insets.bottom + 16,
+              maxHeight: Math.min(roomAbove, Math.max(MIN_SHEET_HEIGHT, roomAbove * (keyboardOpen ? SHARE_WITH_KEYBOARD : SHARE_OF_SCREEN))),
+            },
+          ]}
+          testID="ask-sheet"
+        >
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
             {strings.ask.title}
           </Text>
@@ -174,6 +191,7 @@ export function AskSheet({ visible, cards, folders, store, onClose, onOpenCard, 
                   placeholderTextColor={theme.muted}
                   accessibilityLabel={strings.ask.title}
                   returnKeyType="search"
+                  maxLength={MAX_QUESTION_CHARS}
                   multiline={false}
                   style={[styles.input, { color: theme.text }]}
                   testID="ask-input"
@@ -250,17 +268,23 @@ export function AskSheet({ visible, cards, folders, store, onClose, onOpenCard, 
             </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
+// How much of the room above the keyboard the window may take, and the least it is given (never more
+// than the room there is, so a sideways phone doesn't push it off the top).
+const SHARE_OF_SCREEN = 0.85;
+const SHARE_WITH_KEYBOARD = 0.95;
+const MIN_SHEET_HEIGHT = 240;
+
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   flex: { flex: 1 },
-  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, gap: 12, maxHeight: '85%' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, gap: 12 },
   title: { fontSize: TYPE.section, fontWeight: '700', paddingHorizontal: 4 },
-  scroll: { flexGrow: 0 },
+  scroll: { flexGrow: 0, flexShrink: 1 },
   gap: { gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 32 },
   body: { fontSize: TYPE.body },
