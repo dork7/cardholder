@@ -15,7 +15,7 @@ const mockStart = jest.fn(async () => {});
 const mockCancel = jest.fn();
 const mockRemove = jest.fn(async () => {});
 jest.mock('../modelDownload', () => ({
-  useModelState: () => mockModel,
+  useMenuState: () => ({ models: { 'gemma-270m': mockModel } }),
   startModelDownload: () => mockStart(),
   cancelModelDownload: () => mockCancel(),
   removeModel: () => mockRemove(),

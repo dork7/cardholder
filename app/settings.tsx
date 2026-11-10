@@ -3,7 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
-import { cancelModelDownload, removeModel, startModelDownload, useModelState } from '../src/analysis/modelDownload';
+import { cancelModelDownload, removeModel, startModelDownload, useMenuState } from '../src/analysis/modelDownload';
 import { canReadText } from '../src/analysis/recognizer';
 import { FOLDERS_ENABLED } from '../src/config';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
@@ -149,12 +149,12 @@ export default function SettingsScreen() {
 // where it comes from.
 function AiSection() {
   const theme = useTheme();
-  const model = useModelState();
+  const model = useMenuState().models['gemma-270m']; // replaced by the model menu in the next commit
 
   const download = () =>
     Alert.alert(strings.ai.confirmTitle, strings.ai.confirmMessage, [
       { text: strings.common.cancel, style: 'cancel' },
-      { text: strings.ai.confirm, onPress: () => void startModelDownload() },
+      { text: strings.ai.confirm, onPress: () => void startModelDownload('gemma-270m') },
     ]);
 
   const remove = () =>
@@ -164,7 +164,7 @@ function AiSection() {
         text: strings.common.delete,
         style: 'destructive',
         onPress: () =>
-          void removeModel().catch((e) => {
+          void removeModel('gemma-270m').catch((e) => {
             console.warn('Deleting the AI model failed', e);
             Alert.alert(strings.common.error);
           }),
@@ -183,7 +183,7 @@ function AiSection() {
           <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID="ai-model-progress">
             {strings.ai.downloading(model.progress === null ? null : Math.round(model.progress * 100))}
           </Text>
-          <Button variant="secondary" label={strings.ai.stop} onPress={cancelModelDownload} testID="stop-ai-model" />
+          <Button variant="secondary" label={strings.ai.stop} onPress={() => cancelModelDownload('gemma-270m')} testID="stop-ai-model" />
         </>
       ) : (
         <>
