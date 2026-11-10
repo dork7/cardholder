@@ -381,7 +381,7 @@ export const strings = {
       'gemma-270m': 'Gemma 3 270M by Google, under the Gemma Terms of Use.',
       'qwen2.5-0.5b': 'Qwen2.5 0.5B by Alibaba Cloud, under the Apache 2.0 licence.',
       'qwen3-0.6b': 'Qwen3 0.6B by Alibaba Cloud, under the Apache 2.0 licence.',
-      'llama3.2-1b': 'Llama 3.2 1B by Meta, under the Llama 3.2 Community Licence. Built with Llama.',
+      'llama3.2-1b': 'Llama 3.2 1B by Meta, under the Llama 3.2 Community License. Built with Llama.',
     } satisfies Record<LocalModelId, string>,
     size: (mb: number) => `${mb} MB`,
     lowMemory: 'May be slow or close on this phone.',
