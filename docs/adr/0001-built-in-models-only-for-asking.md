@@ -1,5 +1,5 @@
 ---
-status: amended 2026-11-10: built-in model first, the downloaded model in use as the fallback or by choice (ADR 0006)
+status: superseded 2026-11-11 by ADR 0007 (no language model in the app)
 ---
 
 # Asking uses only the phone's built-in model, never the cloud

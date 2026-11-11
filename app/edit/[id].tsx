@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EASE_OUT } from '../../src/ui/motion';
 import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
-import { localReader, releaseLocalModel } from '../../src/analysis/localModel';
 import { displayName } from '../../src/cards/display';
 import { FrontImage, looksVertical } from '../../src/cards/types';
 import { findDuplicate } from '../../src/cards/duplicates';
@@ -73,8 +72,6 @@ export default function EditCard() {
   const [reading, setReading] = useState(0);
   const reads = useRef({ front: 0, back: 0 });
   const covers = useRef(0); // which cover render is current: a slower, earlier tap is dropped
-  // The AI model, if the user has downloaded it, takes ~300 MB while loaded: free it when the form closes.
-  useEffect(() => () => void releaseLocalModel().catch(() => {}), []);
   // The whole photo behind a side that was cut around the card automatically, for "Use full photo".
   // Plaintext, so each is deleted once it can't be used, and all of them when the form closes; any
   // left over from a crash go when the form opens.
@@ -231,7 +228,7 @@ export default function EditCard() {
   const readCard = (side: 'front' | 'back', jpegBase64: string) => {
     const read = ++reads.current[side];
     setReading((n) => n + 1);
-    analyzeImage(jpegBase64, { smart: localReader })
+    analyzeImage(jpegBase64)
       .then((analysis) => {
         if (reads.current[side] !== read) return;
         // The document's own type ("Residency") when it names one, else its broad kind ("ID").

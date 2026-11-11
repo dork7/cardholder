@@ -3,19 +3,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
-import * as Device from 'expo-device';
-import { CATALOG, entry, LocalModelEntry, lowMemory, RECOMMENDED } from '../src/ai/catalog';
-import { builtInStatus, BuiltInStatus } from '../src/ai/models';
-import {
-  cancelModelDownload,
-  ModelState,
-  removeModel,
-  setActive,
-  setAskWith,
-  startModelDownload,
-  useMenuState,
-} from '../src/analysis/modelDownload';
-import { canReadText } from '../src/analysis/recognizer';
 import { FOLDERS_ENABLED } from '../src/config';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
 import { strings } from '../src/strings';
@@ -35,7 +22,6 @@ import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 import { LiveText } from '../src/ui/LiveText';
-import { ChipRow } from '../src/ui/ChipRow';
 
 export default function SettingsScreen() {
   const { services, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
@@ -100,10 +86,6 @@ export default function SettingsScreen() {
             testID="stack-vertical-switch"
           />
         </Section>
-        {canReadText && <AiSection />}
-        <Section title={strings.ask.title}>
-          <Button variant="secondary" label={strings.lookup.view} onPress={() => router.push('/lookup')} testID="view-lookup" />
-        </Section>
         <Section title={strings.tagsScreen.title}>
           <Button
             variant="secondary"
@@ -154,138 +136,6 @@ export default function SettingsScreen() {
         </Section>
       </ScrollView>
     </Screen>
-  );
-}
-
-// The AI models (src/ai/catalog.ts). None is downloaded without the user saying so here, after being
-// told its size and where it comes from. One downloads at a time; the one in use reads cards and
-// answers questions.
-function AiSection() {
-  const theme = useTheme();
-  const menu = useMenuState();
-  const [builtIn, setBuiltIn] = useState<BuiltInStatus>('unsupported');
-  useEffect(() => {
-    let live = true;
-    void builtInStatus().then((status) => live && setBuiltIn(status));
-    return () => {
-      live = false;
-    };
-  }, []);
-  const active = menu.active ? entry(menu.active) : null;
-
-  return (
-    <Section title={strings.ai.title}>
-      <Text style={[styles.body, { color: theme.text }]}>{strings.ai.about}</Text>
-      {CATALOG.map((model) => (
-        <ModelRow key={model.id} model={model} state={menu.models[model.id]} active={menu.active === model.id} busy={menu.downloading !== null} />
-      ))}
-      {active && menu.onGpu !== null && <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.runningOn(menu.onGpu)}</Text>}
-      {active && builtIn !== 'unsupported' && (
-        <View style={styles.notes}>
-          <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.askWith}</Text>
-          <ChipRow
-            accessibilityLabel={strings.ai.askWith}
-            chips={[
-              { key: 'built-in', label: strings.ai.askWithBuiltIn, selected: menu.askWith === 'built-in', onPress: () => setAskWith('built-in'), testID: 'ask-with-built-in' },
-              { key: 'downloaded', label: active.name, selected: menu.askWith === 'downloaded', onPress: () => setAskWith('downloaded'), testID: 'ask-with-downloaded' },
-            ]}
-          />
-        </View>
-      )}
-      {active && <Text style={[styles.caption, { color: theme.muted }]}>{strings.ai.licenses[active.id]}</Text>}
-    </Section>
-  );
-}
-
-const megabytes = (bytes: number) => Math.round(bytes / 1e6);
-
-function ModelRow({ model, state, active, busy }: { model: LocalModelEntry; state: ModelState; active: boolean; busy: boolean }) {
-  const theme = useTheme();
-  const mb = megabytes(model.bytes);
-
-  const download = () =>
-    Alert.alert(strings.ai.confirmTitle(model.name), strings.ai.confirmMessage(mb), [
-      { text: strings.common.cancel, style: 'cancel' },
-      { text: strings.ai.confirm, onPress: () => void startModelDownload(model.id) },
-    ]);
-
-  const remove = () =>
-    Alert.alert(strings.ai.removeTitle(model.name), strings.ai.removeMessage, [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: () =>
-          void removeModel(model.id).catch((e) => {
-            console.warn('Deleting the AI model failed', e);
-            Alert.alert(strings.common.error);
-          }),
-      },
-    ]);
-
-  return (
-    <View style={styles.model} testID={`model-${model.id}`}>
-      <View style={styles.modelHead}>
-        <Text style={[styles.modelName, { color: theme.text }]}>{model.name}</Text>
-        {model.id === RECOMMENDED && <Text style={[styles.tag, { color: theme.muted }]}>{strings.ai.recommended}</Text>}
-        {active && <Text style={[styles.tag, { color: theme.muted }]}>{strings.ai.inUse}</Text>}
-      </View>
-      <Text style={[styles.caption, { color: theme.muted }]}>
-        {strings.ai.notes[model.id]} {strings.ai.size(mb)}
-      </Text>
-      {lowMemory(model, Device.totalMemory) && <Text style={[styles.caption, { color: theme.danger }]}>{strings.ai.lowMemory}</Text>}
-      {state.status === 'present' ? (
-        // Delete sits at the far end, away from Use, and neither is the screen's main action.
-        <View style={styles.modelActions}>
-          {!active && (
-            <Button
-              variant="secondary"
-              label={strings.ai.use}
-              accessibilityLabel={strings.ai.useNamed(model.name)}
-              onPress={() => void setActive(model.id)}
-              testID={`use-${model.id}`}
-            />
-          )}
-          <View style={styles.modelActionsEnd}>
-            <Button
-              variant="danger"
-              label={strings.ai.remove}
-              accessibilityLabel={strings.ai.removeNamed(model.name)}
-              onPress={remove}
-              testID={`delete-${model.id}`}
-            />
-          </View>
-        </View>
-      ) : state.status === 'downloading' ? (
-        <>
-          <Text style={[styles.body, { color: theme.text }]} accessibilityLiveRegion="polite" testID={`progress-${model.id}`}>
-            {strings.ai.downloading(state.progress === null ? null : Math.round(state.progress * 100))}
-          </Text>
-          <Button
-            variant="secondary"
-            label={strings.ai.stop}
-            accessibilityLabel={strings.ai.stopNamed(model.name)}
-            onPress={() => cancelModelDownload(model.id)}
-            testID={`stop-${model.id}`}
-          />
-        </>
-      ) : (
-        <>
-          {state.failure && (
-            <LiveText style={[styles.caption, { color: theme.danger }]} testID={`failed-${model.id}`}>
-              {strings.ai.failed[state.failure]}
-            </LiveText>
-          )}
-          <Button
-            variant="secondary"
-            label={strings.ai.download}
-            accessibilityLabel={strings.ai.downloadNamed(model.name)}
-            onPress={busy ? () => Alert.alert(strings.ai.oneAtATime) : download}
-            testID={`download-${model.id}`}
-          />
-        </>
-      )}
-    </View>
   );
 }
 
@@ -419,10 +269,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowText: { flex: 1, gap: 4 },
   notes: { gap: 4 },
-  model: { gap: 6, paddingTop: 4 },
-  modelActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  modelActionsEnd: { marginStart: 'auto' },
-  modelHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  modelName: { fontSize: TYPE.body, fontWeight: '700' },
-  tag: { fontSize: TYPE.secondary, fontWeight: '700' },
 });

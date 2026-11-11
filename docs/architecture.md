@@ -18,8 +18,6 @@ graph TD
         Classify[Classifier - classify.ts]
         Extract[Field Extractor - fields.ts]
         MRZ[MRZ Parser - mrz.ts]
-        LocalModel[Downloaded model in use - localModel.ts]
-        SmartExtract[Smart Extraction - smartExtract.ts]
         Recognizer[Text Recognizer - recognizer.ts]
     end
 
@@ -43,14 +41,13 @@ graph TD
     CardOCR -->|4. Text Lines| Analyze
     Analyze -->|5. Run Rules| Classify
     Analyze -->|6. Parse MRZ| MRZ
-    Analyze -->|7. Call LLM| LocalModel
-    LocalModel -->|8. Structured JSON| SmartExtract
-    SmartExtract -->|9. Suggestions| AddEdit
+    Analyze -->|7. Extract Fields| Extract
+    Analyze -->|8. Suggestions| AddEdit
     
     %% State and Storage
-    AddEdit -->|10. Save Card| CardStore
-    CardStore -->|11. Encrypt & Store| SQL
-    CardStore -->|11. Encrypt & Store| BlobStore
+    AddEdit -->|9. Save Card| CardStore
+    CardStore -->|10. Encrypt & Store| SQL
+    CardStore -->|10. Encrypt & Store| BlobStore
     Home -->|Load Cards| CardStore
     CardStore -->|Read| SQL
     

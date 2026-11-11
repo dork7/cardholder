@@ -125,19 +125,6 @@ async function renderHome() {
   if (mockCards.length > 0) await layoutStack();
 }
 
-test('Ask sits with the add button and opens the Ask window', async () => {
-  await renderHome();
-  expect(screen.getByRole('button', { name: strings.ask.button })).toBeTruthy();
-  await act(async () => fireEvent.press(screen.getByTestId('ask')));
-  expect(screen.getByTestId('ask-sheet')).toBeTruthy();
-});
-
-test('in development builds, Test AI opens the model bench', async () => {
-  await renderHome();
-  await fireEvent.press(screen.getByTestId('open-ai-bench'));
-  expect(mockPush).toHaveBeenCalledWith('/dev/models');
-});
-
 test('the stack shows every card until a tag is chosen', async () => {
   await renderHome();
   expect(screen.getByTestId('card-stack').props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 3) });

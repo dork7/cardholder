@@ -1,7 +1,0 @@
-{
-  "name": "model-download",
-  "version": "0.1.0",
-  "description": "Downloads an AI model through Android's download manager, so it carries on with the app closed or the phone locked.",
-  "license": "UNLICENSED",
-  "private": true
-}

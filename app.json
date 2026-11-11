@@ -48,19 +48,7 @@
             "minSdkVersion": 29,
             "useLegacyPackaging": true,
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
-            "packagingOptions": {
-              "exclude": [
-                "**/librnllama_v8.so",
-                "**/librnllama_jni_v8.so",
-                "**/librnllama_v8_2.so",
-                "**/librnllama_jni_v8_2.so",
-                "**/librnllama_v8_2_i8mm.so",
-                "**/librnllama_jni_v8_2_i8mm.so",
-                "**/librnllama_v8_2_dotprod_i8mm.so",
-                "**/librnllama_jni_v8_2_dotprod_i8mm.so"
-              ]
-            }
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
@@ -84,14 +72,7 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-image",
-      "expo-sharing",
-      [
-        "llama.rn",
-        {
-          "enableEntitlements": false,
-          "enableOpenCLAndHexagon": true
-        }
-      ]
+      "expo-sharing"
     ],
     "scheme": "cardholder"
   }

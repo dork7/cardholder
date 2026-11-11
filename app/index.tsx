@@ -23,8 +23,7 @@ import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
-import { AskFab, Fab } from '../src/ui/Fab';
-import { AskSheet } from '../src/ui/AskSheet';
+import { Fab } from '../src/ui/Fab';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { PixelLogo } from '../src/ui/PixelLogo';
@@ -89,7 +88,6 @@ export default function Home() {
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const selected = inGallery.filter((c) => selectedIds.has(c.id));
   const [choosingTags, setChoosingTags] = useState(false);
-  const [asking, setAsking] = useState(false);
   // While the selection is being read again: how many are done, out of how many.
   const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
   const selecting = gallery === 'gallery' && selected.length > 0;
@@ -219,18 +217,6 @@ export default function Home() {
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
             {strings.home.title}
           </Text>
-          {/* Development builds only: opens the on-device model bench (app/dev/models.tsx). */}
-          {__DEV__ && (
-            <Pressable
-              onPress={() => router.push('/dev/models')}
-              accessibilityRole="button"
-              hitSlop={8}
-              style={({ pressed }) => [styles.devButton, { borderColor: theme.muted, opacity: pressed ? 0.7 : 1 }]}
-              testID="open-ai-bench"
-            >
-              <Text style={[styles.devLabel, { color: theme.text }]}>Test AI</Text>
-            </Pressable>
-          )}
           <GalleryToggle
             on={gallery === 'gallery'}
             onChange={(on) => {
@@ -345,32 +331,8 @@ export default function Home() {
           />
         </View>
       ) : (
-        <>
-          {cards.length > 0 && (
-            <AskFab label={strings.ask.button} hint={strings.ask.buttonHint} onPress={() => setAsking(true)} testID="ask" />
-          )}
-          <Fab label={strings.home.addCard} onPress={addCard} testID="add-card" />
-        </>
+        <Fab label={strings.home.addCard} onPress={addCard} testID="add-card" />
       )}
-      <AskSheet
-        visible={asking}
-        cards={cards}
-        folders={folders}
-        store={services.store}
-        onClose={() => setAsking(false)}
-        onOpenCard={(card) => {
-          setAsking(false);
-          router.push(`/card/${card.id}`);
-        }}
-        onViewLookup={() => {
-          setAsking(false);
-          router.push('/lookup');
-        }}
-        onOpenSettings={() => {
-          setAsking(false);
-          router.push('/settings');
-        }}
-      />
     </Screen>
   );
 }
@@ -513,8 +475,6 @@ const styles = StyleSheet.create({
   inset: { paddingHorizontal: 16 },
   top: { gap: 12 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20, paddingRight: 10, paddingVertical: 8 },
-  devButton: { minHeight: 40, paddingHorizontal: 16, borderWidth: 1, borderRadius: 9999, justifyContent: 'center' },
-  devLabel: { fontSize: TYPE.caption, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase' },
   title: { flex: 1, fontSize: TYPE.title, fontWeight: '700' },
   round: {
     width: 44,

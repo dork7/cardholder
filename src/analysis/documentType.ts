@@ -2,7 +2,7 @@ import { resolveTag } from '../cards/tags';
 import { strings } from '../strings';
 import { EMIRATES_ID, isBirthCertificate } from './fields';
 import { Mrz } from './mrz';
-import { normalizeDigits } from './smartExtract';
+import { normalizeDigits } from './printedDate';
 import { CardAnalysis, Guess } from './types';
 
 // The kind of document a card is, read from its main printed text ("Residence" → Residency), to

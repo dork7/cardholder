@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { frontImage, image, makeCard } from '../../../test/fixtures';
 import EditCard from '../../../app/edit/[id]';
-import { localReader } from '../../analysis/localModel';
 import { Folder } from '../types';
 import { strings } from '../../strings';
 
@@ -270,8 +269,8 @@ describe('adding from a PDF', () => {
     await fireEvent.press(screen.getByTestId('front-pdf'));
     expect(mockRenderCover).toHaveBeenCalledWith(pdfDoc(0));
     expect(mockRenderPdfPage).toHaveBeenCalledWith(pdfDoc(0), 1);
-    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64, { smart: localReader });
-    expect(mockAnalyze).toHaveBeenCalledWith(image('back1').jpegBase64, { smart: localReader });
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64);
+    expect(mockAnalyze).toHaveBeenCalledWith(image('back1').jpegBase64);
     expect(screen.getByTestId('back-remove')).toBeTruthy();
     expect(screen.getByTestId('pdf-page-0').props.accessibilityState).toMatchObject({ selected: true });
     await save();
@@ -532,8 +531,7 @@ describe('reading the card from its photo', () => {
     mockAnalyze.mockResolvedValue({ ...emiratesId, category: { value: 'insurance', confidence: 0.8 }, text: 'UNITED ARAB EMIRATES' });
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-library'));
-    // With the AI model's reader, which suggests nothing until the user has downloaded the model.
-    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64, { smart: localReader });
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('picked').jpegBase64);
     expect(screen.getByTestId('card-name').props.value).toBe('Emirates ID');
     expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
     await save();
@@ -608,7 +606,7 @@ describe('going back to the whole photo', () => {
     await fireEvent.press(screen.getByTestId('front-full-photo'));
 
     expect(mockCropFullPhoto).toHaveBeenCalledWith('file:///cache/originals/1.jpg');
-    expect(mockAnalyze).toHaveBeenLastCalledWith(frontImage('whole').jpegBase64, expect.anything());
+    expect(mockAnalyze).toHaveBeenLastCalledWith(frontImage('whole').jpegBase64);
     expect(screen.queryByTestId('front-full-photo')).toBeNull();
     expect(mockDiscard).toHaveBeenCalledWith('file:///cache/originals/1.jpg');
   });

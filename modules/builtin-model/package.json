@@ -1,7 +1,0 @@
-{
-  "name": "builtin-model",
-  "version": "0.1.0",
-  "description": "The phone's own language model, on the device: Gemini Nano through ML Kit GenAI on Android, Apple Foundation Models on iOS.",
-  "license": "UNLICENSED",
-  "private": true
-}

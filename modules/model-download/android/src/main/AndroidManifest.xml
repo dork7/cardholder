@@ -1,4 +1,0 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <!-- Model downloads are handed to Android's download manager, which needs the internet. -->
-  <uses-permission android:name="android.permission.INTERNET" />
-</manifest>

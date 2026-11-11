@@ -449,16 +449,3 @@ test('a card keeps its shape, and one saved before the setting takes it from its
   expect((await old.get('tall'))?.vertical).toBe(true);
   expect((await old.get('wide'))?.vertical).toBe(false);
 });
-
-test('keeps the lookup file sealed, and gives it back with when it was made and what it lists', async () => {
-  const { store, db } = await makeStore();
-  expect(await store.loadLookup()).toBeNull();
-  const saved = await store.saveLookup('# Document lookup\n| 1 | Emirates ID |', ['a', 'b']);
-  expect(await store.loadLookup()).toEqual(saved);
-  expect(saved.ids).toEqual(['a', 'b']);
-  const raw = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['lookup']);
-  expect(raw?.value).not.toContain('Emirates');
-  const again = await store.saveLookup('# Document lookup', []);
-  expect(again.createdAt).toBeGreaterThan(saved.createdAt);
-  expect((await store.loadLookup())?.markdown).toBe('# Document lookup');
-});

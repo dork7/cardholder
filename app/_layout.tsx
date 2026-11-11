@@ -4,8 +4,8 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { resumeModelDownloads } from '../src/analysis/modelDownload';
 import { AppProvider, useApp, useBoot } from '../src/app/AppProvider';
+import { removeModelFiles } from '../src/app/removeModelFiles';
 import { AppLockGate } from '../src/security/AppLockGate';
 import { BootScreen } from '../src/app/BootScreen';
 import { setupNotifications } from '../src/reminders/scheduler';
@@ -18,7 +18,7 @@ export default function RootLayout() {
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
     setupNotifications().catch((e) => console.warn('Notification setup failed', e));
-    resumeModelDownloads(); // a model download Android carried on with while the app was closed
+    removeModelFiles();
   }, []);
 
   // Fonts are bundled, so this resolves in milliseconds; the native splash screen covers it.
@@ -55,7 +55,6 @@ function RootNavigator() {
          <Stack.Screen name="export" options={{ title: strings.export.title, presentation: 'modal' }} />
          <Stack.Screen name="import" options={{ title: strings.import.title, presentation: 'modal' }} />
          <Stack.Screen name="privacy" options={{ title: strings.privacy.title }} />
-        <Stack.Screen name="lookup" options={{ title: strings.lookup.screenTitle }} />
        </Stack>
     </LockedApp>
   );
