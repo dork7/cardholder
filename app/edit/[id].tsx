@@ -10,7 +10,8 @@ import { localReader, releaseLocalModel } from '../../src/analysis/localModel';
 import { displayName } from '../../src/cards/display';
 import { FrontImage, looksVertical } from '../../src/cards/types';
 import { findDuplicate } from '../../src/cards/duplicates';
-import { suggestedCategory } from '../../src/analysis/documentType';
+import { allTags, hasTag, normalizeTags, sameTag, tagOptions } from '../../src/cards/tags';
+import { suggestedTag } from '../../src/analysis/documentType';
 import {
   acceptFolderOffer,
   applyAnalysis,
@@ -39,8 +40,8 @@ import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { askReplace } from '../../src/ui/askReplace';
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
-import { CategoryChips } from '../../src/ui/CategoryChips';
-import { CategoryNameInput } from '../../src/ui/CategoryNameInput';
+import { TagChips } from '../../src/ui/TagChips';
+import { TagNameInput } from '../../src/ui/TagNameInput';
 import { Chip, ChipRow } from '../../src/ui/ChipRow';
 import { ExpiryField } from '../../src/ui/ExpiryField';
 import { Field, useInputStyle } from '../../src/ui/Field';
@@ -56,15 +57,17 @@ import { LiveText } from '../../src/ui/LiveText';
 export default function EditCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
-  const { services, cards, folders, categories, unlocked, refresh } = useApp();
+  const { services, cards, folders, unlocked, refresh } = useApp();
   const existing = isNew ? null : (cards.find((c) => c.id === id) ?? null);
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
   const insets = useSafeAreaInsets();
 
-  const [form, setForm] = useState(() => formFor(existing, categories[0]));
+  const [form, setForm] = useState(() => formFor(existing));
   const draft = form.draft;
+  // Every tag in use and the starters, then any typed here that no saved card has yet.
+  const offeredTags = normalizeTags([...tagOptions(cards), ...draft.tags]);
   // How many photos are being read right now, and which read is current for each side: a result for a
   // photo that has since been replaced or removed is dropped.
   const [reading, setReading] = useState(0);
@@ -90,7 +93,7 @@ export default function EditCard() {
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
   const [namingFolder, setNamingFolder] = useState(false);
-  const [namingCategory, setNamingCategory] = useState(false);
+  const [namingTag, setNamingTag] = useState(false);
   const writing = useRef(false); // synchronous guard: state updates land a render too late for a fast double tap
   const existingFront = useCardImage(existing ?? undefined, 'front');
   const existingBack = useCardImage(existing?.hasBack ? existing : undefined, 'back');
@@ -231,9 +234,8 @@ export default function EditCard() {
     analyzeImage(jpegBase64, { smart: localReader })
       .then((analysis) => {
         if (reads.current[side] !== read) return;
-        // The document's own type ("Residency") when it names one, else a built-in category the user
-        // still has: a deleted one isn't suggested back.
-        const suggestion = { ...analysis, category: suggestedCategory(analysis, categories) };
+        // The document's own type ("Residency") when it names one, else its broad kind ("ID").
+        const suggestion = { ...analysis, tags: suggestedTag(analysis, allTags(cards)) };
         setForm((f) => {
           const read = applyReadText(applyAnalysis(f, suggestion), side, analysis.text ?? '');
           return FOLDERS_ENABLED ? applyFolderSuggestion(read, suggestFolder(analysis, folders)) : read;
@@ -308,7 +310,6 @@ export default function EditCard() {
           (await services.store.createFolder(plan.newFolder));
         fields = { ...fields, folderId: folder.id };
       }
-      await services.store.addCategory(fields.category);
       if (plan.kind === 'create') await services.store.create(fields, plan.images);
       else await services.store.update(plan.id, fields, plan.changes);
     } catch (e) {
@@ -469,23 +470,23 @@ export default function EditCard() {
                 style={inputStyle}
               />
             </Field>
-            <Field label={strings.edit.category} error={errorText('bad-category')} hint={suggestedHint('category')}>
-              {namingCategory ? (
-                <CategoryNameInput
-                  categories={categories}
-                  onSubmit={(category) => {
-                    // Saved to the list with the card, so backing out leaves no unused category behind.
-                    update({ category });
-                    setNamingCategory(false);
+            <Field label={strings.edit.tags} error={errorText('bad-tags')} hint={suggestedHint('tags')}>
+              {namingTag ? (
+                <TagNameInput
+                  tags={offeredTags}
+                  onSubmit={(tag) => {
+                    if (!hasTag(draft, tag)) update({ tags: [...draft.tags, tag] });
+                    setNamingTag(false);
                   }}
-                  onCancel={() => setNamingCategory(false)}
+                  onCancel={() => setNamingTag(false)}
                 />
               ) : (
-                <CategoryChips
-                  value={draft.category}
-                  onChange={(category) => category && update({ category })}
-                  categories={categories.includes(draft.category) ? categories : [...categories, draft.category]}
-                  onAddNew={() => setNamingCategory(true)}
+                <TagChips
+                  tags={offeredTags}
+                  selected={draft.tags}
+                  onPress={(tag) => tag && update({ tags: hasTag(draft, tag) ? draft.tags.filter((t) => !sameTag(t, tag)) : [...draft.tags, tag] })}
+                  onAddNew={() => setNamingTag(true)}
+                  multiple
                   wrap
                 />
               )}

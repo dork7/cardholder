@@ -10,16 +10,16 @@ const NOW = new Date('2026-11-09T10:00:00Z');
 const insurance = makeCard({
   id: 'ins',
   name: 'Car insurance',
-  category: 'insurance',
+  tags: ['Insurance'],
   readText: { front: 'ORIENT INSURANCE\nMotor policy\nPolicy expiry: 31/05/2027\nPlate 12345', back: '' },
 });
 const passport = makeCard({
   id: 'pass',
   name: 'Passport',
-  category: 'id',
+  tags: ['ID'],
   readText: { front: 'PASSPORT\nSurname KHAN\nPassport No. P1234567\nDate of expiry 14 MAR 2031', back: '' },
 });
-const gym = makeCard({ id: 'gym', name: 'Gym', category: 'membership', readText: { front: 'FITNESS FIRST\nMember 8899', back: '' } });
+const gym = makeCard({ id: 'gym', name: 'Gym', tags: ['Membership'], readText: { front: 'FITNESS FIRST\nMember 8899', back: '' } });
 const cards = [insurance, passport, gym];
 const lookup = buildLookup(cards, NOW);
 const rowOf = (card: Card) => parseLookup(lookup).find((r) => r.id === card.id)!.index;

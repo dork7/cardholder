@@ -34,7 +34,7 @@ export const strings = {
     results: 'Results',
     searchPlaceholder: 'Search cards',
     searchLabel: "Search cards by name or by what's printed on them",
-    allCategories: 'All',
+    allTags: 'All',
     noResults: 'No cards match.',
     clearSearch: 'Clear search',
     settings: 'Settings',
@@ -60,7 +60,6 @@ export const strings = {
     selectionFailed: (n: number) => `${n} ${plural(n, "card couldn't", "cards couldn't")} be changed. Try again.`,
     pinSelected: 'Pin to home',
     unpinSelected: 'Unpin from home',
-    categorySelected: 'Change category',
     tagSelected: 'Add tags',
     tagTo: (n: number) => `Tag ${n} ${plural(n, 'card', 'cards')}`,
     shareSelected: 'Quick share',
@@ -68,7 +67,6 @@ export const strings = {
     shareIdsTitle: 'Share an ID?',
     shareIdsBody: 'The selection includes an ID. This shares an unencrypted copy of the cards.',
     shareNeedsUpdate: 'Sharing several cards needs a newer version of Doc Keeper.',
-    moveTo: (n: number) => `Move ${n} ${plural(n, 'card', 'cards')} to`,
     sortLabel: 'Sort and filter',
     sortName: 'Name',
     sortExpiry: 'Expiry',
@@ -77,12 +75,6 @@ export const strings = {
     noneExpiring: (days: number) => `Nothing expires in the next ${days} days.`,
     moveUp: 'Move up',
     moveDown: 'Move down',
-  },
-  categories: {
-    id: 'ID',
-    insurance: 'Insurance',
-    membership: 'Membership',
-    other: 'Other',
   },
   edit: {
     shape: 'Card shape',
@@ -106,12 +98,12 @@ export const strings = {
     pdfFront: 'Thumbnail',
     name: 'Name (optional)',
     namePlaceholder: 'e.g. Emirates ID',
-    category: 'Category',
-    newCategory: 'New category',
-    newCategoryChip: 'New',
-    newCategoryPlaceholder: 'e.g. Vehicle',
-    addCategory: 'Add',
-    categoryNameError: 'Type a name of up to 24 characters.',
+    tags: 'Tags',
+    newTag: 'New tag',
+    newTagChip: 'New',
+    newTagPlaceholder: 'e.g. Vehicle',
+    addTag: 'Add',
+    tagNameError: 'Type a name of up to 24 characters.',
     expiry: 'Expiry date (optional)',
     addExpiry: 'Add expiry date',
     clearExpiry: 'Clear',
@@ -145,7 +137,6 @@ export const strings = {
     discard: 'Discard',
     errors: {
       'name-too-long': 'Keep the name to 60 characters or fewer.',
-      'bad-category': 'Pick a category.',
       'bad-expiry': "That expiry date isn't valid.",
       'bad-reminder': 'Type a number of days from 1 to 365.',
       'bad-tags': 'Keep each tag short, and no more than 8 of them.',
@@ -183,7 +174,6 @@ export const strings = {
     >,
   },
   details: {
-    category: 'Category',
     expires: 'Expires',
     reminders: 'Reminders',
     remindValue: (days: number) => `Daily, from ${days} ${plural(days, 'day', 'days')} before`,
@@ -206,7 +196,6 @@ export const strings = {
     generated: (date: string) => `Made ${date}.`,
     empty: 'No documents yet.',
     colName: 'Name',
-    colCategory: 'Category',
     colExpires: 'Expires',
     colTags: 'Tags',
     colPages: 'Pages',
@@ -268,6 +257,8 @@ export const strings = {
     unavailable: 'Reading text needs a newer version of Doc Keeper.',
   },
   tags: {
+    // Offered before the user has any tags of their own, and what card reading suggests for these kinds.
+    starters: { id: 'ID', insurance: 'Insurance', membership: 'Membership' },
     add: 'Tag', // the "+" pill on a card's screen
     addHint: 'Adds tags to this card.',
     titleOne: 'Add tags',
@@ -286,6 +277,7 @@ export const strings = {
     remove: 'Remove',
   },
   card: {
+    unnamed: 'Document', // a card with no name and no tags
     viewCard: 'Card',
     viewDetails: 'Details (.md)',
     views: 'Show the card or its details',
@@ -368,7 +360,7 @@ export const strings = {
   ai: {
     title: 'AI models',
     about:
-      "Doc Keeper can suggest a document's name, expiry date and category, and answer questions about your documents, using an AI model that runs on this phone. Pick one to download. Your documents are never sent anywhere.",
+      "Doc Keeper can suggest a document's name, expiry date and tag, and answer questions about your documents, using an AI model that runs on this phone. Pick one to download. Your documents are never sent anywhere.",
     recommended: 'Recommended',
     notes: {
       'gemma-270m': 'Fastest, least accurate.',
@@ -437,15 +429,15 @@ export const strings = {
       install: "Android's installer didn't open. Please try again.",
     },
   },
-  categoriesScreen: {
-    title: 'Categories',
-    manage: 'Manage categories',
-    intro: 'To add a category, pick New under Category when adding or editing a card.',
+  tagsScreen: {
+    title: 'Tags',
+    manage: 'Manage tags',
+    intro: 'To tag a card, pick tags when adding or editing it, or use + Tag on its screen. Deleting a tag here takes it off every card.',
+    empty: 'No tags yet.',
     deleteConfirmTitle: (name: string) => `Delete “${name}”?`,
-    inUseTitle: (name: string) => `Can't delete “${name}”`,
-    inUseBody: (cards: string[]) =>
-      `It's assigned to ${plural(cards.length, 'this card', 'these cards')}. Move ${plural(cards.length, 'it', 'them')} to another category first.\n\n${cards.map((c) => `• ${c}`).join('\n')}`,
-    keepOne: 'Keep at least one category.',
+    deleteConfirmBody: (n: number) =>
+      `It is taken off ${n} ${plural(n, 'card', 'cards')}. The ${plural(n, 'card itself is', 'cards themselves are')} kept.`,
+    deleteFailed: (n: number) => `${n} ${plural(n, "card couldn't", "cards couldn't")} be changed. Try again.`,
   },
   export: {
     title: 'Export backup',

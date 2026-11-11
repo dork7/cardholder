@@ -29,7 +29,7 @@ async function setup(model: ModelChoice = { status: 'ready', model: answering })
   mockChoice = model;
   const { store } = await makeStore();
   const ins = await store.create(
-    fields({ name: 'Car insurance', category: 'insurance', readText: { front: 'ORIENT INSURANCE\nPolicy expiry: 31/05/2027', back: '' } }),
+    fields({ name: 'Car insurance', tags: ['Insurance'], readText: { front: 'ORIENT INSURANCE\nPolicy expiry: 31/05/2027', back: '' } }),
     images('ins'),
   );
   const gym = await store.create(fields({ name: 'Gym', readText: { front: 'FITNESS FIRST', back: '' } }), images('gym'));

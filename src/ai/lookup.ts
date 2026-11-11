@@ -1,4 +1,3 @@
-import { categoryLabel } from '../cards/categories';
 import { displayName } from '../cards/display';
 import { Card } from '../cards/types';
 import { strings } from '../strings';
@@ -34,7 +33,7 @@ function pages(card: Card): string {
 }
 
 function rowFor(card: Card, index: number): LookupRow {
-  const line = `| ${index} | ${cell(displayName(card))} | ${cell(categoryLabel(card.category))} | ${card.expiresOn ?? '—'} | ${
+  const line = `| ${index} | ${cell(displayName(card))} | ${card.expiresOn ?? '—'} | ${
     card.tags.length > 0 ? cell(card.tags.join(', ')) : '—'
   } | ${pages(card)} | ${excerpt(card)} | \`${card.id}\` |`;
   return { index, id: card.id, line };
@@ -42,8 +41,8 @@ function rowFor(card: Card, index: number): LookupRow {
 
 const HEADER = () =>
   [
-    `| # | ${s.colName} | ${s.colCategory} | ${s.colExpires} | ${s.colTags} | ${s.colPages} | ${s.colText} | ${s.colReference} |`,
-    '|---|---|---|---|---|---|---|---|',
+    `| # | ${s.colName} | ${s.colExpires} | ${s.colTags} | ${s.colPages} | ${s.colText} | ${s.colReference} |`,
+    '|---|---|---|---|---|---|---|',
   ].join('\n');
 
 // Documents in name order, so the file reads like an index.

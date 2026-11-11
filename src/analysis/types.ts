@@ -1,5 +1,9 @@
-import { Category } from '../cards/types';
-import { SmartSuggestion } from './smartExtract';
+import type { SmartSuggestion } from './smartExtract';
+
+// The broad kinds card reading sorts a document into, from keywords or the language model. Never
+// stored or shown as such: a kind is offered to the user as a tag (see suggestedTag), "other" as none.
+export const CATEGORIES = ['id', 'insurance', 'membership', 'other'] as const;
+export type Category = (typeof CATEGORIES)[number];
 
 // Box in 0–1 image coordinates, origin top left.
 export interface OcrBox {

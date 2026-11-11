@@ -1,4 +1,4 @@
-import { Category } from '../cards/types';
+import { Category } from './types';
 import { EMIRATES_ID, isBirthCertificate } from './fields';
 import { normalizeDigits } from './smartExtract';
 import { Mrz } from './mrz';

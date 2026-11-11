@@ -8,7 +8,7 @@ graph TD
         Home[Home Screen - Listing]
         AddEdit[Add/Edit Form]
         CardView[Card Detail View]
-        CategoryChips[Category Chips]
+        TagChips[Tag Chips]
         AppProvider[App Provider - Context]
     end
 

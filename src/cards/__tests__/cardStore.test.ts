@@ -3,7 +3,8 @@ import { memoryDb } from '../../../test/memoryDb';
 import { fields, frontImage, image, images, importEntry, makeStore } from '../../../test/fixtures';
 import { createAead, generateKey } from '../../crypto/aead';
 import { base64, utf8 } from '../../crypto/bytes';
-import { createCardStore, CardNotFoundError, CategoryInUseError, FolderNotFoundError } from '../cardStore';
+import { createCardStore, CardNotFoundError, FolderNotFoundError } from '../cardStore';
+import { fieldsOf } from '../batch';
 import { migrate } from '../../storage/sqlDb';
 import { BlobStore } from '../../storage/blobStore';
 
@@ -43,9 +44,9 @@ const INSERT =
 
 test('create stores fields and tags, and leaves the card unpinned', async () => {
   const { store } = await makeStore();
-  const a = await store.create(fields({ name: 'Emirates ID', category: 'id', tags: ['Government'] }), images('a'));
+  const a = await store.create(fields({ name: 'Emirates ID', tags: ['ID', 'Government'] }), images('a'));
   const b = await store.create(fields({ name: 'Gym' }), images('b', true));
-  expect(a).toMatchObject({ id: 'card1', name: 'Emirates ID', category: 'id', tags: ['Government'], pinned: false, position: 0, hasBack: false, backAspect: null });
+  expect(a).toMatchObject({ id: 'card1', name: 'Emirates ID', tags: ['ID', 'Government'], pinned: false, position: 0, hasBack: false, backAspect: null });
   expect(b).toMatchObject({ id: 'card2', tags: [], pinned: false, position: 0, hasBack: true, backAspect: 1.586 });
   expect(await store.get('card1')).toEqual(a);
   expect(await store.count()).toBe(2);
@@ -277,10 +278,9 @@ test('cards saved before number and notes were removed still load, without them'
   expect(card).toEqual({
     id: 'old1',
     name: 'Coffee club',
-    category: 'other',
     expiresOn: null,
     remindDaysBefore: 14,
-    tags: [], // saved before tags existed
+    tags: [], // saved before tags existed, under the retired Loyalty category
     documentKey: null,
     folderId: null,
     pinned: false,
@@ -387,35 +387,36 @@ describe('PDF cards', () => {
   });
 });
 
-describe('categories', () => {
-  test('start as the built-ins; added ones are kept, sealed, in order', async () => {
-    const { store, db } = await makeStore();
-    expect(await store.listCategories()).toEqual(['id', 'insurance', 'membership', 'other']);
-    await store.addCategory('Vehicle');
-    await store.addCategory('Vehicle');
-    expect(await store.listCategories()).toEqual(['id', 'insurance', 'membership', 'other', 'Vehicle']);
-    const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'categories'", []);
-    expect(Buffer.from(row!.value, 'base64').toString('latin1')).not.toContain('Vehicle');
-  });
+test('a card saved with a category has it as its first tag, and loses the category when next saved', async () => {
+  const db = memoryDb();
+  await migrate(db);
+  const aead = createAead(generateKey());
+  const store = createCardStore({ db, blobs: createMemoryBlobStore(), aead });
+  const payload = (category: string, tags?: string[]) => ({ name: 'Old', category, tags, expiresOn: null, hasBack: false, frontAspect: 1.586, backAspect: null });
+  const saved: [string, ReturnType<typeof payload>][] = [
+    ['builtin', payload('insurance', ['Family'])],
+    ['typed', payload('Vehicle')],
+    ['other', payload('other', ['Family'])],
+    ['same', payload('id', ['family', 'ID'])],
+  ];
+  for (const [id, legacy] of saved) {
+    await db.runAsync(
+      'INSERT INTO cards (id, pinned, position, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, 0, 0, aead.seal(utf8.encode(JSON.stringify(legacy))), 1, 1],
+    );
+  }
+  expect((await store.get('builtin'))?.tags).toEqual(['Insurance', 'Family']);
+  expect((await store.get('typed'))?.tags).toEqual(['Vehicle']);
+  expect((await store.get('other'))?.tags).toEqual(['Family']);
+  expect((await store.get('same'))?.tags).toEqual(['ID', 'family']);
+  expect(await store.get('builtin')).not.toHaveProperty('category');
 
-  test('an unused category can be deleted, a built-in too', async () => {
-    const { store } = await makeStore();
-    await store.addCategory('Vehicle');
-    await store.removeCategory('Vehicle');
-    await store.removeCategory('membership');
-    expect(await store.listCategories()).toEqual(['id', 'insurance', 'other']);
-  });
-
-  test('a category a card uses cannot be deleted, and the error names the cards', async () => {
-    const { store } = await makeStore();
-    await store.addCategory('Vehicle');
-    await store.create(fields({ name: 'Mulkiya', category: 'Vehicle' }), images('a'));
-    await store.create(fields({ name: 'Boat', category: 'Vehicle' }), images('b'));
-    const error = await store.removeCategory('Vehicle').catch((e) => e);
-    expect(error).toBeInstanceOf(CategoryInUseError);
-    expect((error as CategoryInUseError).cards.map((c) => c.name)).toEqual(['Boat', 'Mulkiya']);
-    expect(await store.listCategories()).toContain('Vehicle');
-  });
+  // Taking the tag off sticks: the old category is gone from what is saved, so it isn't read back.
+  const card = (await store.get('builtin'))!;
+  await store.update('builtin', { ...fieldsOf(card), tags: ['Family'] });
+  expect((await store.get('builtin'))?.tags).toEqual(['Family']);
+  const row = await db.getFirstAsync<{ payload: Uint8Array }>("SELECT payload FROM cards WHERE id = 'builtin'", []);
+  expect(JSON.parse(utf8.decode(aead.open(row!.payload)))).not.toHaveProperty('category');
 });
 
 test('the text read off a card is sealed with it and comes back', async () => {

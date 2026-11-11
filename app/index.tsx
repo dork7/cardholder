@@ -7,22 +7,21 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
-import { addTags, allTags, moveToCategory, overTagLimit, removeAll, shouldUnpin, togglePinned } from '../src/cards/batch';
+import { addTags, overTagLimit, removeAll, shouldUnpin, togglePinned } from '../src/cards/batch';
+import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
 import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
-import { CardCategory } from '../src/cards/types';
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { PdfUnavailableError, shareCards } from '../src/share/shareCard';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { CardGrid } from '../src/ui/CardGrid';
-import { CategorySheet } from '../src/ui/CategorySheet';
 import { TagSheet } from '../src/ui/TagSheet';
 import { canReadText, readPhotoText } from '../src/analysis/readPhoto';
 import { rereadCards } from '../src/cards/readBackfill';
 import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
-import { CategoryChips } from '../src/ui/CategoryChips';
+import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
 import { AskFab, Fab } from '../src/ui/Fab';
 import { AskSheet } from '../src/ui/AskSheet';
@@ -39,17 +38,17 @@ import { LiveText } from '../src/ui/LiveText';
 const ENTER = 360;
 
 export default function Home() {
-  const { cards, folders, categories, unlocked, openImportOnReady, clearOpenImport, homeFolders, services, refresh, stackVertical } =
+  const { cards, folders, unlocked, openImportOnReady, clearOpenImport, homeFolders, services, refresh, stackVertical } =
     useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   useLaunchLinks();
   const [query, setQuery] = useState('');
-  const [chosen, setChosen] = useState<CardCategory | null>(null);
-  // Only offer types the user actually has; if the chosen type's last card goes, fall back to All.
-  const present = categories.filter((c) => cards.some((card) => card.category === c));
-  const category = chosen && present.includes(chosen) ? chosen : null;
+  const [chosen, setChosen] = useState<string | null>(null);
+  // Only tags some card has are offered; if the chosen tag's last card goes, fall back to All.
+  const present = allTags(cards);
+  const tag = (chosen && present.find((t) => sameTag(t, chosen))) || null;
   const [chosenFolder, setChosenFolder] = useState<string | null>(null);
   // Falls back to all cards if the chosen folder is deleted, or the filter is hidden.
   const folderId =
@@ -78,18 +77,17 @@ export default function Home() {
       ? [{ key: 'manage', label: strings.folders.manage, onPress: () => router.push('/folders') }]
       : []),
   ];
-  const shown = filterCards(cards, { query, category, folderId });
+  const shown = filterCards(cards, { query, tag, folderId });
   const { pinned } = splitPinned(cards);
   const [gallery, setGallery] = useSavedChoice('homeView', (v): v is 'gallery' | 'stack' => v === 'gallery' || v === 'stack', 'stack');
   const [sort, setSort] = useSavedChoice('gallerySort', isGallerySort, 'name');
   const [expiringOnly, setExpiringOnly] = useState(false);
   const now = new Date();
-  // The gallery has its own order and an "Expiring soon" filter on top of search and category.
+  // The gallery has its own order and an "Expiring soon" filter on top of search and tag.
   const inGallery = sortForGallery(expiringOnly ? shown.filter((c) => isExpiringSoon(c, now)) : shown, sort);
   // Only cards still on screen count as selected, so a filter change can't act on something hidden.
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const selected = inGallery.filter((c) => selectedIds.has(c.id));
-  const [choosingCategory, setChoosingCategory] = useState(false);
   const [choosingTags, setChoosingTags] = useState(false);
   const [asking, setAsking] = useState(false);
   // While the selection is being read again: how many are done, out of how many.
@@ -172,7 +170,7 @@ export default function Home() {
         console.warn('Share failed', e);
         Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
       });
-    if (picked.some((c) => c.category === 'id')) {
+    if (picked.some(isId)) {
       Alert.alert(strings.home.shareIdsTitle, strings.home.shareIdsBody, [
         { text: strings.common.cancel, style: 'cancel' },
         { text: strings.card.share, onPress: () => void go() },
@@ -283,7 +281,7 @@ export default function Home() {
             ) : (
               // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
               <CardStack
-                key={`${category ?? 'all'}|${folderId ?? 'all'}|${query.trim().toLowerCase()}|${stackVertical ? 'v' : 'h'}`}
+                key={`${tag ?? 'all'}|${folderId ?? 'all'}|${query.trim().toLowerCase()}|${stackVertical ? 'v' : 'h'}`}
                 cards={shown}
                 onOpen={(card) => router.push(`/card/${card.id}`)}
                 vertical={stackVertical}
@@ -293,10 +291,7 @@ export default function Home() {
             {FOLDERS_ENABLED && folders.length > 0 && folderChips.length > 0 && (
               <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} />
             )}
-            {/* With a single type, "All" and that type show the same cards, so there's nothing to filter. */}
-            {present.length > 1 && (
-              <CategoryChips value={category} onChange={setChosen} includeAll categories={present} />
-            )}
+            {present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
           </>
         )}
       </View>
@@ -325,12 +320,6 @@ export default function Home() {
               testID="selection-tags"
             />
             <IconButton
-              icon="category"
-              label={strings.home.categorySelected}
-              onPress={() => setChoosingCategory(true)}
-              testID="selection-category"
-            />
-            <IconButton
               icon="refresh"
               label={strings.recreate.button}
               hint={strings.recreate.galleryHint}
@@ -350,19 +339,9 @@ export default function Home() {
           <TagSheet
             visible={choosingTags}
             title={strings.home.tagTo(selected.length)}
-            existing={allTags(cards)}
+            existing={tagOptions(cards)}
             onApply={tagSelected}
             onClose={() => setChoosingTags(false)}
-          />
-          <CategorySheet
-            visible={choosingCategory}
-            title={strings.home.moveTo(selected.length)}
-            categories={categories}
-            onClose={() => setChoosingCategory(false)}
-            onChoose={(category) => {
-              setChoosingCategory(false);
-              void onSelection((cards) => moveToCategory(services.store, cards, category));
-            }}
           />
         </View>
       ) : (

@@ -16,7 +16,7 @@ export interface PlannedReminder {
 // One reminder a day for each card, from its remindDaysBefore days out to the day it expires. Renewing
 // a card (a new expiry date) re-plans it; nothing is planned past the expiry day.
 export function planReminders(
-  cards: ReadonlyArray<Pick<Card, 'id' | 'name' | 'category' | 'expiresOn' | 'remindDaysBefore'>>,
+  cards: ReadonlyArray<Pick<Card, 'id' | 'name' | 'tags' | 'expiresOn' | 'remindDaysBefore'>>,
   now: Date,
   max: number = MAX_SCHEDULED_REMINDERS,
 ): PlannedReminder[] {

@@ -1,5 +1,5 @@
-import { CardAnalysis } from '../../analysis/types';
-import { Category, Folder } from '../../cards/types';
+import { CardAnalysis, Category } from '../../analysis/types';
+import { Folder } from '../../cards/types';
 import { checkFolderName } from '../names';
 import { suggestFolder, words } from '../suggest';
 

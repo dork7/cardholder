@@ -115,7 +115,7 @@ describe('parseSnapshot', () => {
 
   test('rejects invalid card fields', async () => {
     const raw = rawSnapshot();
-    raw.cards[0].card.category = 'x'.repeat(25); // a typed category, but longer than one can be
+    raw.cards[0].card.expiresOn = '2027-02-30'; // not a day
     expect(await parseCode(raw)).toBe('invalid-contents');
   });
 
@@ -157,18 +157,22 @@ describe('parseSnapshot', () => {
   });
 });
 
-test('older backups with a card number, notes and Loyalty still import', () => {
+test('older backups with a card number, notes and a category still import, the category as a tag', () => {
   const raw = rawSnapshot();
   Object.assign(raw.cards[0].card, { number: '784', notes: 'Renew at ICP', category: 'loyalty' });
   const [card] = parseSnapshot(raw).cards.map((c) => c.card);
-  expect(card.category).toBe('other');
+  expect(card).not.toHaveProperty('category');
+  expect(card.tags).toEqual(['ID', 'Government']); // Loyalty was retired: no tag for it
+  const typed = rawSnapshot();
+  Object.assign(typed.cards[0].card, { category: 'Vehicle' });
+  expect(parseSnapshot(typed).cards[0].card.tags).toEqual(['Vehicle', 'ID', 'Government']);
   expect(card).not.toHaveProperty('number');
   expect(card).not.toHaveProperty('notes');
 });
 
 test('tags survive the round trip; a backup from before tags loads with none', async () => {
   const decoded = await decodeBackup(await encodeBackup(backupSnapshot(), 'correct horse', FAST), 'correct horse');
-  expect(decoded.cards[0].card.tags).toEqual(['Government']);
+  expect(decoded.cards[0].card.tags).toEqual(['ID', 'Government']);
   const old = rawSnapshot();
   delete old.cards[0].card.tags;
   expect(parseSnapshot(old).cards[0].card.tags).toEqual([]);

@@ -4,9 +4,9 @@ import { filterCards, isExpiringSoon, sortCards, sortForGallery, splitPinned } f
 const cards = [
   makeCard({ id: 'a', name: 'zoo pass', pinned: false }),
   makeCard({ id: 'b', name: 'Library', pinned: true, position: 1 }),
-  makeCard({ id: 'c', name: 'Emirates ID', category: 'id', pinned: true, position: 0 }),
-  makeCard({ id: 'e', name: '', category: 'membership', pinned: false }),
-  makeCard({ id: 'd', name: 'Aster insurance', category: 'insurance', pinned: false }),
+  makeCard({ id: 'c', name: 'Emirates ID', tags: ['ID'], pinned: true, position: 0 }),
+  makeCard({ id: 'e', name: '', tags: ['Membership'], pinned: false }),
+  makeCard({ id: 'd', name: 'Aster insurance', tags: ['Insurance'], pinned: false }),
 ];
 
 test('pinned by position first, then the rest alphabetically (case-insensitive)', () => {
@@ -20,31 +20,32 @@ test('splitPinned', () => {
 });
 
 test('filter by name, case-insensitive', () => {
-  expect(filterCards(cards, { query: 'LIB', category: null }).map((c) => c.id)).toEqual(['b']);
+  expect(filterCards(cards, { query: 'LIB', tag: null }).map((c) => c.id)).toEqual(['b']);
 });
 
-test('an unnamed card sorts and matches by its category', () => {
-  expect(filterCards(cards, { query: 'member', category: null }).map((c) => c.id)).toEqual(['e']);
+test('an unnamed card sorts and matches by its first tag', () => {
+  expect(filterCards(cards, { query: 'member', tag: null }).map((c) => c.id)).toEqual(['e']);
 });
 
-test('filter by category, combined with query', () => {
-  expect(filterCards(cards, { query: '', category: 'insurance' }).map((c) => c.id)).toEqual(['d']);
-  expect(filterCards(cards, { query: 'zoo', category: 'insurance' })).toEqual([]);
+test('filter by tag, ignoring case, combined with query', () => {
+  expect(filterCards(cards, { query: '', tag: 'insurance' }).map((c) => c.id)).toEqual(['d']);
+  expect(filterCards(cards, { query: 'zoo', tag: 'Insurance' })).toEqual([]);
 });
 
-test('blank query and no category returns everything', () => {
-  expect(filterCards(cards, { query: '  ', category: null })).toHaveLength(5);
+test('blank query and no tag returns everything', () => {
+  expect(filterCards(cards, { query: '  ', tag: null })).toHaveLength(5);
 });
 
 test('search matches names, not the hidden tags', () => {
   const cards = [makeCard({ id: 'a', name: 'Daman', tags: ['Health', 'Work'] }), makeCard({ id: 'b', name: 'Gym' })];
-  expect(filterCards(cards, { query: 'heal', category: null }).map((c) => c.id)).toEqual([]);
-  expect(filterCards(cards, { query: 'dam', category: null }).map((c) => c.id)).toEqual(['a']);
+  expect(filterCards(cards, { query: 'heal', tag: null }).map((c) => c.id)).toEqual([]);
+  expect(filterCards(cards, { query: 'dam', tag: null }).map((c) => c.id)).toEqual(['a']);
 });
 
-test('a typed category filters like a built-in one', () => {
-  const cards = [makeCard({ id: 'a', category: 'Vehicle' }), makeCard({ id: 'b', category: 'id' })];
-  expect(filterCards(cards, { query: '', category: 'Vehicle' }).map((c) => c.id)).toEqual(['a']);
+test('a card is shown under each of its tags', () => {
+  const cards = [makeCard({ id: 'a', tags: ['ID', 'Vehicle'] }), makeCard({ id: 'b', tags: ['ID'] })];
+  expect(filterCards(cards, { query: '', tag: 'Vehicle' }).map((c) => c.id)).toEqual(['a']);
+  expect(filterCards(cards, { query: '', tag: 'ID' }).map((c) => c.id)).toEqual(['a', 'b']);
 });
 
 describe('gallery order', () => {
@@ -94,7 +95,7 @@ describe('search by what is printed on the card', () => {
     makeCard({ id: 'ins', name: 'Insurance', readText: { front: 'DAMAN HEALTH INSURANCE\nPolicy No: 2025-ENH-00412', back: '' } }),
     makeCard({ id: 'old', name: 'Gym', readText: null }), // saved before text was kept
   ];
-  const find = (query: string) => filterCards(cards, { query, category: null }).map((c) => c.id);
+  const find = (query: string) => filterCards(cards, { query, tag: null }).map((c) => c.id);
 
   test('finds a card by a word on either side, ignoring case', () => {
     expect(find('daman')).toEqual(['ins']);

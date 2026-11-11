@@ -1,8 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { canReadText, readPhotoText } from '../analysis/readPhoto';
-import { categoryOptions } from '../cards/categories';
 import { readUnreadCards } from '../cards/readBackfill';
-import { Card, CardCategory, Folder } from '../cards/types';
+import { Card, Folder } from '../cards/types';
 import { secureVault } from '../crypto/secureVault';
 import { DEFAULT_HOME_FOLDERS, HomeFolderOptions, loadHomeFolders, saveHomeFolders } from '../folders/homeOptions';
 import { isUnlocked } from '../purchases/entitlement';
@@ -35,8 +34,6 @@ export interface AppContextValue {
   services: Services;
   cards: Card[];
   folders: Folder[];
-  // Every category a card can be put in: the saved list plus any a card already holds.
-  categories: CardCategory[];
   unlocked: boolean;
   refresh(): Promise<void>;
   openImportOnReady: boolean;
@@ -60,20 +57,18 @@ const BootContext = createContext<BootContextValue | null>(null);
 const AppContext = createContext<AppContextValue | null>(null);
 
 async function readSnapshot(services: Services): Promise<AppSnapshot> {
-  const [cards, folders, categories, unlocked] = await Promise.all([
+  const [cards, folders, unlocked] = await Promise.all([
     services.store.list(),
     services.store.listFolders(),
-    services.store.listCategories(),
     isUnlocked(services.settings),
   ]);
-  return { cards, folders, categories, unlocked };
+  return { cards, folders, unlocked };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<BootPhase>({ status: 'loading' });
   const [cards, setCards] = useState<Card[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [savedCategories, setSavedCategories] = useState<CardCategory[]>([]);
   const [unlocked, setUnlocked] = useState(false);
   const [openImportOnReady, setOpenImportOnReady] = useState(false);
   const [appearance, setAppearanceState] = useState<AppearancePref>('system');
@@ -93,7 +88,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       apply: (snapshot) => {
         setCards(snapshot.cards);
         setFolders(snapshot.folders);
-        setSavedCategories(snapshot.categories);
         setUnlocked(snapshot.unlocked);
       },
       // Shortcuts follow the cards too; a failure there must not stop reminders being scheduled.
@@ -234,8 +228,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [services],
   );
 
-  const categories = useMemo(() => categoryOptions(savedCategories, cards), [savedCategories, cards]);
-
   const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
 
   const appValue = useMemo<AppContextValue | null>(
@@ -245,7 +237,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             services,
             cards,
             folders,
-            categories,
             unlocked,
             refresh,
             openImportOnReady,
@@ -266,7 +257,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       services,
       cards,
       folders,
-      categories,
       unlocked,
       refresh,
       openImportOnReady,

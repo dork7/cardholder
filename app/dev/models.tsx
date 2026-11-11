@@ -126,7 +126,7 @@ function Bench() {
     ? [
         ['Name', s.name ?? '—'],
         ['Expiry', s.expiresOn ?? '—'],
-        ['Category', s.category ? strings.categories[s.category] : '—'],
+        ['Category', s.category ?? '—'],
       ]
     : [];
 

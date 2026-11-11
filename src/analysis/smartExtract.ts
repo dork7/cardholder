@@ -1,5 +1,5 @@
 import { NAME_MAX_LENGTH } from '../config';
-import { CATEGORIES, Category } from '../cards/types';
+import { CATEGORIES, Category } from './types';
 import { isValidIsoDate } from '../time/dates';
 
 // Phase 5 sample (docs/superpowers/plans/2026-10-21-on-device-ai.md): a small language model turns

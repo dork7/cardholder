@@ -5,8 +5,8 @@ const NOW = new Date('2026-11-09T10:00:00Z');
 
 test('lists every document by name with its details, a short excerpt and its reference', () => {
   const cards = [
-    makeCard({ id: 'z1', name: 'Visa', category: 'id', expiresOn: '2027-05-31', tags: ['family'], readText: { front: 'UNITED ARAB EMIRATES\nRESIDENCE', back: '' } }),
-    makeCard({ id: 'a1', name: 'Allianz', category: 'insurance', hasBack: true, readText: null }),
+    makeCard({ id: 'z1', name: 'Visa', expiresOn: '2027-05-31', tags: ['ID', 'family'], readText: { front: 'UNITED ARAB EMIRATES\nRESIDENCE', back: '' } }),
+    makeCard({ id: 'a1', name: 'Allianz', tags: ['Insurance'], hasBack: true, readText: null }),
   ];
   const md = buildLookup(cards, NOW);
   expect(md).toContain('# Document lookup');
@@ -18,7 +18,7 @@ test('lists every document by name with its details, a short excerpt and its ref
     [1, 'a1'],
     [2, 'z1'],
   ]);
-  expect(rows[1].line).toContain('| 2027-05-31 | family |');
+  expect(rows[1].line).toContain('| Visa | 2027-05-31 | ID, family |');
   expect(rows[1].line).toContain('UNITED ARAB EMIRATES RESIDENCE');
   expect(rows[0].line).toContain('front and back');
   expect(rows[0].line).toContain('not read yet');

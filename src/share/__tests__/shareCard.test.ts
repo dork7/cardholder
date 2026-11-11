@@ -117,10 +117,10 @@ beforeEach(() => {
 });
 
 test('file names come from the card and cannot form a path', () => {
-  expect(cardFileBase({ name: 'Gym card!', category: 'membership' })).toBe('Gym card');
-  expect(cardFileBase({ name: '../../etc', category: 'id' })).toBe('etc');
-  expect(cardFileBase({ name: '', category: 'insurance' })).toBe('Insurance');
-  expect(cardFileBase({ name: '///', category: 'other' })).toBe('card');
+  expect(cardFileBase({ name: 'Gym card!', tags: ['Membership'] })).toBe('Gym card');
+  expect(cardFileBase({ name: '../../etc', tags: ['ID'] })).toBe('etc');
+  expect(cardFileBase({ name: '', tags: ['Insurance'] })).toBe('Insurance');
+  expect(cardFileBase({ name: '///', tags: [] })).toBe('card');
 });
 
 test('a front-only card shares its photo, then removes the copy', async () => {

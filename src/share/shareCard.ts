@@ -17,7 +17,7 @@ export function clearShareCache(): void {
 }
 
 // "Gym card!" -> "Gym card"; anything that could form a path is dropped.
-export function cardFileBase(card: Pick<Card, 'name' | 'category'>): string {
+export function cardFileBase(card: Pick<Card, 'name' | 'tags'>): string {
   return displayName(card).replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'card';
 }
 

@@ -24,10 +24,11 @@ One page of a PDF document.
 The page of a PDF document chosen to show as its picture. Never called its front.
 _Avoid_: thumbnail page, first page
 
-**Category**:
-The one group a document belongs to — some come with the app (ID, Insurance, Membership, Other),
-others the user names (Car, Dad).
-_Avoid_: folder, tag, type, label
+**Tag**:
+A group a document belongs to. A document can have several, or none. A few are offered to start
+with (ID, Insurance, Membership); the rest the user names (Car, Dad). A tag exists only while some
+document has it.
+_Avoid_: category, folder, type, label
 
 **Document text**:
 The words read from a document's photos or PDF, kept with it so it can be searched and asked about.
@@ -60,5 +61,5 @@ One of the fixed menu of language models the user can download in Settings → A
 _Avoid_: local model (in wording the user sees), Gemma (for any of them), offline model
 
 **Model in use**:
-The one downloaded model the user picked: it suggests a new document's name, expiry date and category, and answers questions where there is no built-in model or the user chose it under "Answer questions with".
+The one downloaded model the user picked: it suggests a new document's name, expiry date and tag, and answers questions where there is no built-in model or the user chose it under "Answer questions with".
 _Avoid_: active model (in wording the user sees), current model, selected model

@@ -1,5 +1,4 @@
 import { requireOptionalNativeModule } from 'expo';
-import { categoryLabel } from '../cards/categories';
 import { displayName } from '../cards/display';
 import { expiryStatus } from '../cards/expiry';
 import { sortCards, splitPinned } from '../cards/listing';
@@ -16,7 +15,7 @@ export const MAX_WIDGET_CARDS = 4;
 export interface WidgetCard {
   id: string;
   name: string;
-  note: string; // the category, or the expiry date once it's close
+  note: string; // the first tag ('' without one), or the expiry date once it's close
   warn: boolean; // expired or due soon: the note is shown in the danger colour
 }
 
@@ -38,7 +37,7 @@ export function planWidget(cards: Card[], appLock: boolean, now: Date): WidgetSt
         const kind = expiryStatus(card, now).kind;
         const warn = kind === 'expired' || kind === 'today' || kind === 'soon';
         const date = card.expiresOn ? formatDate(fromIsoDate(card.expiresOn).getTime()) : '';
-        const note = !warn ? categoryLabel(card.category) : kind === 'expired' ? strings.widget.expired(date) : strings.card.expiresOn(date);
+        const note = !warn ? (card.tags[0] ?? '') : kind === 'expired' ? strings.widget.expired(date) : strings.card.expiresOn(date);
         return { id: card.id, name: displayName(card), note, warn };
       }),
   };

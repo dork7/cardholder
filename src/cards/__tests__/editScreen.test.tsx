@@ -17,8 +17,6 @@ const mockCreateFolder = jest.fn();
 const mockListFolders = jest.fn();
 const mockRefresh = jest.fn();
 const mockPermission = jest.fn();
-const mockAddCategory = jest.fn((_c: string) => Promise.resolve());
-let mockCategories: string[] = ['id', 'insurance', 'membership', 'other'];
 let mockCards: ReturnType<typeof makeCard>[] = [];
 let mockFolders: Folder[] = [];
 
@@ -53,7 +51,6 @@ const mockServices = {
     listFolders: () => mockListFolders(),
     loadImage: () => Promise.resolve(null),
     loadPdf: (id: string) => Promise.resolve(`${id}-pdf`),
-    addCategory: (c: string) => mockAddCategory(c),
   },
 };
 jest.mock('../../app/AppProvider', () => ({
@@ -61,7 +58,6 @@ jest.mock('../../app/AppProvider', () => ({
     services: mockServices,
     cards: mockCards,
     folders: mockFolders,
-    categories: mockCategories,
     unlocked: false,
     refresh: () => mockRefresh(),
   }),
@@ -111,7 +107,6 @@ beforeEach(() => {
   mockParams = { id: 'new' };
   mockCards = [];
   mockFolders = [];
-  mockCategories = ['id', 'insurance', 'membership', 'other'];
   mockCreate.mockResolvedValue(makeCard());
   mockUpdate.mockResolvedValue(makeCard());
   mockRemove.mockResolvedValue(undefined);
@@ -394,48 +389,95 @@ describe('adding from a PDF', () => {
   });
 });
 
-describe('a category that is not in the list', () => {
-  test('typing it adds it as a new category, saved with the card', async () => {
+describe("the card's tags", () => {
+  const chip = (tag: string) => screen.getByTestId(`tag-chip-${tag}`);
+  const isOn = (tag: string) => chip(tag).props.accessibilityState.checked;
+
+  test('a new card starts with none; the starters and the tags in use are offered, and any number can be picked', async () => {
+    mockCards = [makeCard({ id: 'c1', name: 'Mulkiya', tags: ['Vehicle'] })];
     await fillNewCard();
-    await fireEvent.press(screen.getByTestId('category-add'));
-    await fireEvent.changeText(screen.getByTestId('new-category-name'), ' vehicle ');
-    await fireEvent.press(screen.getByTestId('new-category-submit'));
-    expect(screen.getByRole('radio', { name: 'Vehicle' }).props.accessibilityState).toMatchObject({ checked: true });
+    expect(['Vehicle', 'ID', 'Insurance', 'Membership'].map(isOn)).toEqual([false, false, false, false]);
+    await fireEvent.press(chip('Vehicle'));
+    await fireEvent.press(chip('Insurance'));
+    await fireEvent.press(chip('ID'));
+    await fireEvent.press(chip('ID')); // off again
+    expect(['Vehicle', 'ID', 'Insurance'].map(isOn)).toEqual([true, false, true]);
     await save();
-    expect(mockAddCategory).toHaveBeenCalledWith('Vehicle');
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ category: 'Vehicle' }), expect.anything());
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ tags: ['Vehicle', 'Insurance'] }), expect.anything());
+  });
+
+  test('a card can be saved with no tags', async () => {
+    await fillNewCard();
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ tags: [] }), expect.anything());
+  });
+
+  test('typing a new one adds it to the card, switched on', async () => {
+    await fillNewCard();
+    await fireEvent.press(screen.getByTestId('tag-add'));
+    await fireEvent.changeText(screen.getByTestId('new-tag-name'), ' Boat  papers ');
+    await fireEvent.press(screen.getByTestId('new-tag-submit'));
+    expect(isOn('Boat papers')).toBe(true);
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ tags: ['Boat papers'] }), expect.anything());
   });
 
   test('typing one that exists picks it instead of making a copy', async () => {
-    mockCategories = ['id', 'insurance', 'membership', 'other', 'Vehicle'];
+    mockCards = [makeCard({ id: 'c1', name: 'Mulkiya', tags: ['Vehicle'] })];
     await fillNewCard();
-    await fireEvent.press(screen.getByTestId('category-add'));
-    await fireEvent.changeText(screen.getByTestId('new-category-name'), 'INSURANCE');
-    await fireEvent.press(screen.getByTestId('new-category-submit'));
+    await fireEvent.press(screen.getByTestId('tag-add'));
+    await fireEvent.changeText(screen.getByTestId('new-tag-name'), 'VEHICLE');
+    await fireEvent.press(screen.getByTestId('new-tag-submit'));
+    await fireEvent.press(screen.getByTestId('tag-add'));
+    await fireEvent.changeText(screen.getByTestId('new-tag-name'), 'insurance');
+    await fireEvent.press(screen.getByTestId('new-tag-submit'));
     await save();
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ category: 'insurance' }), expect.anything());
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ tags: ['Vehicle', 'Insurance'] }), expect.anything());
   });
 
   test('a blank name says so and adds nothing', async () => {
     await fillNewCard();
-    await fireEvent.press(screen.getByTestId('category-add'));
-    await fireEvent.press(screen.getByTestId('new-category-submit'));
-    expect(screen.getByText(strings.edit.categoryNameError)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('tag-add'));
+    await fireEvent.press(screen.getByTestId('new-tag-submit'));
+    expect(screen.getByText(strings.edit.tagNameError)).toBeTruthy();
   });
 
-  test('a new card starts in the first category offered, as built-ins can be deleted', async () => {
-    mockCategories = ['Vehicle', 'other'];
-    await fillNewCard();
+  test("an existing card's tags are switched on and can be taken off", async () => {
+    mockCards = [makeCard({ id: 'c1', name: 'Gym', tags: ['Membership', 'Family'] })];
+    mockParams = { id: 'c1' };
+    await render(<EditCard />);
+    expect([isOn('Membership'), isOn('Family'), isOn('ID')]).toEqual([true, true, false]);
+    await fireEvent.press(chip('Family'));
     await save();
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ category: 'Vehicle' }), expect.anything());
+    expect(mockUpdate).toHaveBeenCalledWith('c1', expect.objectContaining({ tags: ['Membership'] }), expect.anything());
   });
 
-  test('a deleted category is not suggested back from the photo', async () => {
-    mockCategories = ['id', 'other'];
+  test('more tags than a card can have is refused on save', async () => {
+    await fillNewCard();
+    for (let i = 0; i < 9; i++) {
+      await fireEvent.press(screen.getByTestId('tag-add'));
+      await fireEvent.changeText(screen.getByTestId('new-tag-name'), `tag ${i}`);
+      await fireEvent.press(screen.getByTestId('new-tag-submit'));
+    }
+    await save();
+    expect(screen.getByText(strings.edit.errors['bad-tags'])).toBeTruthy();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  test('the photo suggests a tag: the kind of document, spelled as a tag already in use', async () => {
+    mockCards = [makeCard({ id: 'c1', name: 'Daman', tags: ['insurance'] })];
     mockAnalyze.mockResolvedValue({ category: { value: 'insurance', confidence: 0.9 } });
     await fillNewCard();
+    expect(isOn('insurance')).toBe(true);
     await save();
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ category: 'id' }), expect.anything());
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ tags: ['insurance'] }), expect.anything());
+  });
+
+  test('a photo read as Other suggests no tag', async () => {
+    mockAnalyze.mockResolvedValue({ category: { value: 'other', confidence: 0.9 } });
+    await fillNewCard();
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ tags: [] }), expect.anything());
   });
 });
 
@@ -486,7 +528,7 @@ describe('reading the card from its photo', () => {
     documentKey: KEY,
   };
 
-  test('a picked photo fills name, expiry and category, marked as suggested, and they are saved', async () => {
+  test('a picked photo fills name, expiry and tag, marked as suggested, and they are saved', async () => {
     mockAnalyze.mockResolvedValue({ ...emiratesId, category: { value: 'insurance', confidence: 0.8 }, text: 'UNITED ARAB EMIRATES' });
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-library'));
@@ -496,7 +538,7 @@ describe('reading the card from its photo', () => {
     expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
     await save();
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: 'Emirates ID', category: 'insurance', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: [], documentKey: KEY, folderId: null, readText: { front: 'UNITED ARAB EMIRATES', back: '' }, vertical: false },
+      { name: 'Emirates ID', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: ['Insurance'], documentKey: KEY, folderId: null, readText: { front: 'UNITED ARAB EMIRATES', back: '' }, vertical: false },
       expect.anything(),
     );
   });
@@ -520,11 +562,11 @@ describe('reading the card from its photo', () => {
     await act(async () => finish(emiratesId));
     expect(screen.getByTestId('card-name').props.value).toBe('My ID');
     expect(screen.queryByText(strings.edit.reading)).toBeNull();
-    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(2); // expiry and category
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(2); // expiry and tag
   });
 
-  test('editing an existing card keeps its saved name and category', async () => {
-    mockCards = [makeCard({ id: 'c1', name: 'Gym', category: 'membership' })];
+  test('editing an existing card keeps its saved name and tags', async () => {
+    mockCards = [makeCard({ id: 'c1', name: 'Gym', tags: ['Membership'] })];
     mockParams = { id: 'c1' };
     mockAnalyze.mockResolvedValue(emiratesId);
     await render(<EditCard />);
@@ -533,7 +575,7 @@ describe('reading the card from its photo', () => {
     await save();
     expect(mockUpdate).toHaveBeenCalledWith(
       'c1',
-      { name: 'Gym', category: 'membership', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: [], documentKey: KEY, folderId: null, readText: { front: '', back: '' }, vertical: false }, // blanks filled; the new front was read, and this card has no back
+      { name: 'Gym', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: ['Membership'], documentKey: KEY, folderId: null, readText: { front: '', back: '' }, vertical: false }, // blanks filled; the new front was read, and this card has no back
       expect.anything(),
     );
   });
@@ -612,7 +654,7 @@ describe('going back to the whole photo', () => {
 describe('a new card that looks like one already saved', () => {
   const KEY = 'b'.repeat(64);
   beforeEach(() => {
-    mockCards = [makeCard({ id: 'old', name: 'Emirates ID', category: 'id', documentKey: KEY, pinned: true, hasBack: true, backAspect: 1.586 })];
+    mockCards = [makeCard({ id: 'old', name: 'Emirates ID', tags: ['ID'], documentKey: KEY, pinned: true, hasBack: true, backAspect: 1.586 })];
     mockAnalyze.mockResolvedValue({ documentKey: KEY });
   });
 
@@ -637,7 +679,7 @@ describe('a new card that looks like one already saved', () => {
   });
 
   test('a replaced card stays in its folder unless one was picked for the new card', async () => {
-    mockCards = [makeCard({ id: 'old', name: 'Emirates ID', category: 'id', documentKey: KEY, folderId: 'fam' })];
+    mockCards = [makeCard({ id: 'old', name: 'Emirates ID', tags: ['ID'], documentKey: KEY, folderId: 'fam' })];
     answer(strings.edit.replace);
     await fillNewCard();
     await save();
@@ -689,7 +731,7 @@ describe('folders', () => {
     await render(<EditCard />);
     await fireEvent.press(screen.getByTestId('front-library'));
     expect(screen.getByTestId('folder-ins').props.accessibilityState).toEqual({ checked: true });
-    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3); // name, category, folder
+    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3); // name, tag, folder
     await save();
     expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'ins' }), expect.anything());
     expect(mockCreateFolder).not.toHaveBeenCalled();

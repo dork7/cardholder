@@ -104,12 +104,12 @@ export default function SettingsScreen() {
         <Section title={strings.ask.title}>
           <Button variant="secondary" label={strings.lookup.view} onPress={() => router.push('/lookup')} testID="view-lookup" />
         </Section>
-        <Section title={strings.categoriesScreen.title}>
+        <Section title={strings.tagsScreen.title}>
           <Button
             variant="secondary"
-            label={strings.categoriesScreen.manage}
-            onPress={() => router.push('/categories')}
-            testID="manage-categories"
+            label={strings.tagsScreen.manage}
+            onPress={() => router.push('/tags')}
+            testID="manage-tags"
           />
         </Section>
         <Section title={strings.settings.backup}>

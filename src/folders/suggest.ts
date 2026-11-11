@@ -1,5 +1,6 @@
 import { CardAnalysis } from '../analysis/types';
-import { Category, Folder } from '../cards/types';
+import { Category } from '../analysis/types';
+import { Folder } from '../cards/types';
 import { strings } from '../strings';
 import { findFolderNamed } from './names';
 

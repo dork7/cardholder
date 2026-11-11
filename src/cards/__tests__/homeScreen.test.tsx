@@ -7,9 +7,9 @@ import { FREE_CARD_LIMIT } from '../../config';
 import { strings } from '../../strings';
 
 let mockCards = [
-  makeCard({ id: 'a', name: 'Emirates ID', category: 'id' }),
-  makeCard({ id: 'b', name: 'Health insurance', category: 'insurance' }),
-  makeCard({ id: 'c', name: 'Gym', category: 'membership' }),
+  makeCard({ id: 'a', name: 'Emirates ID', tags: ['ID'] }),
+  makeCard({ id: 'b', name: 'Health insurance', tags: ['Insurance'] }),
+  makeCard({ id: 'c', name: 'Gym', tags: ['Membership'] }),
 ];
 
 const mockPush = jest.fn();
@@ -51,7 +51,7 @@ const mockSettingsSet = jest.fn(() => Promise.resolve());
 let mockHomeView: string | null = null;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
-const mockUpdate = jest.fn((_id: string, _fields: { category: string; tags?: string[] }) => Promise.resolve());
+const mockUpdate = jest.fn((_id: string, _fields: { tags?: string[] }) => Promise.resolve());
 const mockRefresh = jest.fn(() => Promise.resolve());
 jest.mock('../../analysis/readPhoto', () => ({ canReadText: true, readPhotoText: async (jpeg: string) => `TEXT ${jpeg}` }));
 // Stable across renders, as the real provider's services are.
@@ -61,7 +61,7 @@ const mockServices = {
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
     remove: (id: string) => mockRemove(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
-    update: (id: string, fields: { category: string }) => mockUpdate(id, fields),
+    update: (id: string, fields: { tags?: string[] }) => mockUpdate(id, fields),
     count: () => Promise.resolve(mockCards.length),
     lastChangeAt: () => Promise.resolve(1_000),
   },
@@ -75,8 +75,6 @@ jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     cards: mockCards,
     folders: mockFolders,
-    // As the provider builds it: the saved list plus any category a card holds.
-    categories: require('../categories').categoryOptions(['id', 'insurance', 'membership', 'other'], mockCards),
     unlocked: mockUnlocked,
     services: mockServices,
     openImportOnReady: false,
@@ -140,14 +138,14 @@ test('in development builds, Test AI opens the model bench', async () => {
   expect(mockPush).toHaveBeenCalledWith('/dev/models');
 });
 
-test('the stack shows every card until a type is chosen', async () => {
+test('the stack shows every card until a tag is chosen', async () => {
   await renderHome();
   expect(screen.getByTestId('card-stack').props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 3) });
 });
 
-test('choosing a type narrows the stack to cards of that type', async () => {
+test('choosing a tag narrows the stack to the cards that have it', async () => {
   await renderHome();
-  await act(async () => fireEvent.press(screen.getByRole('radio', { name: strings.categories.insurance })));
+  await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Insurance' })));
   await act(async () => {
     fireEvent(screen.getByTestId('card-stack-frame'), 'layout', {
       nativeEvent: { layout: { width: 340, height: 0, x: 0, y: 0 } },
@@ -201,15 +199,16 @@ test('settings can hide the folder filter and the manage shortcut separately', a
   expect(screen.queryByRole('button', { name: strings.folders.manage })).toBeNull();
 });
 
-test('types with no cards are not offered', async () => {
+test('only tags some card has are offered, after All', async () => {
   await renderHome();
-  expect(screen.getByRole('radio', { name: strings.categories.id })).toBeTruthy();
-  expect(screen.queryByRole('radio', { name: strings.categories.other })).toBeNull();
+  expect(screen.getByRole('radio', { name: strings.home.allTags }).props.accessibilityState).toMatchObject({ checked: true });
+  expect(screen.getByRole('radio', { name: 'ID' })).toBeTruthy();
+  expect(screen.queryByRole('radio', { name: 'Vehicle' })).toBeNull();
 });
 
-test('with only one type there is nothing to filter, so no filter is shown', async () => {
+test('with no tags on any card there is nothing to filter, so no filter is shown', async () => {
   const all = mockCards;
-  mockCards = [makeCard({ id: 'a', name: 'Emirates ID', category: 'id' }), makeCard({ id: 'b', name: 'Visa', category: 'id' })];
+  mockCards = [makeCard({ id: 'a', name: 'Emirates ID', tags: [] }), makeCard({ id: 'b', name: 'Visa', tags: [] })];
   try {
     await renderHome();
     expect(screen.queryByRole('radio')).toBeNull();
@@ -283,8 +282,8 @@ test('with no cards, home shows the empty state without search or filters', asyn
 test('pinned cards appear on the home page, stay put while searching, and open on tap', async () => {
   await withCards(
     [
-      makeCard({ id: 'a', name: 'Emirates ID', category: 'id', pinned: true }),
-      makeCard({ id: 'b', name: 'Gym', category: 'membership' }),
+      makeCard({ id: 'a', name: 'Emirates ID', tags: ['ID'], pinned: true }),
+      makeCard({ id: 'b', name: 'Gym', tags: ['Membership'] }),
     ],
     async () => {
       await renderHome();
@@ -324,9 +323,9 @@ describe('gallery view', () => {
     expect(screen.getByTestId('card-grid')).toBeTruthy();
     expect(screen.queryByTestId('card-stack')).toBeNull();
     for (const id of ['a', 'b', 'c']) expect(screen.getByTestId(`grid-${id}`)).toBeTruthy();
-    // Each tile has the card's name and its category.
+    // Each tile has the card's name and its tags.
     expect(within(screen.getByTestId('grid-b')).getByText('Health insurance')).toBeTruthy();
-    expect(within(screen.getByTestId('grid-b')).getByText(strings.categories.insurance)).toBeTruthy();
+    expect(within(screen.getByTestId('grid-b')).getByText('Insurance')).toBeTruthy();
     expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'gallery');
 
     await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
@@ -398,7 +397,7 @@ describe('gallery view', () => {
     await showGallery();
     await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
     await act(async () => fireEvent.press(screen.getByTestId('grid-b')));
-    await act(async () => fireEvent.press(screen.getByRole('radio', { name: strings.categories.insurance })));
+    await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Insurance' })));
     expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
     await answer(strings.common.delete);
@@ -482,19 +481,6 @@ describe('gallery view', () => {
     });
   });
 
-  test('moves the selected cards to the category picked, leaving the rest', async () => {
-    await showGallery();
-    await select('a', 'b');
-    await act(async () => fireEvent.press(screen.getByTestId('selection-category')));
-    expect(screen.getByText(strings.home.moveTo(2))).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByTestId('move-to-membership')));
-    expect(mockUpdate.mock.calls.map(([id, f]) => [id, f.category])).toEqual([
-      ['a', 'membership'],
-      ['b', 'membership'],
-    ]);
-    expect(screen.queryByTestId('selection-bar')).toBeNull();
-  });
-
   test('adds the tags chosen to every selected card, leaving the rest', async () => {
     await showGallery();
     await select('a', 'c');
@@ -506,8 +492,8 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(screen.getByTestId('tag-input-add')));
     await act(async () => fireEvent.press(screen.getByTestId('tag-sheet-apply')));
     expect(mockUpdate.mock.calls.map(([id, f]) => [id, f.tags])).toEqual([
-      ['a', ['Work', 'Family']],
-      ['c', ['Work', 'Family']],
+      ['a', ['ID', 'Work', 'Family']],
+      ['c', ['Membership', 'Work', 'Family']],
     ]);
     expect(screen.queryByTestId('selection-bar')).toBeNull();
   });

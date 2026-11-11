@@ -1,4 +1,3 @@
-import { categoryLabel } from './categories';
 import { displayName } from './display';
 import { Card, Folder } from './types';
 import { strings } from '../strings';
@@ -20,7 +19,7 @@ function section(title: string, text: string): string {
 // The card as a Markdown document: its details, then the text read off each side. The card's id is
 // the reference back to it, so a saved file can always be matched to the card it came from.
 export function cardMarkdown(card: Card, folders: readonly Folder[]): string {
-  const details: [string, string][] = [[s.category, categoryLabel(card.category)]];
+  const details: [string, string][] = [];
   if (card.expiresOn) {
     details.push([s.expires, card.expiresOn]);
     details.push([s.reminders, s.remindValue(card.remindDaysBefore)]);

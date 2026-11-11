@@ -33,13 +33,12 @@ export const CARD_CASES: CardCase[] = [
   },
 ];
 
-const doc = (id: string, name: string, category: string, expiresOn: string | null, text: string): Card => ({
+const doc = (id: string, name: string, tag: string, expiresOn: string | null, text: string): Card => ({
   id,
   name,
-  category,
   expiresOn,
   remindDaysBefore: 14,
-  tags: [],
+  tags: [tag],
   documentKey: null,
   folderId: null,
   readText: { front: text, back: '' },
@@ -56,11 +55,11 @@ const doc = (id: string, name: string, category: string, expiresOn: string | nul
 
 // The documents the questions are asked over, all at once, as on a phone with several documents.
 export const ASK_DOCS: Card[] = [
-  doc('car-insurance', 'Car insurance', 'insurance', '2027-05-31', 'ORIENT INSURANCE\nMotor policy\nPolicy No. MP-55210\nPolicy expiry: 31/05/2027\nPlate 12345 Dubai'),
-  doc('passport', 'Passport', 'id', '2032-02-01', 'PASSPORT\nREPUBLIC OF ICELAND\nSurname: JONSDOTTIR\nGiven names: ANNA\nPassport No. A9988776\nDate of expiry 01 FEB 2032'),
-  doc('gym', "Gold's Gym", 'membership', '2027-06-30', "GOLD'S GYM\nDUBAI MARINA\nMember ID 88213\nExp 06/2027"),
+  doc('car-insurance', 'Car insurance', 'Insurance', '2027-05-31', 'ORIENT INSURANCE\nMotor policy\nPolicy No. MP-55210\nPolicy expiry: 31/05/2027\nPlate 12345 Dubai'),
+  doc('passport', 'Passport', 'ID', '2032-02-01', 'PASSPORT\nREPUBLIC OF ICELAND\nSurname: JONSDOTTIR\nGiven names: ANNA\nPassport No. A9988776\nDate of expiry 01 FEB 2032'),
+  doc('gym', "Gold's Gym", 'Membership', '2027-06-30', "GOLD'S GYM\nDUBAI MARINA\nMember ID 88213\nExp 06/2027"),
   doc('vehicle', 'Vehicle licence', 'Vehicle', '2026-08-14', 'VEHICLE LICENCE\nTraffic Code 50\nPlate No. 12345\nModel: Toyota Corolla 2021\nColour: White\nExpiry: 14/08/2026'),
-  doc('health', 'Health insurance', 'insurance', '2027-12-31', 'DAMAN\nThiqa\nMember Name: LAYLA HASSAN\nPolicy No. 1100 2345 6789\nValid Until: 31-12-2027'),
+  doc('health', 'Health insurance', 'Insurance', '2027-12-31', 'DAMAN\nThiqa\nMember Name: LAYLA HASSAN\nPolicy No. 1100 2345 6789\nValid Until: 31-12-2027'),
 ];
 
 export const ASK_CASES: AskCase[] = [

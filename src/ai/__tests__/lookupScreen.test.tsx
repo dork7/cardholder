@@ -14,7 +14,7 @@ jest.mock('../../app/AppProvider', () => ({ useApp: () => mockApp }));
 
 async function setup() {
   const { store } = await makeStore();
-  const card = await store.create(fields({ name: 'Emirates ID', category: 'id' }), images('a'));
+  const card = await store.create(fields({ name: 'Emirates ID', tags: ['ID'] }), images('a'));
   mockApp = { cards: [card], services: { store } };
   return { store, card };
 }
@@ -34,7 +34,7 @@ test('with no lookup file yet, offers to create one, then shows it', async () =>
 test('says when the lookup file is out of date, and recreating it brings it up to date', async () => {
   const { store, card } = await setup();
   await store.saveLookup('# old', [card.id]);
-  const edited = await store.update(card.id, fields({ name: 'Passport', category: 'id' }));
+  const edited = await store.update(card.id, fields({ name: 'Passport', tags: ['ID'] }));
   mockApp = { ...mockApp, cards: [edited] };
   await render(<LookupScreen />);
   await waitFor(() => expect(screen.getByText(strings.lookup.stale)).toBeTruthy());

@@ -1,5 +1,4 @@
 import { normalizeDigits } from '../analysis/smartExtract';
-import { categoryLabel } from '../cards/categories';
 import { displayName } from '../cards/display';
 import { Card } from '../cards/types';
 import { lookupHeader, parseLookup } from './lookup';
@@ -69,9 +68,9 @@ export function questionWords(question: string): string[][] {
   return [...new Set(words)].map((w) => SYNONYMS.find((group) => group.includes(w)) ?? [w]);
 }
 
-// How well a document matches the question's words: its name, category and tags count most.
+// How well a document matches the question's words: its name and tags count most.
 export function score(card: Card, words: string[][]): number {
-  const head = normalize(`${displayName(card)} ${categoryLabel(card.category)} ${card.tags.join(' ')}`);
+  const head = normalize(`${displayName(card)} ${card.tags.join(' ')}`);
   const body = card.readText ? normalize(`${card.readText.front} ${card.readText.back}`) : '';
   let total = 0;
   for (const group of words) {
