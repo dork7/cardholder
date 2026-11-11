@@ -15,6 +15,9 @@ const mockDownloads: {
 const mockRelease = jest.fn(async () => {});
 let mockPrefsText: string | null = null;
 let mockGpu: boolean | null = null;
+// What Android's download manager holds for each model's file, as found at launch.
+const mockBackground: Record<string, string> = {};
+const mockDropped: string[] = [];
 jest.mock('../localModel', () => {
   const { createPrefs } = jest.requireActual('../../ai/localModelPrefs');
   const { CATALOG } = jest.requireActual('../../ai/catalog');
@@ -29,6 +32,8 @@ jest.mock('../localModel', () => {
     isDownloaded,
     prefs,
     releaseLocalModel: () => mockRelease(),
+    backgroundDownloadState: (e: { id: string }) => mockBackground[e.id] ?? 'none',
+    dropBackgroundDownload: (e: { id: string }) => void mockDropped.push(e.id),
     onGpu: () => mockGpu,
     // Kept on the mock: the store subscribes when it is imported, before this file's variables exist.
     loadListeners,
@@ -185,4 +190,25 @@ test('says where the model runs, and updates when it loads', async () => {
   await act(() => (local as unknown as { loadListeners: (() => void)[] }).loadListeners.forEach((l) => l()));
   expect(result.current.onGpu).toBe(true);
   mockGpu = null;
+});
+
+test('at launch, a download Android carried on with is picked back up and its model put in use', async () => {
+  mockBackground['qwen2.5-0.5b'] = 'done';
+  const result = await all();
+  await act(async () => store.resumeModelDownloads());
+  delete mockBackground['qwen2.5-0.5b'];
+  expect(result.current.downloading).toBe('qwen2.5-0.5b');
+  await act(async () => mockDownloads[0].resolve());
+  expect(result.current.models['qwen2.5-0.5b']).toEqual({ status: 'present' });
+  expect(result.current.active).toBe('qwen2.5-0.5b');
+});
+
+test('at launch, a download that failed while the app was closed is reported, not started again', async () => {
+  mockBackground['llama3.2-1b'] = 'failed';
+  const result = await all();
+  await act(async () => store.resumeModelDownloads());
+  delete mockBackground['llama3.2-1b'];
+  expect(mockDropped).toContain('llama3.2-1b');
+  expect(mockDownloads).toHaveLength(0);
+  expect(result.current.models['llama3.2-1b']).toEqual({ status: 'absent', failure: 'network' });
 });

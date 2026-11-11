@@ -2,8 +2,10 @@ import { useSyncExternalStore } from 'react';
 import { CATALOG, entry, LocalModelId } from '../ai/catalog';
 import { AskWith } from '../ai/localModelPrefs';
 import {
+  backgroundDownloadState,
   deleteModel,
   downloadModel,
+  dropBackgroundDownload,
   isDownloaded,
   ModelCheckError,
   NoSpaceError,
@@ -112,6 +114,29 @@ export async function startModelDownload(id: LocalModelId): Promise<void> {
   } finally {
     if (downloading?.abort === abort) downloading = null;
     refresh();
+  }
+}
+
+// At launch: a download Android carried on with (or finished) while the app was closed is picked back
+// up, so its model is put in place without the user opening Settings. One that failed meanwhile is
+// only reported: starting it again is the user's call (ADR 0005).
+export function resumeModelDownloads(): void {
+  for (const e of CATALOG) {
+    if (isDownloaded(e.id)) continue;
+    let found: ReturnType<typeof backgroundDownloadState>;
+    try {
+      found = backgroundDownloadState(e);
+    } catch (err) {
+      console.warn('Looking for a model download under way failed', err);
+      return;
+    }
+    if (found === 'failed') {
+      dropBackgroundDownload(e);
+      failures[e.id] = 'network';
+      refresh();
+    } else if (found !== 'none' && !downloading) {
+      void startModelDownload(e.id);
+    }
   }
 }
 

@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { CATALOG, entry, LocalModelEntry, LocalModelId } from '../ai/catalog';
 import { Loaded, loadWithFallback, runWithFallback } from '../ai/loadWithFallback';
 import { createPrefs } from '../ai/localModelPrefs';
+import { backgroundDownloader, BackgroundNoSpaceError, BackgroundStatus, downloadInBackground } from './backgroundDownload';
 import { buildMessages, parseSuggestion, SmartSuggestion, SUGGESTION_SCHEMA } from './smartExtract';
 import { SMART_TIMEOUT_MS, SmartReader } from './types';
 
@@ -42,20 +43,53 @@ export function activeEntry(): LocalModelEntry | null {
 export class ModelCheckError extends Error {}
 export class NoSpaceError extends Error {}
 
+// Room for the model plus some to spare, so the phone isn't left full.
+const SPARE_BYTES = 200_000_000;
+const needRoom = (bytes: number) => {
+  if (Paths.availableDiskSpace < bytes + SPARE_BYTES) throw new NoSpaceError('Not enough free space');
+};
+
+// Where Android's download manager is with this model's file: 'none' when it has nothing, and always
+// 'none' where the app downloads the file itself (iPhone).
+export const backgroundDownloadState = (e: LocalModelEntry): BackgroundStatus['state'] =>
+  backgroundDownloader?.status(e.file).state ?? 'none';
+
+// Drops what the download manager holds for this model (a failed download found at launch).
+export const dropBackgroundDownload = (e: LocalModelEntry): void => backgroundDownloader?.cancel(e.file);
+
 // Downloads to a .part file, checks it, and only then moves it into place, so an interrupted or
 // corrupted download never leaves a model behind. Progress is 0–1, or null if the size is unknown.
 // Callers must have the user's go-ahead: model downloads are the app's own use of the internet (ADR 0005).
+// On Android the system's download manager does the downloading (src/analysis/backgroundDownload.ts),
+// so it carries on with the app closed or the phone locked; calling this again picks it back up.
 export async function downloadModel(e: LocalModelEntry, onProgress?: (fraction: number | null) => void, signal?: AbortSignal): Promise<void> {
-  // Room for the model plus some to spare, so the phone isn't left full.
-  if (Paths.availableDiskSpace < e.bytes + 200_000_000) throw new NoSpaceError('Not enough free space');
   modelDir().create({ intermediates: true, idempotent: true });
   const part = partFile(e);
   try {
-    await File.downloadFileAsync(e.url, part, {
-      idempotent: true,
-      signal,
-      onProgress: ({ bytesWritten, totalBytes }) => onProgress?.(totalBytes > 0 ? bytesWritten / totalBytes : null),
-    });
+    if (backgroundDownloader) {
+      try {
+        await downloadInBackground(backgroundDownloader, {
+          url: e.url,
+          fileName: e.file,
+          title: e.name,
+          destUri: part.uri,
+          // The download lands outside the app's own storage and is then copied in: twice the room.
+          beforeStart: () => needRoom(e.bytes * 2),
+          beforeMove: () => needRoom(e.bytes),
+          onProgress,
+          signal,
+        });
+      } catch (err) {
+        throw err instanceof BackgroundNoSpaceError ? new NoSpaceError(err.message) : err;
+      }
+    } else {
+      needRoom(e.bytes);
+      await File.downloadFileAsync(e.url, part, {
+        idempotent: true,
+        signal,
+        onProgress: ({ bytesWritten, totalBytes }) => onProgress?.(totalBytes > 0 ? bytesWritten / totalBytes : null),
+      });
+    }
     if (part.size !== e.bytes || (await part.digest('SHA-256')) !== e.sha256) {
       throw new ModelCheckError('The downloaded model failed its check');
     }
@@ -275,6 +309,7 @@ export function deleteModel(id: LocalModelId): Promise<void> {
     if (loadedId === id) await releaseNow();
     if (lastOnGpu?.id === id) lastOnGpu = null;
     for (const file of [modelFile(e), partFile(e)]) if (file.exists) file.delete();
+    backgroundDownloader?.cancel(e.file);
     // A fresh download tries the GPU again.
     prefs.clearCpuOnly(id);
     if (wasActive) prefs.update({ active: CATALOG.find((c) => isDownloaded(c.id))?.id ?? null });
