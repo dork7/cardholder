@@ -1,5 +1,5 @@
 import { analyzeText } from '../analyze';
-import { detectDocumentType, suggestedCategory } from '../documentType';
+import { detectDocumentType, suggestedTag } from '../documentType';
 import { findMrz } from '../mrz';
 import { OcrResult } from '../types';
 
@@ -53,21 +53,26 @@ describe('the document type, from its main text', () => {
   });
 });
 
-describe('the category suggested', () => {
+describe('the tag suggested', () => {
   const residency = { value: 'Residency', confidence: 0.85 };
   const id = { value: 'id' as const, confidence: 0.9 };
 
-  test("is the document's type, as a new category when the user has none by that name", () => {
-    expect(suggestedCategory({ documentType: residency, category: id }, ['id', 'other'])).toEqual(residency);
+  test("is the document's type, as a new tag when the user has none by that name", () => {
+    expect(suggestedTag({ documentType: residency, category: id }, ['ID'])).toEqual({ value: ['Residency'], confidence: 0.85 });
   });
 
-  test('reuses a category the user already has, whatever its case', () => {
-    expect(suggestedCategory({ documentType: residency }, ['id', 'residency'])).toEqual({ value: 'residency', confidence: 0.85 });
+  test('reuses a tag the user already has, whatever its case', () => {
+    expect(suggestedTag({ documentType: residency }, ['ID', 'residency'])).toEqual({ value: ['residency'], confidence: 0.85 });
   });
 
-  test('without a type, the built-in guess, only while the user still has that category', () => {
-    expect(suggestedCategory({ category: id }, ['id', 'other'])).toEqual(id);
-    expect(suggestedCategory({ category: id }, ['other'])).toBeUndefined();
-    expect(suggestedCategory({}, ['id'])).toBeUndefined();
+  test("without a type, the broad kind's tag, spelled as the user already has it", () => {
+    expect(suggestedTag({ category: id }, [])).toEqual({ value: ['ID'], confidence: 0.9 });
+    expect(suggestedTag({ category: id }, ['Id'])).toEqual({ value: ['Id'], confidence: 0.9 });
+    expect(suggestedTag({ category: { value: 'insurance', confidence: 0.7 } }, [])).toEqual({ value: ['Insurance'], confidence: 0.7 });
+  });
+
+  test('Other, or nothing read, suggests no tag', () => {
+    expect(suggestedTag({ category: { value: 'other', confidence: 0.6 } }, ['ID'])).toBeUndefined();
+    expect(suggestedTag({}, ['ID'])).toBeUndefined();
   });
 });

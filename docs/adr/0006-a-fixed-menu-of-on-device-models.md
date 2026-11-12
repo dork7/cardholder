@@ -1,5 +1,5 @@
 ---
-status: accepted 2026-11-10
+status: superseded 2026-11-11 by ADR 0007 (no language model in the app)
 ---
 
 # A fixed menu of on-device models, GPU first

@@ -1,40 +1,12 @@
-import { CATEGORY_MAX_LENGTH } from '../config';
-
-// The categories the app comes with, stored by these keys and shown by their labels in strings.ts.
-export const CATEGORIES = ['id', 'insurance', 'membership', 'other'] as const;
-export type Category = (typeof CATEGORIES)[number];
-
-// A card's category: one the app comes with, or the name of one the user typed (stored as typed,
-// e.g. "Vehicle"). A typed name never equals a built-in key (see resolveCategory).
-export type CardCategory = Category | (string & {});
-
-export const isBuiltInCategory = (v: string): v is Category => (CATEGORIES as readonly string[]).includes(v);
-
-// Categories that were dropped, and where cards saved under them now belong.
-const RETIRED_CATEGORIES = new Map<string, Category>([['loyalty', 'other']]);
-
-// Trims and collapses spaces; null when blank or too long.
-export function categoryName(v: string): string | null {
-  const name = v.trim().replace(/\s+/g, ' ');
-  return name !== '' && [...name].length <= CATEGORY_MAX_LENGTH ? name : null;
-}
-
-// Reads a category from storage or a backup file, moving cards off retired categories.
-export function toCategory(v: unknown): CardCategory | undefined {
-  if (typeof v !== 'string') return undefined;
-  const builtIn = CATEGORIES.find((c) => c === v) ?? RETIRED_CATEGORIES.get(v);
-  return builtIn ?? categoryName(v) ?? undefined;
-}
-
 export interface CardFields {
   name: string; // '' when the card has no name
-  category: CardCategory;
   expiresOn: string | null; // YYYY-MM-DD, local calendar day
   remindDaysBefore: number; // daily reminders start this many days before expiresOn (1..MAX_REMIND_DAYS)
-  tags: string[]; // free-form, deduplicated ignoring case; [] when there are none
+  tags: string[]; // the groups the card is in, free-form, deduplicated ignoring case; [] when there are none
   documentKey: string | null; // hash of the document's own number, for spotting duplicates (src/analysis/documentKey.ts)
   folderId: string | null; // null when the card isn't in a folder
   readText: CardText | null; // what was read off the photos, for search; null until the card has been read
+  blurPreview: boolean; // blur pictures in home previews; the opened document stays readable
   vertical: boolean; // an upright card: shown turned on its side in the landscape slots of the home screen
 }
 

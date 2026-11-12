@@ -1,15 +1,14 @@
 import { FolderSuggestion } from '../folders/suggest';
 import { canAddCard } from '../purchases/limits';
 import { DEFAULT_REMIND_DAYS, READ_TEXT_MAX_LENGTH } from '../config';
-import { Card, CardCategory, CardFields, CardImage, CardText, FrontImage, ImageChanges, NewCardImages, PdfDocument } from './types';
+import { Card, CardFields, CardImage, CardText, FrontImage, ImageChanges, NewCardImages, PdfDocument } from './types';
 import { FieldError, parseRemindDays, validateCardFields } from './validate';
 
 export interface EditDraft {
   name: string;
-  category: CardCategory;
   expiresOn: string | null;
   remindDaysBefore: string; // as typed; checked on save
-  tags: string[]; // not edited here (tags are added from the card screen and the gallery); kept so an edit keeps them
+  tags: string[];
   documentKey: string | null;
   folderId: string | null;
   readText: CardText | null; // see CardFields; set as each photo is read
@@ -20,6 +19,7 @@ export interface EditDraft {
   removeBack: boolean;
   pdf: PdfDocument | null; // newly picked, or the saved one with a different cover page
   removePdf: boolean; // a photo replaced the saved PDF
+  blurPreview: boolean;
   vertical: boolean; // set from each new front picture's shape; the user can change it
 }
 
@@ -31,7 +31,6 @@ export type SavePlan =
   | { kind: 'create'; fields: CardFields; images: NewCardImages; newFolder: string | null }
   | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges; newFolder: string | null };
 
-// A new card starts in `defaultCategory`: the first one offered, as built-ins can be deleted.
 // Whether the user changed anything that closing the form would lose. The text read off the photos and
 // the document key follow from the photos, so they don't count on their own. Every edit replaces only
 // the fields it changes, so the rest keep their identity and a plain comparison is enough.
@@ -47,7 +46,6 @@ const PANEL_ORDER: FormPanel[] = ['photos', 'details', 'expiry'];
 const ERROR_PANEL: Record<SaveError, FormPanel> = {
   'front-required': 'photos',
   'name-too-long': 'details',
-  'bad-category': 'details',
   'bad-tags': 'details',
   'bad-expiry': 'expiry',
   'bad-reminder': 'expiry',
@@ -56,10 +54,9 @@ export function firstErrorPanel(errors: readonly SaveError[]): FormPanel | undef
   return PANEL_ORDER.find((panel) => errors.some((e) => ERROR_PANEL[e] === panel));
 }
 
-export function draftFor(card: Card | null, defaultCategory: CardCategory = 'id'): EditDraft {
+export function draftFor(card: Card | null): EditDraft {
   return {
     name: card?.name ?? '',
-    category: card?.category ?? defaultCategory,
     expiresOn: card?.expiresOn ?? null,
     remindDaysBefore: String(card?.remindDaysBefore ?? DEFAULT_REMIND_DAYS),
     tags: card?.tags ?? [],
@@ -75,6 +72,7 @@ export function draftFor(card: Card | null, defaultCategory: CardCategory = 'id'
     removeBack: false,
     pdf: null,
     removePdf: false,
+    blurPreview: card?.blurPreview ?? false,
     vertical: card?.vertical ?? false,
   };
 }
@@ -115,7 +113,7 @@ export function planSave(
 
 // Suggestions from reading the card's photos (src/analysis/). They fill the form, never save it, and
 // never overwrite something the user chose.
-export const SUGGESTABLE = ['name', 'category', 'expiresOn'] as const;
+export const SUGGESTABLE = ['name', 'tags', 'expiresOn'] as const;
 export type Suggestable = (typeof SUGGESTABLE)[number];
 
 type Touchable = Suggestable | 'folder';
@@ -128,12 +126,12 @@ export interface FormState {
   folderOffer: string | null; // no folder fits: the name of one the user can create for the card
 }
 
-export function formFor(card: Card | null, defaultCategory?: CardCategory): FormState {
-  // An existing card's category was chosen by the user, and so was its folder if it has one; its
+export function formFor(card: Card | null): FormState {
+  // An existing card's tags were chosen by the user, and so was its folder if it has one; its
   // name and expiry may still be blank.
-  const touched: Touchable[] = card ? ['category'] : [];
+  const touched: Touchable[] = card ? ['tags'] : [];
   if (card?.folderId) touched.push('folder');
-  return { draft: draftFor(card, defaultCategory), suggested: {}, touched, folderSuggested: false, folderOffer: null };
+  return { draft: draftFor(card), suggested: {}, touched, folderSuggested: false, folderOffer: null };
 }
 
 const isSuggestable = (key: string): key is Suggestable => (SUGGESTABLE as readonly string[]).includes(key);
@@ -197,8 +195,9 @@ export function applyAnalysis(
     if (!guess || state.touched.includes(field)) continue;
     const held = suggested[field];
     // Fill a blank field, or replace an earlier, weaker suggestion (e.g. the back's MRZ beats a date
-    // guessed from the front). Category is never blank, so it only takes the first or a stronger one.
-    const blank = field === 'category' ? true : draft[field] === '' || draft[field] === null;
+    // guessed from the front). A suggested tag is the card's only tag until the user picks their own.
+    const value = draft[field];
+    const blank = Array.isArray(value) ? value.length === 0 : value === '' || value === null;
     const allowed = held === undefined ? blank : guess.confidence > held;
     if (!allowed) continue;
     draft = { ...draft, [field]: guess.value };

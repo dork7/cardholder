@@ -141,7 +141,7 @@ describe('actions', () => {
     expect(alert).not.toHaveBeenCalled();
 
     mockShareCard.mockClear();
-    mockCards = [makeCard({ id: 'card1', category: 'id' })];
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
     await render(<CardView />);
     await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
     expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
@@ -289,7 +289,7 @@ describe('details (.md)', () => {
     expect(alert).not.toHaveBeenCalled();
 
     mockShareMarkdown.mockClear();
-    mockCards = [makeCard({ id: 'card1', category: 'id' })];
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
     await render(<CardView />);
     await fireEvent.press(screen.getByTestId('view-details'));
     await fireEvent.press(screen.getByTestId('save-markdown'));

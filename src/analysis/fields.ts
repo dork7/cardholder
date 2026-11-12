@@ -1,5 +1,5 @@
 import { NAME_MAX_LENGTH } from '../config';
-import { normalizeDigits, printedDateToIso } from './smartExtract';
+import { normalizeDigits, printedDateToIso } from './printedDate';
 import { Mrz } from './mrz';
 import { Guess, OcrLine } from './types';
 

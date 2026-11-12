@@ -20,7 +20,8 @@ import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/exp
 import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
 import { exportCardPdf, PdfUnavailableError, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
 import { cardMarkdown } from '../../src/cards/cardMarkdown';
-import { addTags, allTags, overTagLimit, removeTag } from '../../src/cards/batch';
+import { addTags, overTagLimit, removeTag } from '../../src/cards/batch';
+import { hasTag, isId, tagOptions } from '../../src/cards/tags';
 import { MAX_TAGS } from '../../src/config';
 import { AddTagPill, TagPill } from '../../src/ui/TagPill';
 import { TagSheet } from '../../src/ui/TagSheet';
@@ -76,7 +77,7 @@ export default function CardView() {
 
   // An ID is the one card worth a second thought before an unencrypted copy leaves the app.
   const confirmIfId = (action: string, go: () => void) => {
-    if (card.category === 'id') {
+    if (isId(card)) {
       Alert.alert(strings.card.shareIdTitle, strings.card.shareIdBody, [
         { text: strings.common.cancel, style: 'cancel' },
         { text: action, onPress: go },
@@ -381,7 +382,7 @@ export default function CardView() {
       <TagSheet
         visible={tagging}
         title={strings.tags.titleOne}
-        existing={allTags(cards).filter((t) => !card.tags.some((own) => own.toLocaleLowerCase() === t.toLocaleLowerCase()))}
+        existing={tagOptions(cards).filter((t) => !hasTag(card, t))}
         onApply={addTagsToCard}
         onClose={() => setTagging(false)}
       />

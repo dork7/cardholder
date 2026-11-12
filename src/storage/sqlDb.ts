@@ -34,6 +34,9 @@ const MIGRATIONS = [
   // Every card used to be pinned on creation and nothing could unpin it, so no pin was ever chosen.
   // Pins are now the user's choice: start everyone with none.
   `UPDATE cards SET pinned = 0, position = 0;`,
+  // Asking questions of a language model is gone, and with it the lookup file it read: a sealed
+  // summary of every document, which nothing reads any more.
+  `DELETE FROM settings WHERE key = 'lookup';`,
 ];
 
 export async function migrate(db: SqlDb): Promise<void> {

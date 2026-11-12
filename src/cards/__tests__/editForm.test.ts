@@ -23,10 +23,10 @@ test('a new card needs a front photo but no name', () => {
 
 test('a valid new card within the free limit is created', () => {
   const front = frontImage('f');
-  const plan = planSave({ ...draftFor(null), name: ' Gym ', category: 'membership', front }, free);
+  const plan = planSave({ ...draftFor(null), name: ' Gym ', tags: ['Membership'], front }, free);
   expect(plan).toEqual({
     kind: 'create',
-    fields: { name: 'Gym', category: 'membership', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
+    fields: { name: 'Gym', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
     images: { front, back: null },
     newFolder: null,
   });
@@ -39,12 +39,12 @@ test('a new card at the free limit goes to the paywall', () => {
 });
 
 test('editing is never limited and sends no image changes when none were made', () => {
-  const card = makeCard({ id: 'c9', name: 'Old', hasBack: true, backAspect: 1.5 });
+  const card = makeCard({ id: 'c9', name: 'Old', tags: ['Membership'], hasBack: true, backAspect: 1.5 });
   const plan = planSave({ ...draftFor(card), name: 'New' }, { existing: card, cardCount: 12, unlocked: false });
   expect(plan).toEqual({
     kind: 'update',
     id: 'c9',
-    fields: { name: 'New', category: 'membership', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
+    fields: { name: 'New', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
     changes: {},
     newFolder: null,
   });
@@ -67,10 +67,10 @@ test('a new front photo is sent on edit', () => {
 });
 
 test('draftFor fills from an existing card', () => {
-  const card = makeCard({ name: 'Visa', category: 'id', expiresOn: '2027-01-01' });
+  const card = makeCard({ name: 'Visa', tags: ['ID'], expiresOn: '2027-01-01' });
   expect(draftFor(card)).toEqual({
     name: 'Visa',
-    category: 'id',
+    tags: ['ID'],
     expiresOn: '2027-01-01',
     remindDaysBefore: '14',
     folderId: null,
@@ -80,11 +80,11 @@ test('draftFor fills from an existing card', () => {
     removeBack: false,
     pdf: null,
     removePdf: false,
-    tags: [],
     documentKey: null,
     readText: null,
     unreadSides: ['front'],
     vertical: false,
+    blurPreview: false,
   });
   expect(draftFor(makeCard({ hasBack: true })).unreadSides).toEqual(['front', 'back']);
   expect(draftFor(makeCard({ readText: { front: 'F', back: '' } })).unreadSides).toEqual([]);
@@ -93,14 +93,14 @@ test('draftFor fills from an existing card', () => {
 describe('suggestions from the photo', () => {
   const guess = <T,>(value: T, confidence: number) => ({ value, confidence });
 
-  test('fill blank fields and the category of a new card', () => {
+  test('fill blank fields and the tags of a new card', () => {
     const state = applyAnalysis(formFor(null), {
       name: guess('Daman', 0.6),
       expiresOn: guess('2027-12-31', 0.85),
-      category: guess('insurance' as const, 0.75),
+      tags: guess(['Insurance'], 0.75),
     });
-    expect(state.draft).toMatchObject({ name: 'Daman', expiresOn: '2027-12-31', category: 'insurance' });
-    expect(state.suggested).toEqual({ name: 0.6, expiresOn: 0.85, category: 0.75 });
+    expect(state.draft).toMatchObject({ name: 'Daman', expiresOn: '2027-12-31', tags: ['Insurance'] });
+    expect(state.suggested).toEqual({ name: 0.6, expiresOn: 0.85, tags: 0.75 });
   });
 
   test("a stronger read (the back's MRZ) replaces a weaker suggestion; a weaker one does not", () => {
@@ -119,14 +119,26 @@ describe('suggestions from the photo', () => {
     expect(state.draft.name).toBe('Health');
   });
 
-  test('an existing card keeps its category and any name it has', () => {
-    const card = makeCard({ name: 'Gym', category: 'membership', expiresOn: null });
+  test('an existing card keeps its tags and any name it has', () => {
+    const card = makeCard({ name: 'Gym', tags: ['Membership'], expiresOn: null });
     const state = applyAnalysis(formFor(card), {
       name: guess('Fitness First', 0.6),
-      category: guess('id' as const, 0.95),
+      tags: guess(['ID'], 0.95),
       expiresOn: guess('2028-06-30', 0.85),
     });
-    expect(state.draft).toMatchObject({ name: 'Gym', category: 'membership', expiresOn: '2028-06-30' });
+    expect(state.draft).toMatchObject({ name: 'Gym', tags: ['Membership'], expiresOn: '2028-06-30' });
+  });
+
+  test('a suggested tag gives way to a surer one, and to the tags the user picks', () => {
+    let state = applyAnalysis(formFor(null), { tags: guess(['Membership'], 0.6) });
+    state = applyAnalysis(state, { tags: guess(['Residency'], 0.85) });
+    expect(state.draft.tags).toEqual(['Residency']);
+    state = applyAnalysis(state, { tags: guess(['ID'], 0.7) });
+    expect(state.draft.tags).toEqual(['Residency']);
+    state = editField(state, { tags: ['Residency', 'Family'] });
+    expect(state.suggested.tags).toBeUndefined();
+    state = applyAnalysis(state, { tags: guess(['Passport'], 0.95) });
+    expect(state.draft.tags).toEqual(['Residency', 'Family']);
   });
 
   test('changing a photo is not a user edit of the fields', () => {

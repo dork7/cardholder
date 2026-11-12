@@ -15,9 +15,9 @@ jest.mock('../../app/AppProvider', () => ({
 }));
 
 const cards = [
-  makeCard({ id: 'a', name: 'Emirates ID', category: 'id' }),
-  makeCard({ id: 'b', name: 'Health insurance', category: 'insurance' }),
-  makeCard({ id: 'c', name: 'Gym', category: 'membership' }),
+  makeCard({ id: 'a', name: 'Emirates ID', tags: ['ID'] }),
+  makeCard({ id: 'b', name: 'Health insurance', tags: ['Insurance'] }),
+  makeCard({ id: 'c', name: 'Gym', tags: ['Membership'] }),
 ];
 
 async function renderStack(onOpen = jest.fn()) {
@@ -63,7 +63,7 @@ test('a single card has no pager', async () => {
 });
 
 describe('flipping', () => {
-  const twoSided = [makeCard({ id: 'a', name: 'Emirates ID', category: 'id', hasBack: true, backAspect: 1.586 }), cards[1]];
+  const twoSided = [makeCard({ id: 'a', name: 'Emirates ID', tags: ['ID'], hasBack: true, backAspect: 1.586 }), cards[1]];
 
   async function renderTwoSided() {
     await render(<CardStack cards={twoSided} onOpen={jest.fn()} />);

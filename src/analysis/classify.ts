@@ -1,10 +1,10 @@
-import { Category } from '../cards/types';
+import { Category } from './types';
 import { EMIRATES_ID, isBirthCertificate } from './fields';
-import { normalizeDigits } from './smartExtract';
+import { normalizeDigits } from './printedDate';
 import { Mrz } from './mrz';
 import { Guess } from './types';
 
-// Keyword rules on the card's text (phase 3a of the on-device AI plan). A strong sign, like a valid
+// Keyword rules on the card's text. A strong sign, like a valid
 // MRZ or an Emirates ID number, settles it; otherwise the category with the most weighted hits wins.
 const RULES: Record<Exclude<Category, 'other'>, [RegExp, number][]> = {
   id: [

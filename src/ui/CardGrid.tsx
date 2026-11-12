@@ -1,6 +1,5 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { categoryLabel } from '../cards/categories';
 import { displayName } from '../cards/display';
 import { expiryLabel, needsExpiryAlert } from '../cards/expiry';
 import { Card } from '../cards/types';
@@ -85,12 +84,12 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
         style={[
           styles.picture,
           {
-            backgroundColor: theme.surface,
+            backgroundColor: theme.bg,
             borderColor: checked ? theme.accent : 'transparent',
           },
         ]}
       >
-        <CardPicture uri={uri} vertical={card.vertical} radius={PICTURE_INNER_RADIUS} />
+        <CardPicture uri={uri} vertical={card.vertical} blurPreview={card.blurPreview} radius={PICTURE_INNER_RADIUS} />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim, borderRadius: PICTURE_INNER_RADIUS }]} />
         {alert && (
           <View style={styles.alert}>
@@ -126,8 +125,8 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
       <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
         {name}
       </Text>
-      <Text style={[styles.category, { color: theme.muted }]} numberOfLines={1}>
-        {categoryLabel(card.category)}
+      <Text style={[styles.tags, { color: theme.muted }]} numberOfLines={1}>
+        {card.tags.join(' · ')}
       </Text>
     </Pressable>
   );
@@ -162,5 +161,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   name: { fontSize: TYPE.secondary, fontWeight: '700' },
-  category: { fontSize: TYPE.caption },
+  tags: { fontSize: TYPE.caption },
 });

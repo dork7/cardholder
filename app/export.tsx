@@ -102,7 +102,7 @@ export default function ExportScreen() {
               <LiveText style={[styles.body, { color: theme.muted }]}>{strings.export.working}</LiveText>
             </View>
           ) : (
-            <Button label={strings.export.action} onPress={run} testID="export-run" />
+            <Button icon="backup" label={strings.export.action} onPress={run} testID="export-run" />
           )}
         </ScrollView>
       </KeyboardAvoidingView>

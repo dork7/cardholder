@@ -1,41 +1,44 @@
 import { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
-import { categoryLabel } from '../cards/categories';
-import { CardCategory } from '../cards/types';
+import { sameTag } from '../cards/tags';
 import { strings } from '../strings';
 import { TYPE, useTheme } from './theme';
 
 interface Props {
-  value: CardCategory | null;
-  onChange: (value: CardCategory | null) => void;
-  includeAll?: boolean;
-  categories: readonly CardCategory[];
+  tags: readonly string[]; // the chips, in order
+  selected: readonly string[]; // the ones switched on, matched ignoring case
+  onPress: (tag: string | null) => void; // null is the "All" chip
+  includeAll?: boolean; // a first "All" chip, on while nothing is selected
+  multiple?: boolean; // any number can be on (checkboxes); otherwise one at a time (radios)
   onAddNew?: () => void; // shows a last "+ New" chip
   wrap?: boolean; // onto as many lines as it takes, instead of one row that scrolls sideways
 }
 
-export function CategoryChips({ value, onChange, includeAll = false, categories, onAddNew, wrap = false }: Props) {
+// A row of tag chips: the home screen's filter (one at a time, with All), or a card's tags on the edit
+// screen (any number).
+export function TagChips({ tags, selected, onPress, includeAll = false, multiple = false, onAddNew, wrap = false }: Props) {
   const theme = useTheme();
-  const options: (CardCategory | null)[] = includeAll ? [null, ...categories] : [...categories];
+  const options: (string | null)[] = includeAll ? [null, ...tags] : [...tags];
   const chips: ReactNode = (
     <>
       {options.map((option) => {
-        const selected = option === value;
-        const label = option ? categoryLabel(option) : strings.home.allCategories;
+        const on = option === null ? selected.length === 0 : selected.some((t) => sameTag(t, option));
+        const label = option ?? strings.home.allTags;
         return (
           <Pressable
             key={option ?? 'all'}
-            onPress={() => onChange(option)}
-            accessibilityRole="radio"
+            onPress={() => onPress(option)}
+            accessibilityRole={multiple ? 'checkbox' : 'radio'}
             accessibilityLabel={label}
-            accessibilityState={{ checked: selected }}
+            accessibilityState={{ checked: on }}
+            testID={option === null ? 'tag-chip-all' : `tag-chip-${option}`}
             style={[
               styles.chip,
-              { backgroundColor: selected ? theme.accent : theme.bannerBg },
+              { backgroundColor: on ? theme.accent : theme.bannerBg },
             ]}
           >
-            <Text style={[styles.text, { color: selected ? theme.onAccent : theme.text, fontWeight: selected ? '700' : '400' }]}>
+            <Text style={[styles.text, { color: on ? theme.onAccent : theme.text, fontWeight: on ? '700' : '400' }]}>
               {label}
             </Text>
           </Pressable>
@@ -45,18 +48,18 @@ export function CategoryChips({ value, onChange, includeAll = false, categories,
         <Pressable
           onPress={onAddNew}
           accessibilityRole="button"
-          accessibilityLabel={strings.edit.newCategory}
-          testID="category-add"
+          accessibilityLabel={strings.edit.newTag}
+          testID="tag-add"
           style={[styles.chip, { backgroundColor: theme.bannerBg }]}
         >
-          <Text style={[styles.text, { color: theme.text }]}>+ {strings.edit.newCategoryChip}</Text>
+          <Text style={[styles.text, { color: theme.text }]}>+ {strings.edit.newTagChip}</Text>
         </Pressable>
       )}
     </>
   );
   if (wrap) {
     return (
-      <View style={[styles.row, styles.wrap]} accessibilityRole="radiogroup">
+      <View style={[styles.row, styles.wrap]} accessibilityRole={multiple ? undefined : 'radiogroup'}>
         {chips}
       </View>
     );
@@ -67,7 +70,7 @@ export function CategoryChips({ value, onChange, includeAll = false, categories,
       showsHorizontalScrollIndicator={false}
       style={styles.scroller}
       contentContainerStyle={styles.row}
-      accessibilityRole="radiogroup"
+      accessibilityRole={multiple ? undefined : 'radiogroup'}
     >
       {chips}
     </ScrollView>

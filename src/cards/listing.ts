@@ -1,6 +1,7 @@
 import { displayName } from './display';
 import { expiryStatus } from './expiry';
-import { Card, CardCategory } from './types';
+import { hasTag } from './tags';
+import { Card } from './types';
 
 const byName = (a: Card, b: Card) =>
   displayName(a).localeCompare(displayName(b), 'en', { sensitivity: 'base' }) || a.id.localeCompare(b.id);
@@ -18,12 +19,12 @@ export function splitPinned(sorted: Card[]): { pinned: Card[]; others: Card[] } 
 // folderId: only that folder's cards; null or left out shows every card.
 export function filterCards(
   cards: Card[],
-  filter: { query: string; category: CardCategory | null; folderId?: string | null },
+  filter: { query: string; tag: string | null; folderId?: string | null },
 ): Card[] {
   const query = filter.query.trim().toLowerCase();
   const compactQuery = compact(query);
   return cards.filter((card) => {
-    if (filter.category && card.category !== filter.category) return false;
+    if (filter.tag && !hasTag(card, filter.tag)) return false;
     if (filter.folderId && card.folderId !== filter.folderId) return false;
     if (query === '') return true;
     if (displayName(card).toLowerCase().includes(query)) return true;

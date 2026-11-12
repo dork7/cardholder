@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { normalizeTags } from '../cards/validate';
+import { normalizeTags, sameTag } from '../cards/tags';
 import { TAG_MAX_LENGTH } from '../config';
 import { strings } from '../strings';
 import { Button } from './Button';
@@ -11,12 +11,10 @@ import { TYPE, useTheme } from './theme';
 interface Props {
   visible: boolean;
   title: string;
-  existing: readonly string[]; // every tag already in use, to pick from
+  existing: readonly string[]; // the tags to pick from
   onApply: (tags: string[]) => void;
   onClose: () => void;
 }
-
-const sameTag = (a: string, b: string) => a.toLocaleLowerCase() === b.toLocaleLowerCase();
 
 // A sheet from the bottom for adding tags to one card or to the cards picked in the gallery: tap any
 // number of the tags already in use, or type new ones, then add them all at once.

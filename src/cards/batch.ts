@@ -1,14 +1,13 @@
 import { MAX_TAGS } from '../config';
 import { CardStore } from './cardStore';
-import { Card, CardCategory, CardFields } from './types';
-import { normalizeTags } from './validate';
+import { hasTag, normalizeTags, sameTag } from './tags';
+import { Card, CardFields } from './types';
 
 // Actions on several cards picked in the gallery. Each card is done on its own, so one failure doesn't
 // stop the rest; the result is how many failed.
 
 export const fieldsOf = (card: Card): CardFields => ({
   name: card.name,
-  category: card.category,
   expiresOn: card.expiresOn,
   remindDaysBefore: card.remindDaysBefore,
   tags: card.tags,
@@ -16,6 +15,7 @@ export const fieldsOf = (card: Card): CardFields => ({
   folderId: card.folderId,
   readText: card.readText,
   vertical: card.vertical,
+  blurPreview: card.blurPreview,
 });
 
 async function each(cards: Card[], what: string, run: (card: Card) => Promise<unknown>): Promise<number> {
@@ -44,14 +44,6 @@ export function togglePinned(store: CardStore, cards: Card[]): Promise<number> {
   );
 }
 
-export function moveToCategory(store: CardStore, cards: Card[], category: CardCategory): Promise<number> {
-  return each(
-    cards.filter((c) => c.category !== category),
-    'Changing the category',
-    (card) => store.update(card.id, { ...fieldsOf(card), category }),
-  );
-}
-
 export function removeAll(store: CardStore, cards: Card[]): Promise<number> {
   return each(cards, 'Delete', (card) => store.remove(card.id));
 }
@@ -74,10 +66,14 @@ export function addTags(store: CardStore, cards: Card[], tags: readonly string[]
 
 // Takes one tag off one card, matching it ignoring case.
 export function removeTag(store: CardStore, card: Card, tag: string): Promise<Card> {
-  const key = tag.toLocaleLowerCase();
-  return store.update(card.id, { ...fieldsOf(card), tags: card.tags.filter((t) => t.toLocaleLowerCase() !== key) });
+  return store.update(card.id, { ...fieldsOf(card), tags: card.tags.filter((t) => !sameTag(t, tag)) });
 }
 
-// Every tag in use, each spelled as it first appears, in alphabetical order.
-export const allTags = (cards: readonly Card[]): string[] =>
-  normalizeTags(cards.flatMap((c) => c.tags)).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+// Takes one tag off every card that has it, which deletes the tag: a tag exists only while a card has it.
+export function removeTagEverywhere(store: CardStore, cards: Card[], tag: string): Promise<number> {
+  return each(
+    cards.filter((c) => hasTag(c, tag)),
+    'Removing the tag',
+    (card) => removeTag(store, card, tag),
+  );
+}

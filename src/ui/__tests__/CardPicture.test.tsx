@@ -24,3 +24,13 @@ test('images are shown without a fade-in and with rounded corners', async () => 
   expect(img.props.fadeDuration).toBe(0);
   expect(img.props.style).toEqual(expect.arrayContaining([{ borderRadius: 20 }]));
 });
+
+
+test('blur covers both thumbnail and sharp layers and can be switched off', async () => {
+  await render(<CardPicture uri="thumb" sharpUri="full" vertical={false} blurPreview />);
+  expect(screen.getByTestId('card-picture').props.blurRadius).toBeGreaterThan(0);
+  expect(screen.getByTestId('card-picture-sharp').props.blurRadius).toBeGreaterThan(0);
+  await screen.rerender(<CardPicture uri="thumb" sharpUri="full" vertical={false} />);
+  expect(screen.getByTestId('card-picture').props.blurRadius).toBe(0);
+  expect(screen.getByTestId('card-picture-sharp').props.blurRadius).toBe(0);
+});

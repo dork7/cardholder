@@ -1,47 +1,46 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { resolveCategory } from '../cards/categories';
-import { CardCategory } from '../cards/types';
-import { CATEGORY_MAX_LENGTH } from '../config';
+import { resolveTag } from '../cards/tags';
+import { TAG_MAX_LENGTH } from '../config';
 import { strings } from '../strings';
 import { Button } from './Button';
 import { Field, useInputStyle } from './Field';
 import { useTheme } from './theme';
 
 interface Props {
-  categories: readonly CardCategory[]; // a typed name that matches one of these picks it instead
-  onSubmit: (category: CardCategory) => void;
+  tags: readonly string[]; // a typed name that matches one of these picks it instead
+  onSubmit: (tag: string) => void;
   onCancel: () => void;
 }
 
-// Typing a category that isn't in the list. Cancel on the left, the action on the right.
-export function CategoryNameInput({ categories, onSubmit, onCancel }: Props) {
+// Typing a tag that isn't in the list. Cancel on the left, the action on the right.
+export function TagNameInput({ tags, onSubmit, onCancel }: Props) {
   const theme = useTheme();
   const inputStyle = useInputStyle();
   const [name, setName] = useState('');
   const [error, setError] = useState(false);
 
   const submit = () => {
-    const category = resolveCategory(name, categories);
-    setError(category === null);
-    if (category !== null) onSubmit(category);
+    const tag = resolveTag(name, tags);
+    setError(tag === null);
+    if (tag !== null) onSubmit(tag);
   };
 
   return (
     <View style={styles.box}>
-      <Field label={strings.edit.newCategory} error={error ? strings.edit.categoryNameError : undefined}>
+      <Field label={strings.edit.newTag} error={error ? strings.edit.tagNameError : undefined}>
         <TextInput
-          testID="new-category-name"
+          testID="new-tag-name"
           value={name}
           onChangeText={(v) => {
             setName(v);
             setError(false);
           }}
           onSubmitEditing={submit}
-          placeholder={strings.edit.newCategoryPlaceholder}
+          placeholder={strings.edit.newTagPlaceholder}
           placeholderTextColor={theme.muted}
-          maxLength={CATEGORY_MAX_LENGTH}
-          accessibilityLabel={strings.edit.newCategory}
+          maxLength={TAG_MAX_LENGTH}
+          accessibilityLabel={strings.edit.newTag}
           autoFocus
           returnKeyType="done"
           style={inputStyle}
@@ -49,10 +48,10 @@ export function CategoryNameInput({ categories, onSubmit, onCancel }: Props) {
       </Field>
       <View style={styles.actions}>
         <View style={styles.action}>
-          <Button variant="secondary" label={strings.common.cancel} onPress={onCancel} testID="new-category-cancel" />
+          <Button variant="secondary" label={strings.common.cancel} onPress={onCancel} testID="new-tag-cancel" />
         </View>
         <View style={styles.action}>
-          <Button label={strings.edit.addCategory} onPress={submit} testID="new-category-submit" />
+          <Button label={strings.edit.addTag} onPress={submit} testID="new-tag-submit" />
         </View>
       </View>
     </View>

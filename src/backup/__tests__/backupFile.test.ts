@@ -115,7 +115,7 @@ describe('parseSnapshot', () => {
 
   test('rejects invalid card fields', async () => {
     const raw = rawSnapshot();
-    raw.cards[0].card.category = 'x'.repeat(25); // a typed category, but longer than one can be
+    raw.cards[0].card.expiresOn = '2027-02-30'; // not a day
     expect(await parseCode(raw)).toBe('invalid-contents');
   });
 
@@ -157,18 +157,22 @@ describe('parseSnapshot', () => {
   });
 });
 
-test('older backups with a card number, notes and Loyalty still import', () => {
+test('older backups with a card number, notes and a category still import, the category as a tag', () => {
   const raw = rawSnapshot();
   Object.assign(raw.cards[0].card, { number: '784', notes: 'Renew at ICP', category: 'loyalty' });
   const [card] = parseSnapshot(raw).cards.map((c) => c.card);
-  expect(card.category).toBe('other');
+  expect(card).not.toHaveProperty('category');
+  expect(card.tags).toEqual(['ID', 'Government']); // Loyalty was retired: no tag for it
+  const typed = rawSnapshot();
+  Object.assign(typed.cards[0].card, { category: 'Vehicle' });
+  expect(parseSnapshot(typed).cards[0].card.tags).toEqual(['Vehicle', 'ID', 'Government']);
   expect(card).not.toHaveProperty('number');
   expect(card).not.toHaveProperty('notes');
 });
 
 test('tags survive the round trip; a backup from before tags loads with none', async () => {
   const decoded = await decodeBackup(await encodeBackup(backupSnapshot(), 'correct horse', FAST), 'correct horse');
-  expect(decoded.cards[0].card.tags).toEqual(['Government']);
+  expect(decoded.cards[0].card.tags).toEqual(['ID', 'Government']);
   const old = rawSnapshot();
   delete old.cards[0].card.tags;
   expect(parseSnapshot(old).cards[0].card.tags).toEqual([]);
@@ -189,4 +193,16 @@ test('a card keeps its shape through a backup; one from before the setting takes
   old.cards[0].card.frontAspect = 0.63;
   delete old.cards[1].card.vertical;
   expect(parseSnapshot(old).cards.map((c) => c.card.vertical)).toEqual([true, old.cards[1].card.frontAspect < 1]);
+});
+
+
+test('backups preserve blur preferences; older and malformed values default to clear', async () => {
+  const snapshot = backupSnapshot();
+  snapshot.cards[0].card.blurPreview = true;
+  const restored = await decodeBackup(await encodeBackup(snapshot, 'backup passphrase', FAST), 'backup passphrase');
+  expect(restored.cards.map((entry) => entry.card.blurPreview)).toEqual([true, false]);
+  const old = rawSnapshot();
+  delete old.cards[0].card.blurPreview;
+  old.cards[1].card.blurPreview = 'true';
+  expect(parseSnapshot(old).cards.map((entry) => entry.card.blurPreview)).toEqual([false, false]);
 });

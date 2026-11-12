@@ -2,7 +2,7 @@ import { toHex } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
 import { EMIRATES_ID } from './fields';
 import { Mrz } from './mrz';
-import { normalizeDigits } from './smartExtract';
+import { normalizeDigits } from './printedDate';
 
 // What identifies the document itself, so a renewed card can be matched to the old one. An Emirates ID
 // number stays the same across renewals and is printed on the front and inside the back's MRZ; other

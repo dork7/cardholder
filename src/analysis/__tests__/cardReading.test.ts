@@ -1,7 +1,6 @@
-import { analyzeImage, analyzeText, SMART_CONFIDENCE } from '../analyze';
+import { analyzeImage, analyzeText } from '../analyze';
 import { checkDigit, findMrz } from '../mrz';
-import { SmartSuggestion } from '../smartExtract';
-import { OcrLine, OcrResult, SmartReader } from '../types';
+import { OcrLine, OcrResult } from '../types';
 
 const TODAY = '2026-10-22';
 
@@ -238,84 +237,5 @@ describe('analyzeImage', () => {
   test('gives up on a recognizer that takes too long', async () => {
     const recognize = () => new Promise<OcrResult>(() => {});
     await expect(analyzeImage('JPEG', { recognizer: { recognize }, timeoutMs: 10 })).rejects.toThrow('timed out');
-  });
-});
-
-describe('analyzeImage with the AI model', () => {
-  const recognizer = { recognize: async () => ocr(['GOLD CLUB', 'Valid thru 12/2029']) };
-  const reader = (suggestion: SmartSuggestion | null): SmartReader & { read: jest.Mock } => ({
-    read: jest.fn(async () => suggestion),
-  });
-
-  test('fills only what the rules left empty, and never overrides them', async () => {
-    // The rules read a name and an expiry here, but no category.
-    const recognizer = { recognize: async () => ocr(['ARK 7', 'Valid thru 12/2029']) };
-    const smart = reader({ name: 'Ark Club', expiresOn: '2031-01-31', category: 'membership' });
-    const result = await analyzeImage('JPEG', { recognizer, today: TODAY, smart });
-
-    expect(smart.read).toHaveBeenCalledWith('ARK 7\nValid thru 12/2029', expect.any(Object));
-    expect(result.name).toEqual({ value: 'Ark 7', confidence: 0.6 });
-    expect(result.expiresOn).toEqual({ value: '2029-12-31', confidence: 0.85 });
-    expect(result.category).toEqual({ value: 'membership', confidence: SMART_CONFIDENCE });
-  });
-
-  test('a field the model has no answer for stays as the rules left it', async () => {
-    const smart = reader({ name: null, expiresOn: null, category: null });
-    const plain = await analyzeImage('JPEG', { recognizer, today: TODAY });
-    expect(await analyzeImage('JPEG', { recognizer, today: TODAY, smart })).toEqual(plain);
-  });
-
-  test('is not asked when the photo has no text', async () => {
-    const smart = reader({ name: 'Made up', expiresOn: null, category: 'other' });
-    const result = await analyzeImage('JPEG', { recognizer: { recognize: async () => ocr([]) }, today: TODAY, smart });
-    expect(smart.read).not.toHaveBeenCalled();
-    expect(result.name).toBeUndefined();
-  });
-
-  test("the rules' answers stand when the model fails", async () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const smart: SmartReader = { read: async () => Promise.reject(new Error('out of memory')) };
-    const plain = await analyzeImage('JPEG', { recognizer, today: TODAY });
-    expect(await analyzeImage('JPEG', { recognizer, today: TODAY, smart })).toEqual(plain);
-    warn.mockRestore();
-  });
-
-  test("the smart reader's own time limit is used: a slow model gets longer, a quick one is cut off sooner", async () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    // The rules find no category here, so a model that answers in time fills it.
-    const recognizer = { recognize: async () => ocr(['ARK 7', 'Valid thru 12/2029']) };
-    const suggestion: SmartSuggestion = { name: null, expiresOn: null, category: 'membership' };
-    const slowButAllowed: SmartReader = { read: () => new Promise((r) => setTimeout(() => r(suggestion), 50)), timeoutMs: 1_000 };
-    expect((await analyzeImage('JPEG', { recognizer, today: TODAY, smart: slowButAllowed })).category).toEqual({
-      value: 'membership',
-      confidence: SMART_CONFIDENCE,
-    });
-    let signal: AbortSignal | undefined;
-    const neverAnswers: SmartReader = {
-      read: (_, s) => {
-        signal = s;
-        return new Promise(() => {});
-      },
-      timeoutMs: 10,
-    };
-    const plain = await analyzeImage('JPEG', { recognizer, today: TODAY });
-    expect(await analyzeImage('JPEG', { recognizer, today: TODAY, smart: neverAnswers })).toEqual(plain);
-    expect(signal?.aborted).toBe(true);
-    warn.mockRestore();
-  });
-
-  test('a model that takes too long is stopped, and the rules answer alone', async () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    let signal: AbortSignal | undefined;
-    const smart: SmartReader = {
-      read: (_, s) => {
-        signal = s;
-        return new Promise(() => {});
-      },
-    };
-    const plain = await analyzeImage('JPEG', { recognizer, today: TODAY });
-    expect(await analyzeImage('JPEG', { recognizer, today: TODAY, smart, smartTimeoutMs: 10 })).toEqual(plain);
-    expect(signal?.aborted).toBe(true);
-    warn.mockRestore();
   });
 });

@@ -9,8 +9,7 @@ interface CardOcrModule {
 // added, cards simply read as having no text, so the form gets no suggestions.
 const native = requireOptionalNativeModule<CardOcrModule>('CardOcr');
 
-// Whether this phone reads the text on cards at all. The AI model works on that text, so it is only
-// offered where there is some.
+// Whether this phone reads the text on cards at all.
 export const canReadText = Boolean(native?.recognize);
 
 export const cardTextRecognizer: TextRecognizer = {

@@ -11,7 +11,6 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
   return {
     id: 'card1',
     name: 'Gym',
-    category: 'membership',
     expiresOn: null,
     remindDaysBefore: 14,
     tags: [],
@@ -19,6 +18,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
     folderId: null,
     readText: null,
     vertical: false,
+    blurPreview: false,
     pinned: false,
     position: 0,
     hasBack: false,
@@ -32,7 +32,7 @@ export function makeCard(overrides: Partial<Card> = {}): Card {
 }
 
 export function fields(overrides: Partial<CardFields> = {}): CardFields {
-  return { name: 'Gym', category: 'membership', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false, ...overrides };
+  return { name: 'Gym', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false, ...overrides };
 }
 
 // Fake "JPEGs": readable markers so tests can check what came back and that nothing leaks.
@@ -62,9 +62,8 @@ export function backupSnapshot(): BackupSnapshot {
     cards: [
       importEntry('card1', {
         name: 'Emirates ID',
-        category: 'id',
         expiresOn: '2027-03-01',
-        tags: ['Government'],
+        tags: ['ID', 'Government'],
         pinned: true,
         readText: { front: 'UNITED ARAB EMIRATES', back: '' },
       }),

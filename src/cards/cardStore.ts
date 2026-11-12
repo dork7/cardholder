@@ -6,20 +6,13 @@ import { SqlDb } from '../storage/sqlDb';
 import { sortCards } from './listing';
 import { DEFAULT_REMIND_DAYS } from '../config';
 import { parseRemindDays, toCardText } from './validate';
-import { Card, CardCategory, CardFields, CardPdf, CATEGORIES, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument, toCategory } from './types';
+import { withLegacyCategory } from './tags';
+import { Card, CardFields, CardPdf, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument } from './types';
 
 export class FolderNotFoundError extends Error {
   constructor(id: string) {
     super(`Folder ${id} not found`);
     this.name = 'FolderNotFoundError';
-  }
-}
-
-// Deleting a category some cards still use; `cards` are those cards.
-export class CategoryInUseError extends Error {
-  constructor(public readonly cards: Card[]) {
-    super(`Category is used by ${cards.length} card(s)`);
-    this.name = 'CategoryInUseError';
   }
 }
 
@@ -55,20 +48,6 @@ export interface CardStore {
   renameFolder(id: string, name: string): Promise<Folder>;
   // Its cards stay, outside any folder.
   removeFolder(id: string): Promise<void>;
-  // The saved category list, in the order categories were added; the built-ins until it is changed.
-  listCategories(): Promise<CardCategory[]>;
-  addCategory(category: CardCategory): Promise<void>;
-  // Fails with CategoryInUseError while any card still uses it.
-  removeCategory(category: CardCategory): Promise<void>;
-  // The master lookup file for asking (src/ai/lookup.ts), sealed. Null until one is made.
-  loadLookup(): Promise<StoredLookup | null>;
-  saveLookup(markdown: string, ids: readonly string[]): Promise<StoredLookup>;
-}
-
-export interface StoredLookup {
-  markdown: string;
-  createdAt: number;
-  ids: string[]; // the documents it lists, to tell when it is out of date
 }
 
 export interface CardStoreDeps {
@@ -103,9 +82,6 @@ const KINDS: BlobKind[] = ['front', 'back', 'thumb', 'pdf'];
 const INSERT_SQL =
   'INSERT INTO cards (id, pinned, position, folder_id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
 const INSERT_FOLDER_SQL = 'INSERT INTO folders (id, payload, created_at) VALUES (?, ?, ?)';
-// Sealed like a folder's name, in the settings table: the user's own category names are theirs to keep private.
-const CATEGORIES_KEY = 'categories';
-const LOOKUP_KEY = 'lookup';
 
 export const blobName = (id: string, kind: BlobKind) => `${id}.${kind}`;
 
@@ -129,7 +105,6 @@ export function createCardStore({
   const seal = (card: Card): Uint8Array => {
     const payload: Payload = {
       name: card.name,
-      category: card.category,
       expiresOn: card.expiresOn,
       remindDaysBefore: card.remindDaysBefore,
       tags: card.tags,
@@ -140,25 +115,27 @@ export function createCardStore({
       pdf: card.pdf,
       readText: card.readText,
       vertical: card.vertical,
+      blurPreview: card.blurPreview,
     };
     return aead.seal(utf8.encode(JSON.stringify(payload)));
   };
 
   const toCard = (row: Row): Card => {
     const payload = JSON.parse(utf8.decode(aead.open(row.payload))) as Payload;
-    // Built field by field: older payloads can still hold a card number and notes, and a retired category.
+    // Built field by field: older payloads can still hold a card number and notes, and a category
+    // from before categories became tags, which is read as the card's first tag.
     return {
       name: payload.name,
-      category: toCategory(payload.category) ?? 'other',
       expiresOn: payload.expiresOn,
       remindDaysBefore: parseRemindDays(payload.remindDaysBefore) ?? DEFAULT_REMIND_DAYS, // cards saved before the setting
-      tags: Array.isArray(payload.tags) ? payload.tags : [], // cards saved before tags have none
+      tags: withLegacyCategory(Array.isArray(payload.tags) ? payload.tags : [], (payload as { category?: unknown }).category), // cards saved before tags have none
       documentKey: payload.documentKey ?? null,
       hasBack: payload.hasBack,
       frontAspect: payload.frontAspect,
       backAspect: payload.backAspect,
       pdf: isCardPdf(payload.pdf) ? payload.pdf : null,
       readText: toCardText(payload.readText), // null for cards saved before text was kept
+      blurPreview: payload.blurPreview === true,
       vertical: typeof payload.vertical === 'boolean' ? payload.vertical : looksVertical(payload.frontAspect),
       id: row.id,
       pinned: row.pinned === 1,
@@ -176,18 +153,6 @@ export function createCardStore({
     createdAt: row.created_at,
   });
   const folderName = (name: string) => name.trim();
-
-  const readCategories = async (): Promise<CardCategory[]> => {
-    const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', [CATEGORIES_KEY]);
-    if (!row) return [...CATEGORIES];
-    const list = JSON.parse(utf8.decode(aead.open(base64.decode(row.value)))) as unknown;
-    return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string') : [...CATEGORIES];
-  };
-  const writeCategories = (list: CardCategory[]) =>
-    db.runAsync(
-      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-      [CATEGORIES_KEY, base64.encode(aead.seal(utf8.encode(JSON.stringify(list))))],
-    );
 
   const getRow = (id: string) => db.getFirstAsync<Row>('SELECT * FROM cards WHERE id = ?', [id]);
 
@@ -415,41 +380,11 @@ export function createCardStore({
       return folder;
     },
 
-    listCategories: readCategories,
-
-    async addCategory(category) {
-      const list = await readCategories();
-      if (!list.includes(category)) await writeCategories([...list, category]);
-    },
-
-    async removeCategory(category) {
-      const users = (await listCards()).filter((card) => card.category === category);
-      if (users.length > 0) throw new CategoryInUseError(users);
-      await writeCategories((await readCategories()).filter((c) => c !== category));
-    },
-
     async removeFolder(id) {
       await db.withTransactionAsync(async () => {
         await db.runAsync('UPDATE cards SET folder_id = NULL WHERE folder_id = ?', [id]);
         await db.runAsync('DELETE FROM folders WHERE id = ?', [id]);
       });
-    },
-
-    async loadLookup() {
-      const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', [LOOKUP_KEY]);
-      if (!row) return null;
-      const v = JSON.parse(utf8.decode(aead.open(base64.decode(row.value)))) as Partial<StoredLookup>;
-      if (typeof v.markdown !== 'string' || typeof v.createdAt !== 'number' || !Array.isArray(v.ids)) return null;
-      return { markdown: v.markdown, createdAt: v.createdAt, ids: v.ids.filter((id): id is string => typeof id === 'string') };
-    },
-
-    async saveLookup(markdown, ids) {
-      const lookup: StoredLookup = { markdown, createdAt: now(), ids: [...ids] };
-      await db.runAsync(
-        'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-        [LOOKUP_KEY, base64.encode(aead.seal(utf8.encode(JSON.stringify(lookup))))],
-      );
-      return lookup;
     },
   };
 }

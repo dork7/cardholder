@@ -1,3 +1,4 @@
+import { strings } from '../../strings';
 import { makeCard } from '../../../test/fixtures';
 import { cardMarkdown } from '../cardMarkdown';
 
@@ -8,10 +9,9 @@ test('lists the details, then the text read off each side, with the card id as t
   const card = makeCard({
     id: 'abc123',
     name: 'Residence',
-    category: 'Residency',
     expiresOn: '2027-03-14',
     remindDaysBefore: 14,
-    tags: ['Government', 'UAE'],
+    tags: ['Residency', 'UAE'],
     folderId: 'f1',
     hasBack: true,
     readText: { front: 'RESIDENCE PERMIT\nName: Hamza', back: 'Sponsor: ACME' },
@@ -22,10 +22,9 @@ test('lists the details, then the text read off each side, with the card id as t
     [
       '# Residence',
       '',
-      '- **Category:** Residency',
       '- **Expires:** 2027-03-14',
       '- **Reminders:** Daily, from 14 days before',
-      '- **Tags:** Government, UAE',
+      '- **Tags:** Residency, UAE',
       '- **Folder:** Family',
       '- **Source:** Photos of the front and back',
       '- **Added:** 2026-10-01',
@@ -49,8 +48,8 @@ test('lists the details, then the text read off each side, with the card id as t
 });
 
 test('leaves out what the card does not have', () => {
-  const md = cardMarkdown(makeCard({ name: '', category: 'membership', readText: { front: 'GYM', back: '' } }), []);
-  expect(md).toContain('# Membership');
+  const md = cardMarkdown(makeCard({ name: '', tags: [], readText: { front: 'GYM', back: '' } }), []);
+  expect(md).toContain(`# ${strings.card.unnamed}`);
   expect(md).not.toMatch(/Expires|Reminders|Tags|Folder|## Back/);
   expect(md).toContain('- **Source:** Photo of the front');
 });

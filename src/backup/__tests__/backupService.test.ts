@@ -8,7 +8,7 @@ const text = (b64: string | null) => (b64 === null ? null : utf8.decode(base64.d
 
 test('export from one phone, replace-import on another', async () => {
   const phoneA = await makeStore();
-  await phoneA.store.create(fields({ name: 'Emirates ID', category: 'id', expiresOn: '2027-03-01' }), images('id', true));
+  await phoneA.store.create(fields({ name: 'Emirates ID', tags: ['ID'], expiresOn: '2027-03-01' }), images('id', true));
   await phoneA.store.create(fields({ name: '' }), images('gym'));
 
   const bytes = await encodeBackup(await buildSnapshot(phoneA.store, 42), 'travel pass', { iterations: 1_000 });

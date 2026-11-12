@@ -10,7 +10,7 @@ export interface Chip {
   testID?: string;
 }
 
-// A scrolling row of pill chips, styled like CategoryChips. Choices are radios; an action chip is an
+// A scrolling row of pill chips, styled like TagChips. Choices are radios; an action chip is an
 // outlined button at the end of the row.
 export function ChipRow({ chips, accessibilityLabel }: { chips: Chip[]; accessibilityLabel?: string }) {
   const theme = useTheme();

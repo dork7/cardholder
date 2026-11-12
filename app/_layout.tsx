@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppProvider, useApp, useBoot } from '../src/app/AppProvider';
+import { removeModelFiles } from '../src/app/removeModelFiles';
 import { AppLockGate } from '../src/security/AppLockGate';
 import { BootScreen } from '../src/app/BootScreen';
 import { CrashPrompt } from '../src/diagnostics/CrashPrompt';
@@ -23,6 +24,7 @@ export default function RootLayout() {
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
     setupNotifications().catch((e) => console.warn('Notification setup failed', e));
+    removeModelFiles();
   }, []);
 
   // Fonts are bundled, so this resolves in milliseconds; the native splash screen covers it.
@@ -59,11 +61,10 @@ function RootNavigator() {
          <Stack.Screen name="settings" options={{ title: strings.settings.title }} />
          <Stack.Screen name="paywall" options={{ title: strings.paywall.title, presentation: 'modal' }} />
          <Stack.Screen name="folders" options={{ title: strings.folders.title }} />
-         <Stack.Screen name="categories" options={{ title: strings.categoriesScreen.title }} />
+         <Stack.Screen name="tags" options={{ title: strings.tagsScreen.title }} />
          <Stack.Screen name="export" options={{ title: strings.export.title, presentation: 'modal' }} />
          <Stack.Screen name="import" options={{ title: strings.import.title, presentation: 'modal' }} />
          <Stack.Screen name="privacy" options={{ title: strings.privacy.title }} />
-        <Stack.Screen name="lookup" options={{ title: strings.lookup.screenTitle }} />
        </Stack>
     </LockedApp>
   );
