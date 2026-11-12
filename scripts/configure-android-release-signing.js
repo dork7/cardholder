@@ -31,8 +31,9 @@ const releaseConfig = `
 
 src = src.replace(debugKeystore, (match) => `${match}${releaseConfig}`);
 
+// Newer Expo templates write `signingConfig = signingConfigs.debug`; older ones leave out the `=`.
 const releaseBuildType =
-  /release \{\s*\/\/ Caution! In production, you need to generate your own keystore file\.\s*\/\/ see https:\/\/reactnative\.dev\/docs\/signed-apk-android\.\s*signingConfig signingConfigs\.debug/;
+  /release \{\s*\/\/ Caution! In production, you need to generate your own keystore file\.\s*\/\/ see https:\/\/reactnative\.dev\/docs\/signed-apk-android\.\s*signingConfig( =)? signingConfigs\.debug/;
 
 if (!releaseBuildType.test(src)) {
   console.error('Could not find the release signingConfig line in android/app/build.gradle');
@@ -41,8 +42,8 @@ if (!releaseBuildType.test(src)) {
 
 src = src.replace(releaseBuildType, (match) =>
   match.replace(
-    'signingConfig signingConfigs.debug',
-    "signingConfig System.getenv('SIGNING_STORE_FILE') ? signingConfigs.release : signingConfigs.debug"
+    /signingConfig( =)? signingConfigs\.debug/,
+    "signingConfig$1 System.getenv('SIGNING_STORE_FILE') ? signingConfigs.release : signingConfigs.debug"
   )
 );
 
