@@ -23,7 +23,7 @@ import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 import { LiveText } from '../src/ui/LiveText';
-import { RetroIcon, RetroIconName } from '../src/ui/RetroIcon';
+import { ActionIconName, RetroIcon, RetroIconName } from '../src/ui/RetroIcon';
 
 export default function SettingsScreen() {
   const { services, cards, unlocked, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
@@ -83,7 +83,7 @@ export default function SettingsScreen() {
             testID="app-lock-switch"
           />
         </Section>
-        <Section icon="appearance" title={strings.settings.cardView}>
+        <Section icon="present" title={strings.settings.cardView}>
           <SwitchRow
             label={strings.settings.fullBrightness}
             hint={strings.settings.fullBrightnessHint}
@@ -236,7 +236,7 @@ function UpdateSection() {
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon?: RetroIconName; children: ReactNode }) {
+function Section({ title, icon, children }: { title: string; icon?: RetroIconName | ActionIconName; children: ReactNode }) {
   const theme = useTheme();
   return (
     <Panel style={styles.section}>
