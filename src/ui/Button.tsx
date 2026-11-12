@@ -1,8 +1,10 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
+import { RetroIcon, RetroIconName } from './RetroIcon';
 
 export interface ButtonProps {
+  icon?: RetroIconName;
   label: string;
   onPress: () => void;
   onLongPress?: () => void; // e.g. an action that must be held, so a stray tap can't trigger it
@@ -13,7 +15,7 @@ export interface ButtonProps {
   accessibilityHint?: string;
 }
 
-export function Button({ label, onPress, onLongPress, variant = 'primary', disabled = false, testID, accessibilityLabel, accessibilityHint }: ButtonProps) {
+export function Button({ icon, label, onPress, onLongPress, variant = 'primary', disabled = false, testID, accessibilityLabel, accessibilityHint }: ButtonProps) {
   const theme = useTheme();
   const primary = variant === 'primary';
   // Green is for the primary action only; a secondary button is white text in a grey outline.
@@ -41,6 +43,7 @@ export function Button({ label, onPress, onLongPress, variant = 'primary', disab
         },
       ]}
     >
+      {icon && <RetroIcon name={icon} size={24} color={primary ? labelColor : undefined} backgroundColor={primary ? theme.accent : undefined} />}
       <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
     </Pressable>
   );
@@ -49,6 +52,8 @@ export function Button({ label, onPress, onLongPress, variant = 'primary', disab
 const styles = StyleSheet.create({
   base: {
     minHeight: 48,
+    flexDirection: 'row',
+    gap: 10,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 9999,
@@ -57,5 +62,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   // Uppercase with wide tracking: the buttons' label voice, distinct from content text.
-  label: { fontSize: TYPE.secondary, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', textAlign: 'center' },
+  label: { flexShrink: 1, fontSize: TYPE.secondary, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', textAlign: 'center' },
 });

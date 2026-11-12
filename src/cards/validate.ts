@@ -16,6 +16,7 @@ export interface RawCardFields {
   folderId?: unknown;
   readText?: unknown;
   vertical?: unknown;
+  blurPreview?: unknown;
 }
 
 export type CardValidation = { ok: true; value: CardFields } | { ok: false; errors: FieldError[] };
@@ -77,6 +78,6 @@ export function validateCardFields(raw: RawCardFields): CardValidation {
   const documentKey = typeof raw.documentKey === 'string' && DOCUMENT_KEY.test(raw.documentKey) ? raw.documentKey : null;
   return {
     ok: true,
-    value: { name, expiresOn, remindDaysBefore, tags: withLegacyCategory(tags, raw.category), documentKey, folderId: toFolderId(raw.folderId), readText: toCardText(raw.readText), vertical: raw.vertical === true },
+    value: { name, expiresOn, remindDaysBefore, tags: withLegacyCategory(tags, raw.category), documentKey, folderId: toFolderId(raw.folderId), readText: toCardText(raw.readText), vertical: raw.vertical === true, blurPreview: raw.blurPreview === true },
   };
 }

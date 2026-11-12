@@ -3,14 +3,14 @@ import { validateCardFields } from '../validate';
 test('accepts a minimal card and normalises blanks', () => {
   expect(validateCardFields({ name: '  Gym  ', expiresOn: '' })).toEqual({
     ok: true,
-    value: { name: 'Gym', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
+    value: { name: 'Gym', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
   });
 });
 
 test('the name is optional', () => {
   expect(validateCardFields({ name: '   ' })).toEqual({
     ok: true,
-    value: { name: '', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
+    value: { name: '', expiresOn: null, remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
   });
   expect(validateCardFields({}).ok).toBe(true);
 });
@@ -18,7 +18,7 @@ test('the name is optional', () => {
 test('keeps a trimmed expiry date', () => {
   expect(validateCardFields({ name: 'Emirates ID', expiresOn: ' 2027-03-01 ' })).toEqual({
     ok: true,
-    value: { name: 'Emirates ID', expiresOn: '2027-03-01', remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false },
+    value: { name: 'Emirates ID', expiresOn: '2027-03-01', remindDaysBefore: 14, tags: [], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
   });
 });
 

@@ -109,7 +109,7 @@ export default function ImportScreen() {
     <Screen>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {step.kind === 'pick' && <Button label={strings.import.pickFile} onPress={pickFile} testID="import-pick" />}
+          {step.kind === 'pick' && <Button icon="import" label={strings.import.pickFile} onPress={pickFile} testID="import-pick" />}
 
           {step.kind === 'unlock' && (
             <>
@@ -135,7 +135,7 @@ export default function ImportScreen() {
               ) : (
                 <>
                   <Button label={strings.import.unlock} onPress={unlock} disabled={passphrase.length === 0} testID="import-unlock" />
-                  <Button variant="secondary" label={strings.import.pickFile} onPress={pickFile} />
+                  <Button icon="import" variant="secondary" label={strings.import.pickFile} onPress={pickFile} />
                 </>
               )}
             </>

@@ -29,7 +29,7 @@ test('a valid new card within the free limit is created', () => {
   const plan = planSave({ ...draftFor(null), name: ' Gym ', tags: ['Membership'], front }, free);
   expect(plan).toEqual({
     kind: 'create',
-    fields: { name: 'Gym', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, readText: null, vertical: false },
+    fields: { name: 'Gym', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
     images: { front, back: null },
     newFolder: null,
   });
@@ -47,7 +47,7 @@ test('editing is never limited and sends no image changes when none were made', 
   expect(plan).toEqual({
     kind: 'update',
     id: 'c9',
-    fields: { name: 'New', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, readText: null, vertical: false },
+    fields: { name: 'New', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
     changes: {},
     newFolder: null,
   });
@@ -87,6 +87,7 @@ test('draftFor fills from an existing card', () => {
     readText: null,
     unreadSides: ['front'],
     vertical: false,
+    blurPreview: false,
   });
   expect(draftFor(makeCard({ hasBack: true })).unreadSides).toEqual(['front', 'back']);
   expect(draftFor(makeCard({ readText: { front: 'F', back: '' } })).unreadSides).toEqual([]);

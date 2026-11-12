@@ -115,6 +115,7 @@ export function createCardStore({
       pdf: card.pdf,
       readText: card.readText,
       vertical: card.vertical,
+      blurPreview: card.blurPreview,
     };
     return aead.seal(utf8.encode(JSON.stringify(payload)));
   };
@@ -134,6 +135,7 @@ export function createCardStore({
       backAspect: payload.backAspect,
       pdf: isCardPdf(payload.pdf) ? payload.pdf : null,
       readText: toCardText(payload.readText), // null for cards saved before text was kept
+      blurPreview: payload.blurPreview === true,
       vertical: typeof payload.vertical === 'boolean' ? payload.vertical : looksVertical(payload.frontAspect),
       id: row.id,
       pinned: row.pinned === 1,

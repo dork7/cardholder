@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
@@ -27,6 +27,7 @@ import { Fab } from '../src/ui/Fab';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { PixelLogo } from '../src/ui/PixelLogo';
+import { RetroIcon } from '../src/ui/RetroIcon';
 import { PinnedStrip } from '../src/ui/PinnedStrip';
 import { Panel, Screen } from '../src/ui/Surface';
 import { TYPE, useTheme } from '../src/ui/theme';
@@ -382,7 +383,6 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
 
 function SettingsButton({ onPress }: { onPress: () => void }) {
   const theme = useTheme();
-  const stroke = { stroke: theme.text, strokeWidth: 2, strokeLinecap: 'round' as const };
   const { ref, onLongPress, tooltip } = useTooltip(strings.home.settings);
   return (
     <Pressable
@@ -395,11 +395,7 @@ function SettingsButton({ onPress }: { onPress: () => void }) {
       testID="open-settings"
       style={({ pressed }) => [styles.round, { borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
     >
-      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-        <Path d="M4 7h9M17 7h3M4 17h3M11 17h9" {...stroke} />
-        <Circle cx={15} cy={7} r={2} {...stroke} />
-        <Circle cx={9} cy={17} r={2} {...stroke} />
-      </Svg>
+      <RetroIcon name="settings" size={24} />
       {tooltip}
     </Pressable>
   );
@@ -426,16 +422,7 @@ function GalleryToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) 
         { borderColor: on ? theme.accent : theme.border, backgroundColor: on ? theme.accent : 'transparent', opacity: pressed ? 0.6 : 1 },
       ]}
     >
-      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-        {[
-          [4, 4],
-          [13, 4],
-          [4, 13],
-          [13, 13],
-        ].map(([x, y]) => (
-          <Rect key={`${x}-${y}`} x={x} y={y} width={7} height={7} rx={1.5} stroke={color} strokeWidth={2} />
-        ))}
-      </Svg>
+      <RetroIcon name="documents" size={24} color={on ? color : undefined} backgroundColor={on ? theme.accent : undefined} />
       {tooltip}
     </Pressable>
   );

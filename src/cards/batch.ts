@@ -15,6 +15,7 @@ export const fieldsOf = (card: Card): CardFields => ({
   folderId: card.folderId,
   readText: card.readText,
   vertical: card.vertical,
+  blurPreview: card.blurPreview,
 });
 
 async function each(cards: Card[], what: string, run: (card: Card) => Promise<unknown>): Promise<number> {

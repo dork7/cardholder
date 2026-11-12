@@ -22,6 +22,7 @@ import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 import { LiveText } from '../src/ui/LiveText';
+import { RetroIcon, RetroIconName } from '../src/ui/RetroIcon';
 
 export default function SettingsScreen() {
   const { services, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
@@ -60,7 +61,7 @@ export default function SettingsScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <Section title={strings.settings.security}>
+        <Section icon="lock" title={strings.settings.security}>
           <SwitchRow
             label={strings.settings.appLock}
             hint={strings.settings.appLockHint}
@@ -70,7 +71,7 @@ export default function SettingsScreen() {
             testID="app-lock-switch"
           />
         </Section>
-        <Section title={strings.settings.cardView}>
+        <Section icon="appearance" title={strings.settings.cardView}>
           <SwitchRow
             label={strings.settings.fullBrightness}
             hint={strings.settings.fullBrightnessHint}
@@ -94,14 +95,14 @@ export default function SettingsScreen() {
             testID="manage-tags"
           />
         </Section>
-        <Section title={strings.settings.backup}>
+        <Section icon="backup" title={strings.settings.backup}>
           <Text style={[styles.body, { color: theme.muted }]} testID="last-backup">
             {lastExportAt === null
               ? strings.settings.neverBackedUp
               : strings.settings.lastBackup(formatAgo(lastExportAt, Date.now()))}
           </Text>
-          <Button label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
-          <Button variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
+          <Button icon="backup" label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
+          <Button icon="import" variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
         </Section>
         {FOLDERS_ENABLED && (
           <>
@@ -220,13 +221,16 @@ function UpdateSection() {
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, icon, children }: { title: string; icon?: RetroIconName; children: ReactNode }) {
   const theme = useTheme();
   return (
     <Panel style={styles.section}>
-      <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
-        {title}
-      </Text>
+      <View style={styles.sectionHeading}>
+        {icon && <RetroIcon name={icon} size={28} />}
+        <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
+          {title}
+        </Text>
+      </View>
       {children}
     </Panel>
   );
@@ -263,6 +267,7 @@ function SwitchRow(props: {
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   section: { padding: 16, gap: 12 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { fontSize: TYPE.section, fontWeight: '700' },
   body: { fontSize: TYPE.body },
   caption: { fontSize: TYPE.secondary },

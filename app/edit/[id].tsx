@@ -373,6 +373,11 @@ export default function EditCard() {
     { key: 'vertical', label: strings.edit.vertical, selected: draft.vertical, onPress: () => update({ vertical: true }), testID: 'shape-vertical' },
   ];
 
+  const previewChips: Chip[] = [
+    { key: 'clear', label: strings.edit.previewClear, selected: !draft.blurPreview, onPress: () => update({ blurPreview: false }), testID: 'preview-clear' },
+    { key: 'blurred', label: strings.edit.previewBlurred, selected: draft.blurPreview, onPress: () => update({ blurPreview: true }), testID: 'preview-blurred' },
+  ];
+
   const frontUri = draft.front ? dataUri(draft.front.jpegBase64) : existingFront;
   const backUri = draft.back ? dataUri(draft.back.jpegBase64) : draft.removeBack ? null : existingBack;
 
@@ -448,6 +453,9 @@ export default function EditCard() {
                 <ChipRow chips={shapeChips} accessibilityLabel={strings.edit.shape} />
               </Field>
             )}
+            <Field icon="blur" label={strings.edit.blurPreview} hint={strings.edit.blurPreviewHint}>
+              <ChipRow chips={previewChips} accessibilityLabel={strings.edit.blurPreview} />
+            </Field>
             {reading > 0 && (
               <LiveText style={{ color: theme.muted, fontSize: 16 }} testID="reading-card">
                 {strings.edit.reading}

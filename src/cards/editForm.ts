@@ -19,6 +19,7 @@ export interface EditDraft {
   removeBack: boolean;
   pdf: PdfDocument | null; // newly picked, or the saved one with a different cover page
   removePdf: boolean; // a photo replaced the saved PDF
+  blurPreview: boolean;
   vertical: boolean; // set from each new front picture's shape; the user can change it
 }
 
@@ -71,6 +72,7 @@ export function draftFor(card: Card | null): EditDraft {
     removeBack: false,
     pdf: null,
     removePdf: false,
+    blurPreview: card?.blurPreview ?? false,
     vertical: card?.vertical ?? false,
   };
 }

@@ -4,7 +4,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { strings } from '../strings';
 import { Button } from '../ui/Button';
-import { Rosette } from '../ui/Rosette';
+import { PixelLogo } from '../ui/PixelLogo';
 import { Text } from '../ui/Text';
 import { TYPE, useTheme } from '../ui/theme';
 import { lockOnReturn } from './appLock';
@@ -78,14 +78,14 @@ export function AppLockGate({ enabled, children }: Props) {
       testID="app-lock"
     >
       <View style={styles.centre}>
-        <Rosette size={160} color={theme.rosette} />
+        <PixelLogo size={160} theme={theme} />
         <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
           {strings.lock.title}
         </Text>
         <Text style={[styles.body, { color: theme.muted }]}>{strings.lock.body}</Text>
       </View>
       <View style={styles.action}>
-        <Button label={strings.lock.unlock} onPress={() => void unlock()} testID="unlock" />
+        <Button icon="lock" label={strings.lock.unlock} onPress={() => void unlock()} testID="unlock" />
       </View>
     </View>
   );

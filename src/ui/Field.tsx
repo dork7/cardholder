@@ -3,13 +3,15 @@ import { StyleSheet, View } from 'react-native';
 import { FONT, Text } from './Text';
 import { useTheme } from './theme';
 import { LiveText } from './LiveText';
+import { RetroIcon, RetroIconName } from './RetroIcon';
 
 // `hint` is a short tag beside the label, e.g. "Suggested" when the value was read from the card.
-export function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: ReactNode }) {
+export function Field({ label, error, hint, icon, children }: { icon?: RetroIconName; label: string; error?: string; hint?: string; children: ReactNode }) {
   const theme = useTheme();
   return (
     <View style={styles.field}>
       <View style={styles.labelRow}>
+        {icon && <RetroIcon name={icon} size={24} />}
         <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
         {hint ? <Text style={[styles.hint, { color: theme.muted }]}>{hint}</Text> : null}
       </View>

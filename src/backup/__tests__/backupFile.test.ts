@@ -194,3 +194,15 @@ test('a card keeps its shape through a backup; one from before the setting takes
   delete old.cards[1].card.vertical;
   expect(parseSnapshot(old).cards.map((c) => c.card.vertical)).toEqual([true, old.cards[1].card.frontAspect < 1]);
 });
+
+
+test('backups preserve blur preferences; older and malformed values default to clear', async () => {
+  const snapshot = backupSnapshot();
+  snapshot.cards[0].card.blurPreview = true;
+  const restored = await decodeBackup(await encodeBackup(snapshot, 'backup passphrase', FAST), 'backup passphrase');
+  expect(restored.cards.map((entry) => entry.card.blurPreview)).toEqual([true, false]);
+  const old = rawSnapshot();
+  delete old.cards[0].card.blurPreview;
+  old.cards[1].card.blurPreview = 'true';
+  expect(parseSnapshot(old).cards.map((entry) => entry.card.blurPreview)).toEqual([false, false]);
+});

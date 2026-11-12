@@ -49,8 +49,8 @@ function PinnedTile({ card, now, onPress }: { card: Card; now: Date; onPress: ()
       testID={`pinned-${card.id}`}
       style={({ pressed }) => [styles.tile, { backgroundColor: theme.bannerBg, opacity: pressed ? 0.7 : 1 }]}
     >
-      <View style={[styles.thumb, { backgroundColor: theme.surface }]}>
-        {uri && <CardPicture uri={uri} vertical={card.vertical} />}
+      <View style={[styles.thumb, { backgroundColor: theme.bg }]}>
+        {uri && <CardPicture uri={uri} vertical={card.vertical} blurPreview={card.blurPreview} />}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
         {needsExpiryAlert(card, now) && (
           <View style={styles.alert}>

@@ -277,6 +277,7 @@ test('cards saved before number and notes were removed still load, without them'
   const [card] = await store.list();
   expect(card).toEqual({
     id: 'old1',
+    blurPreview: false,
     name: 'Coffee club',
     expiresOn: null,
     remindDaysBefore: 14,
@@ -448,4 +449,15 @@ test('a card keeps its shape, and one saved before the setting takes it from its
   }
   expect((await old.get('tall'))?.vertical).toBe(true);
   expect((await old.get('wide'))?.vertical).toBe(false);
+});
+
+
+test('blur preference persists and survives edits of other fields', async () => {
+  const { store } = await makeStore();
+  const card = await store.create(fields({ blurPreview: true }), images('private'));
+  expect((await store.get(card.id))?.blurPreview).toBe(true);
+  await store.update(card.id, { ...fieldsOf(card), name: 'Renamed' });
+  expect((await store.get(card.id))?.blurPreview).toBe(true);
+  await store.update(card.id, { ...fieldsOf(card), blurPreview: false });
+  expect((await store.get(card.id))?.blurPreview).toBe(false);
 });

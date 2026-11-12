@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { RetroIcon } from './RetroIcon';
 import { useApp } from '../app/AppProvider';
 import { strings } from '../strings';
-import { AppearancePref, nextAppearance } from './appearance';
+import { nextAppearance } from './appearance';
 import { useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 
@@ -27,30 +27,9 @@ export function AppearanceToggle() {
       testID="appearance-toggle"
       style={({ pressed }) => [styles.button, { borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
     >
-      <Icon pref={appearance} color={theme.text} />
+      <RetroIcon name="appearance" size={24} appearance={appearance} />
       {tooltip}
     </Pressable>
-  );
-}
-
-function Icon({ pref, color }: { pref: AppearancePref; color: string }) {
-  const stroke = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      {pref === 'system' && (
-        <>
-          <Circle cx={12} cy={12} r={8} {...stroke} />
-          <Path d="M12 4a8 8 0 0 1 0 16z" fill={color} />
-        </>
-      )}
-      {pref === 'light' && (
-        <>
-          <Circle cx={12} cy={12} r={4} {...stroke} />
-          <Path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" {...stroke} />
-        </>
-      )}
-      {pref === 'dark' && <Path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" {...stroke} />}
-    </Svg>
   );
 }
 

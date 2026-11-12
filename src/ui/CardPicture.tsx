@@ -21,18 +21,19 @@ interface Props {
   // Rounded on the image itself too, so the corners are cut even where the parent's clipping is lost
   // (a card mid-swipe or mid-flip on Android).
   radius?: number;
+  blurPreview?: boolean;
 }
 
 // A card's picture filling a landscape slot (the home stack, the gallery, the pinned strip). A vertical
 // card is turned a quarter turn anticlockwise, its top to the left, so it fills the slot instead of
 // being cut to its middle; it stands upright again on the card's own screen.
-export function CardPicture({ uri, sharpUri, vertical, radius = 0 }: Props) {
+export function CardPicture({ uri, sharpUri, vertical, radius = 0, blurPreview = false }: Props) {
   const [slot, setSlot] = useState<Size | null>(null);
   const layers = [uri, sharpUri].filter((u): u is string => !!u);
   if (layers.length === 0) return null;
   // No fade-in: Android fades every newly shown image in over 300 ms, which reads as a blink.
   const image = (u: string, i: number, style: StyleProp<ImageStyle>) => (
-    <Image key={i} testID={i === 0 ? 'card-picture' : 'card-picture-sharp'} source={{ uri: u }} resizeMode="cover" fadeDuration={0} style={[style, { borderRadius: radius }]} />
+    <Image key={i} testID={i === 0 ? 'card-picture' : 'card-picture-sharp'} source={{ uri: u }} blurRadius={blurPreview ? 24 : 0} resizeMode="cover" fadeDuration={0} style={[style, { borderRadius: radius }]} />
   );
   if (!vertical) return <>{layers.map((u, i) => image(u, i, StyleSheet.absoluteFill))}</>;
   const onLayout = (e: LayoutChangeEvent) => {

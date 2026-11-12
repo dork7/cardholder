@@ -84,12 +84,12 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
         style={[
           styles.picture,
           {
-            backgroundColor: theme.surface,
+            backgroundColor: theme.bg,
             borderColor: checked ? theme.accent : 'transparent',
           },
         ]}
       >
-        <CardPicture uri={uri} vertical={card.vertical} radius={PICTURE_INNER_RADIUS} />
+        <CardPicture uri={uri} vertical={card.vertical} blurPreview={card.blurPreview} radius={PICTURE_INNER_RADIUS} />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim, borderRadius: PICTURE_INNER_RADIUS }]} />
         {alert && (
           <View style={styles.alert}>

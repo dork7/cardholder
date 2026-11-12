@@ -26,7 +26,7 @@ export function ExpiryField({
     });
 
   return (
-    <Field label={strings.edit.expiry} hint={hint}>
+    <Field icon="expiry" label={strings.edit.expiry} hint={hint}>
       {value === null ? (
         <Button
           variant="secondary"

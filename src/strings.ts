@@ -75,6 +75,10 @@ export const strings = {
     moveDown: 'Move down',
   },
   edit: {
+    blurPreview: 'Blur preview',
+    blurPreviewHint: 'Blur this document in the home stack, gallery and pinned previews.',
+    previewClear: 'Clear',
+    previewBlurred: 'Blurred',
     shape: 'Card shape',
     horizontal: 'Horizontal',
     vertical: 'Vertical',

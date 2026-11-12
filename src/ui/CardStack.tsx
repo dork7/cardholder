@@ -425,7 +425,7 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   });
 
   // Each face turns on its own axis with its back hidden, so whichever side faces the viewer shows.
-  // The card lifts toward the viewer at the half-way point and each face darkens as it turns away.
+  // The card lifts toward the viewer at the half-way point and each face fades toward the page as it turns away.
   const face = (offset: number) => () => {
     'worklet';
     const t = index === flipIndex.value ? flip.value : 0;
@@ -441,11 +441,12 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
     return { opacity: 0.45 * Math.abs(Math.sin(t * Math.PI)) };
   });
 
-  const faceStyle = [styles.face, { borderRadius: radius, backgroundColor: theme.surface }];
+  const faceStyle = [styles.face, { borderRadius: radius, backgroundColor: theme.bg }];
+  const shadeStyle = [StyleSheet.absoluteFill, { borderRadius: radius, backgroundColor: theme.bg }, shade];
   return (
     <Animated.View pointerEvents="none" style={[styles.card, vertical && styles.cardVertical, { width: geo.cardW, height: geo.cardH }, animated]}>
       <Animated.View style={[faceStyle, frontFace]}>
-        <CardPicture uri={thumbUri} sharpUri={fullUri} vertical={card.vertical} radius={radius} />
+        <CardPicture uri={thumbUri} sharpUri={fullUri} vertical={card.vertical} blurPreview={card.blurPreview} radius={radius} />
         {uri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim, borderRadius: radius }]} />}
         {/* Top left: the flip button has the top right. */}
         {alert && (
@@ -453,13 +454,13 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
             <ExpiryAlert size={28} pop testID={`expiry-alert-${card.id}`} />
           </View>
         )}
-        <Animated.View style={[StyleSheet.absoluteFill, styles.shade, { borderRadius: radius }, shade]} />
+        <Animated.View style={shadeStyle} />
       </Animated.View>
       {card.hasBack && (
         <Animated.View style={[faceStyle, backFace]}>
-          <CardPicture uri={backUri} vertical={card.vertical} radius={radius} />
+          <CardPicture uri={backUri} vertical={card.vertical} blurPreview={card.blurPreview} radius={radius} />
           {backUri && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim, borderRadius: radius }]} />}
-          <Animated.View style={[StyleSheet.absoluteFill, styles.shade, { borderRadius: radius }, shade]} />
+          <Animated.View style={shadeStyle} />
         </Animated.View>
       )}
     </Animated.View>
@@ -485,7 +486,6 @@ const styles = StyleSheet.create({
   // Scaling from the bottom edge keeps every strip below the same height.
   cardVertical: { transformOrigin: '50% 100%' },
   face: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', backfaceVisibility: 'hidden' },
-  shade: { backgroundColor: '#000000' },
   alert: { position: 'absolute', top: 12, left: 12 },
   flipButtonSlot: { position: 'absolute', top: 8, width: FLIP_BUTTON, height: FLIP_BUTTON, zIndex: 1000 },
   flipButton: {
