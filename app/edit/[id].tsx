@@ -264,8 +264,7 @@ export default function EditCard() {
       return;
     }
     if (plan.kind === 'limit-reached') {
-      leave();
-      router.replace('/paywall');
+      router.push('/paywall');
       return;
     }
     writing.current = true;

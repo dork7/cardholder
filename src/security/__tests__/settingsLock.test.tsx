@@ -34,6 +34,8 @@ const mockServices = { settings: { getNumber: () => Promise.resolve(null) } };
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     services: mockServices,
+    cards: [],
+    unlocked: false,
     appLock: mockAppLock,
     setAppLock: mockSetAppLock,
     homeFolders: { filter: true, manage: true },

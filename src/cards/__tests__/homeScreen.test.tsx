@@ -247,12 +247,11 @@ test('adding goes to the editor', async () => {
 
 const fullWallet = () => Array.from({ length: FREE_CARD_LIMIT }, (_, i) => makeCard({ id: `c${i}`, name: `Card ${i}` }));
 
-// CARD_LIMIT_ENABLED is off while there is no paywall.
-test('with the card limit off, adding past it still goes to the editor', async () => {
+test('adding an eleventh document opens the paywall', async () => {
   await withCards(fullWallet(), async () => {
     await renderHome();
     await fireEvent.press(screen.getByTestId('add-card'));
-    expect(mockPush).toHaveBeenLastCalledWith('/edit/new');
+    expect(mockPush).toHaveBeenLastCalledWith('/paywall');
   });
 });
 
@@ -542,5 +541,14 @@ describe('gallery view', () => {
     expect(mockShareCards).not.toHaveBeenCalled();
     await answer(strings.card.share);
     expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
+  });
+});
+
+test('a purchased unlock allows adding past ten documents', async () => {
+  mockUnlocked = true;
+  await withCards(fullWallet(), async () => {
+    await renderHome();
+    await fireEvent.press(screen.getByTestId('add-card'));
+    expect(mockPush).toHaveBeenLastCalledWith('/edit/new');
   });
 });

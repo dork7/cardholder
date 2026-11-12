@@ -81,9 +81,10 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
 ## Monetization
 
-- Freemium: **4 cards free**. One card = front + back + details.
+- Freemium: **10 documents free**. One document is front + optional back + details, or one PDF.
 - **Unlimited**: one-time non-consumable purchase, about **$2.99 / AED 10.99**, via `expo-iap`. The unlock is cached on device and works offline from then on. **Restore Purchases** button (Apple requires it).
 - **Existing cards are never locked.** Over the limit (import from a paid install, refund), all cards stay viewable and editable; only *adding* a new card is blocked until purchase.
+- The purchase screen connects only after **See purchase price** or **Restore purchases**. It shows the store's localized price before **Unlock for …** opens the native payment sheet. Setup and sandbox checks: `docs/payments.md`.
 
 ## Platform & UX baseline
 

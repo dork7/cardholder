@@ -16,7 +16,7 @@ import {
   useMenuState,
 } from '../src/analysis/modelDownload';
 import { canReadText } from '../src/analysis/recognizer';
-import { FOLDERS_ENABLED } from '../src/config';
+import { FREE_CARD_LIMIT, FOLDERS_ENABLED } from '../src/config';
 import { ProblemsSettings } from '../src/diagnostics/ProblemsSettings';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
 import { strings } from '../src/strings';
@@ -39,7 +39,7 @@ import { LiveText } from '../src/ui/LiveText';
 import { ChipRow } from '../src/ui/ChipRow';
 
 export default function SettingsScreen() {
-  const { services, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
+  const { services, cards, unlocked, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
     useApp();
   const router = useRouter();
   const theme = useTheme();
@@ -75,6 +75,17 @@ export default function SettingsScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
+        <Section title={strings.settings.purchases}>
+          <Text style={[styles.body, { color: theme.text }]}>
+            {unlocked ? strings.settings.unlocked : strings.settings.freeUsage(cards.length, FREE_CARD_LIMIT)}
+          </Text>
+          <Button
+            variant="secondary"
+            label={unlocked ? strings.settings.restore : strings.settings.unlock}
+            onPress={() => router.push('/paywall')}
+            testID="manage-purchases"
+          />
+        </Section>
         <Section title={strings.settings.security}>
           <SwitchRow
             label={strings.settings.appLock}

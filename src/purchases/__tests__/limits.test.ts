@@ -4,11 +4,11 @@ import { migrate } from '../../storage/sqlDb';
 import { isUnlocked, markUnlocked } from '../entitlement';
 import { canAddCard } from '../limits';
 
-test('free users can add until they have 4 cards', () => {
+test('free users can add until they have 10 documents', () => {
   expect(canAddCard(0, false, true)).toBe(true);
-  expect(canAddCard(3, false, true)).toBe(true);
-  expect(canAddCard(4, false, true)).toBe(false);
-  expect(canAddCard(9, false, true)).toBe(false); // over the limit after an import: still blocked from adding
+  expect(canAddCard(9, false, true)).toBe(true);
+  expect(canAddCard(10, false, true)).toBe(false);
+  expect(canAddCard(12, false, true)).toBe(false); // over the limit after an import: still blocked from adding
 });
 
 test('unlocked users can always add', () => {

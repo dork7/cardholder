@@ -8,7 +8,7 @@ test('jest maps react-native-quick-crypto to Node crypto', () => {
 });
 
 test('constants and strings load', () => {
-  expect(FREE_CARD_LIMIT).toBe(4);
+  expect(FREE_CARD_LIMIT).toBe(10);
   expect(PBKDF2_ITERATIONS).toBe(600_000);
   expect(strings.appName).toBe('Doc Keeper');
 });
