@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build a signed Android APK on this machine and publish it to GitHub Releases.
 # Users get the same update as a CI release: DocKeeper-<version>.apk and version.json.
+# Afterwards only the newest three releases are kept on GitHub (scripts/prune-releases.sh).
 #
 # Usage:
 #   scripts/release-android.sh v1.2.3
@@ -200,6 +201,9 @@ else
   gh release create "$tag" --repo "$repo" --title "$tag" --notes "$notes" --target "$(git rev-parse HEAD)" \
     "$release_apk" "$manifest"
 fi
+
+# Only the newest three releases are kept. A failure here doesn't undo the release just published.
+scripts/prune-releases.sh "$repo" 3 "$tag" || echo "Old releases were not deleted; run scripts/prune-releases.sh $repo to try again."
 
 echo "Published https://github.com/${repo}/releases/tag/${tag}"
 echo "Update manifest: https://github.com/${repo}/releases/latest/download/version.json"
