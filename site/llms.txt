@@ -1,0 +1,8 @@
+# Doc Keeper
+
+> Doc Keeper is an offline document vault for Android. It keeps photos and PDFs of IDs, licences, insurance cards, certificates and contracts encrypted on the phone (AES-256-GCM), with no account, no server, no analytics and no ads. Ten documents are free; unlimited documents is a one-time purchase.
+
+- [Home, features and questions](https://dork7.github.io/cardholder/)
+- [Privacy policy](https://dork7.github.io/cardholder/privacy.html)
+- [Download (GitHub releases)](https://github.com/dork7/cardholder/releases/latest)
+- [Source code and README](https://github.com/dork7/cardholder)

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dork7.github.io/cardholder/sitemap.xml

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doc Keeper: offline, encrypted document vault for Android</title>
+<meta name="description" content="Doc Keeper keeps photos and PDFs of your IDs, licences, insurance cards and contracts encrypted on your Android phone. No account, no server, no ads. Free for ten documents.">
+<link rel="canonical" href="https://dork7.github.io/cardholder/">
+<meta name="theme-color" content="#121212">
+<link rel="icon" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Doc Keeper">
+<meta property="og:title" content="Doc Keeper: offline, encrypted document vault for Android">
+<meta property="og:description" content="Photos and PDFs of your IDs, licences and contracts, encrypted on your phone. No account, no server.">
+<meta property="og:url" content="https://dork7.github.io/cardholder/">
+<meta property="og:image" content="https://dork7.github.io/cardholder/icon.png">
+<meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "MobileApplication",
+      "@id": "https://dork7.github.io/cardholder/#app",
+      "name": "Doc Keeper",
+      "description": "An offline document vault for Android. It keeps photos and PDFs of IDs, licences, insurance cards, certificates and contracts encrypted on the phone, with no account and no server.",
+      "url": "https://dork7.github.io/cardholder/",
+      "image": "https://dork7.github.io/cardholder/icon.png",
+      "operatingSystem": "Android 10 or later",
+      "applicationCategory": "UtilitiesApplication",
+      "downloadUrl": "https://github.com/dork7/cardholder/releases/latest",
+      "installUrl": "https://github.com/dork7/cardholder/releases/latest",
+      "releaseNotes": "https://github.com/dork7/cardholder/releases",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "featureList": [
+        "Photos and PDFs encrypted on the phone with AES-256-GCM",
+        "No account, no server, no analytics, no ads",
+        "Search by the text printed on a document, read on the phone",
+        "Expiry reminders",
+        "App lock with fingerprint, face or passcode",
+        "Passphrase-encrypted backup file",
+        "Share photos or a PDF to the app from other apps",
+        "Home screen widget"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://dork7.github.io/cardholder/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does Doc Keeper upload my documents?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Documents are stored only on the phone. Doc Keeper has no accounts and no servers. It connects to the internet only when you tap Check for updates, or when you choose to see the price, buy or restore a purchase." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does Doc Keeper protect my documents?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Every photo, PDF and detail is encrypted with AES-256-GCM using a random key kept in the Android Keystore. Documents are left out of Google's device backups. With app lock on, the app asks for your fingerprint, face or passcode when it opens." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens to my documents if I lose or change my phone?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Documents exist only on the phone, so export a backup first from Settings, Export backup. The backup is one file encrypted with a passphrase you choose. Import it on the new phone with the same passphrase. A forgotten passphrase cannot be recovered." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Doc Keeper use AI or a cloud service to read my documents?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Text is read from photos and PDFs on the phone itself. The app has no language model and sends nothing to a cloud service." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Doc Keeper free?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Ten documents are free. Unlimited documents is a one-time purchase through the app store, not a subscription. Documents you already have are never locked." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I install Doc Keeper?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Download the latest DocKeeper APK from the project's GitHub releases page on an Android 10 or later phone, open it, and allow the install when Android asks. Doc Keeper is not on Google Play or the App Store yet." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Doc Keeper work on iPhone?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not yet. Only the Android version is released." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Doc Keeper collect analytics or crash reports?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. If the app closes unexpectedly it keeps a short technical record on the phone and asks whether you want to send it. Nothing is sent unless you choose to, and the record never contains a document." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="./"><img src="icon.png" alt="" width="32" height="32">Doc Keeper</a>
+    <nav class="links" aria-label="Site">
+      <a class="hide-s" href="#features">Features</a>
+      <a class="hide-s" href="#questions">Questions</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="https://github.com/dork7/cardholder">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div>
+        <h1>Your documents, encrypted on your phone and nowhere else.</h1>
+        <p class="lede">Doc Keeper is an offline document vault for Android. It keeps photos and PDFs of your IDs, licences, insurance cards, certificates and contracts on your phone, with no account and no server.</p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/dork7/cardholder/releases/latest">Download for Android</a>
+          <a class="btn ghost" href="#install">How to install</a>
+        </div>
+        <p class="fine">Free for ten documents. Android 10 or later. No ads.</p>
+      </div>
+      <div class="stack" aria-hidden="true">
+        <div class="doc"><span class="tag">Insurance</span></div>
+        <div class="doc"><span class="tag">Membership</span></div>
+        <div class="doc">
+          <span class="tag">ID</span>
+          <div class="name">Driving licence</div>
+          <div class="bar"></div>
+          <div class="bar short"></div>
+          <div class="due">Expires in 14 days</div>
+        </div>
+      </div>
+    </div>
+
+    <section id="features">
+      <h2>What Doc Keeper does</h2>
+      <ul class="grid">
+        <li><h3>Encrypted on the phone</h3><p>Photos, PDFs and details are sealed with AES-256-GCM. The key stays in the Android Keystore and never leaves the phone.</p></li>
+        <li><h3>No account, no server</h3><p>Nothing is uploaded. There are no analytics and no ads. The app works without the internet.</p></li>
+        <li><h3>Photos and PDFs</h3><p>Keep a front and back photo, or a whole PDF up to 10 MB. Share them to Doc Keeper straight from your gallery or files app.</p></li>
+        <li><h3>Search what is printed</h3><p>The text on each document is read on the phone, so search finds names, numbers and other printed words.</p></li>
+        <li><h3>Expiry reminders</h3><p>Get a daily notification before a document expires, starting 14 days ahead or the number of days you choose.</p></li>
+        <li><h3>Ready at the counter</h3><p>Open a document full screen at full brightness and pinch to zoom.</p></li>
+        <li><h3>App lock and blurred previews</h3><p>Ask for your fingerprint, face or passcode when the app opens, and blur a document's pictures on the home screen.</p></li>
+        <li><h3>Encrypted backup</h3><p>Export everything as one file protected by a passphrase you choose, and keep it where you like.</p></li>
+        <li><h3>Tags and a widget</h3><p>Group documents with tags, and list pinned ones by name on your home screen.</p></li>
+      </ul>
+    </section>
+
+    <section id="install">
+      <h2>How to install Doc Keeper</h2>
+      <ol class="steps">
+        <li>On your Android phone, open the <a href="https://github.com/dork7/cardholder/releases/latest">latest release</a>.</li>
+        <li>Download <strong>DocKeeper-&lt;version&gt;.apk</strong> and open it.</li>
+        <li>Android asks you to allow installs from your browser or files app. Allow it and tap <strong>Install</strong>.</li>
+        <li>To update later, open <strong>Settings → App updates → Check for updates</strong> in the app.</li>
+      </ol>
+      <p class="fine">Doc Keeper is not on Google Play or the App Store yet. Updates are checked against their SHA-256 before Android installs them.</p>
+    </section>
+
+    <section id="questions" class="faq">
+      <h2>Questions</h2>
+      <details open>
+        <summary><h3>Does Doc Keeper upload my documents?</h3></summary>
+        <p>No. Documents are stored only on the phone. Doc Keeper has no accounts and no servers. It connects to the internet only when you tap Check for updates, or when you choose to see the price, buy or restore a purchase.</p>
+      </details>
+      <details>
+        <summary><h3>How does Doc Keeper protect my documents?</h3></summary>
+        <p>Every photo, PDF and detail is encrypted with AES-256-GCM using a random key kept in the Android Keystore. Documents are left out of Google's device backups. With app lock on, the app asks for your fingerprint, face or passcode when it opens.</p>
+      </details>
+      <details>
+        <summary><h3>What happens to my documents if I lose or change my phone?</h3></summary>
+        <p>Documents exist only on the phone, so export a backup first from Settings → Export backup. The backup is one file encrypted with a passphrase you choose. Import it on the new phone with the same passphrase. A forgotten passphrase cannot be recovered.</p>
+      </details>
+      <details>
+        <summary><h3>Does Doc Keeper use AI or a cloud service to read my documents?</h3></summary>
+        <p>No. Text is read from photos and PDFs on the phone itself. The app has no language model and sends nothing to a cloud service.</p>
+      </details>
+      <details>
+        <summary><h3>Is Doc Keeper free?</h3></summary>
+        <p>Ten documents are free. Unlimited documents is a one-time purchase through the app store, not a subscription. Documents you already have are never locked.</p>
+      </details>
+      <details>
+        <summary><h3>How do I install Doc Keeper?</h3></summary>
+        <p>Download the latest DocKeeper APK from the project's GitHub releases page on an Android 10 or later phone, open it, and allow the install when Android asks. Doc Keeper is not on Google Play or the App Store yet.</p>
+      </details>
+      <details>
+        <summary><h3>Does Doc Keeper work on iPhone?</h3></summary>
+        <p>Not yet. Only the Android version is released.</p>
+      </details>
+      <details>
+        <summary><h3>Does Doc Keeper collect analytics or crash reports?</h3></summary>
+        <p>No. If the app closes unexpectedly it keeps a short technical record on the phone and asks whether you want to send it. Nothing is sent unless you choose to, and the record never contains a document.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <span>Doc Keeper</span>
+    <a href="privacy.html">Privacy policy</a>
+    <a href="https://github.com/dork7/cardholder/releases">Releases</a>
+    <a href="https://github.com/dork7/cardholder/issues">Report a problem</a>
+  </footer>
+</div>
+</body>
+</html>
