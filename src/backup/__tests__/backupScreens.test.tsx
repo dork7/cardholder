@@ -28,7 +28,7 @@ const mockServices = {
   },
 };
 jest.mock('../../app/AppProvider', () => ({
-  useApp: () => ({ services: mockServices, refresh: mockRefresh, homeFolders: { filter: true, manage: true } }),
+  useApp: () => ({ services: mockServices, cards: [], unlocked: false, refresh: mockRefresh, homeFolders: { filter: true, manage: true } }),
 }));
 
 const mockEncode = jest.fn(async () => new Uint8Array([1, 2, 3]));

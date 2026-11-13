@@ -9,10 +9,16 @@ import { removeModelFiles } from '../src/app/removeModelFiles';
 import { AppLockGate } from '../src/security/AppLockGate';
 import { ShareInReceiver } from '../src/share/ShareInReceiver';
 import { BootScreen } from '../src/app/BootScreen';
+import { CrashPrompt } from '../src/diagnostics/CrashPrompt';
+import { ErrorBoundary } from '../src/diagnostics/ErrorBoundary';
+import { installDiagnostics } from '../src/diagnostics/install';
 import { setupNotifications } from '../src/reminders/scheduler';
 import { strings } from '../src/strings';
 import { FONTS } from '../src/ui/fonts';
 import { useTheme } from '../src/ui/theme';
+
+// Before the first render, so a crash anywhere after this is recorded (src/diagnostics/).
+installDiagnostics();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts(FONTS);
@@ -26,9 +32,11 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppProvider>
-        <RootNavigator />
-      </AppProvider>
+      <ErrorBoundary>
+        <AppProvider>
+          <RootNavigator />
+        </AppProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }
@@ -40,6 +48,7 @@ function RootNavigator() {
   return (
     <LockedApp>
       <StatusBar style="auto" />
+      <CrashPrompt />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: theme.surface },
@@ -51,6 +60,7 @@ function RootNavigator() {
          <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
          <Stack.Screen name="card/[id]" options={{ presentation: 'transparentModal', headerShown: false }} />
          <Stack.Screen name="settings" options={{ title: strings.settings.title }} />
+         <Stack.Screen name="paywall" options={{ title: strings.paywall.title, presentation: 'modal' }} />
          <Stack.Screen name="folders" options={{ title: strings.folders.title }} />
          <Stack.Screen name="tags" options={{ title: strings.tagsScreen.title }} />
          <Stack.Screen name="export" options={{ title: strings.export.title, presentation: 'modal' }} />

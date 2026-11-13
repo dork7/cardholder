@@ -1,4 +1,5 @@
 import { requireOptionalNativeModule } from 'expo';
+import Constants from 'expo-constants';
 import { Directory, File, Paths } from 'expo-file-system';
 import { MANIFEST_URL, parseManifest, UpdateManifest } from './manifest';
 
@@ -12,7 +13,7 @@ interface AppUpdateNative {
 // Android only (modules/app-update). On iOS, and in builds made before it was added, the app
 // doesn't offer updates at all.
 const native = requireOptionalNativeModule<AppUpdateNative>('AppUpdate');
-export const canSelfUpdate = Boolean(native);
+export const canSelfUpdate = Boolean(native) && Constants.expoConfig?.extra?.distribution !== 'play';
 
 export class UpdateNetworkError extends Error {}
 export class BadReleaseError extends Error {}

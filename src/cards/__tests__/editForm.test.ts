@@ -13,9 +13,6 @@ import {
   removeReadSide,
 } from '../editForm';
 
-// The limit is switched off in the app for now; these tests keep its rules covered for when it returns.
-jest.mock('../../config', () => ({ ...jest.requireActual('../../config'), CARD_LIMIT_ENABLED: true }));
-
 const free = { existing: null, cardCount: 0, unlocked: false };
 
 test('a new card needs a front photo but no name', () => {
@@ -36,9 +33,9 @@ test('a valid new card within the free limit is created', () => {
 });
 
 test('a new card at the free limit goes to the paywall', () => {
-  const draft = { ...draftFor(null), name: 'Fifth', front: frontImage('f') };
-  expect(planSave(draft, { existing: null, cardCount: 4, unlocked: false })).toEqual({ kind: 'limit-reached' });
-  expect(planSave(draft, { existing: null, cardCount: 4, unlocked: true }).kind).toBe('create');
+  const draft = { ...draftFor(null), name: 'Eleventh', front: frontImage('f') };
+  expect(planSave(draft, { existing: null, cardCount: 10, unlocked: false })).toEqual({ kind: 'limit-reached' });
+  expect(planSave(draft, { existing: null, cardCount: 10, unlocked: true }).kind).toBe('create');
 });
 
 test('editing is never limited and sends no image changes when none were made', () => {

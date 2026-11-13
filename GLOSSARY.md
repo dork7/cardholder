@@ -33,3 +33,16 @@ _Avoid_: category, folder, type, label
 **Document text**:
 The words read from a document's photos or PDF, kept with it so it can be searched.
 _Avoid_: OCR, scan text
+
+## Problems
+
+**Crash report**:
+The text the user can send after Doc Keeper closes unexpectedly: what went wrong, the phone model and
+app version, and the app's recent log lines. Never a document. It exists only on the phone until the
+user emails or shares it from Settings → Problems (ADR 0007).
+_Avoid_: crashlytics, telemetry, analytics, diagnostics (in wording the user sees)
+
+**Log**:
+What the app writes about its own work ("Reading a document failed"), kept on the phone for a crash
+report. Never a document's text or name.
+_Avoid_: console, trace

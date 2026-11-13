@@ -7,7 +7,7 @@ Status: agreed 2026-10-19 (design grilling session). This is the source of truth
 A public iOS + Android app (Expo) that stores **image-based** cards — ID, insurance, membership, loyalty — and gets one on screen fast at a counter.
 
 - No barcodes. Cards are photos (front, optional back).
-- No accounts. **The app never touches the internet on its own**; the only network traffic is the app stores' own purchase flow and, on Android, an update check and download the user starts in Settings (see App updates below).
+- No accounts. **The app never touches the internet on its own**; the only network traffic is the app stores' own purchase flow and, on Android, an update check and download the user starts in Settings (see App updates below). A crash report is mail or a share the user sends from Settings (see Problems below).
 - Target gap: physical cards with no barcode (ID, insurance, membership) that Apple/Google Wallet don't cover.
 
 ## Cards
@@ -62,7 +62,7 @@ Tap a card → **counter view**:
 - **Details (.md)** on the card view (portrait, not while shown to staff) swaps the photos for the card as a Markdown document: its details (expiry and reminders, tags, folder, source, added and updated dates, and the card id as its reference), then the text read off each side in code blocks. The text is selectable, and **Save .md file** shares it through the share sheet as `<card name>.md`, with the same ID confirmation as Quick share; the copy is deleted when the sheet closes.
 - **Home screen widget (Android).** "Pinned cards" lists up to four pinned cards by name, with their first tag or, once close, the expiry date written out (the widget only changes when the app next runs, so no countdowns). Tapping a row opens that card through the app's own link, so app lock still asks first; **+** opens New card. It never shows a card's picture, and while app lock is on it shows only "Locked. Tap to open." What it keeps to draw from (names and notes) is sealed with its own Android Keystore key, never written in plaintext. The app updates it whenever the pinned cards or app lock change (`modules/home-widget`, `src/widget/homeWidget.ts`).
 - **App updates (Android).** Copies installed from GitHub Releases can update themselves: **Settings → App updates → Check for updates** fetches the latest release's `version.json` and, if its version is newer, shows the version and release notes. **Download update** fetches the APK into the cache with progress (it can be stopped), checks it against the SHA-256 in `version.json` (releases without one are never offered), and **Install update** hands it to Android's installer through `modules/app-update`. The first time, Android asks the user to allow installs from Doc Keeper (`REQUEST_INSTALL_PACKAGES`). Nothing is checked or downloaded unless the user taps; the APK must come from this repository's releases and be signed with the same key, so cards survive the update. Not offered on iOS.
-- No crash-reporting or analytics SDKs. Rely on the stores' own opt-in crash reports. Store privacy label: **Data Not Collected**.
+- **Problems (crash reports).** No crash-reporting or analytics SDKs; store privacy label: **Data Not Collected**. The app keeps its own log and a record of its last unexpected close on the phone (`src/diagnostics/`, `modules/crash-log`, ADR 0007): fatal JavaScript errors, native exceptions, Android's exit reasons (crash, native crash, not responding) and, on iOS, a launch that follows a run which never went to the background. A render error shows a **Something went wrong** screen with **Try again** instead of a blank crash. On the next launch, once unlocked, one prompt offers to send a report; **Not now** leaves it in **Settings → Problems**, which shows what happened and offers **Email report to the developer** (when the build has an address), **Share report** (a text file through the share sheet) and **Dismiss**. The report holds the error, phone model and OS, app version and recent log lines; never a card. Nothing is sent without one of those taps. The stores' own opt-in crash reports still cover what the app can't see.
 
 ## Backup
 
@@ -77,9 +77,10 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
 ## Monetization
 
-- Freemium: **4 cards free**. One card = front + back + details.
+- Freemium: **10 documents free**. One document is front + optional back + details, or one PDF.
 - **Unlimited**: one-time non-consumable purchase, about **$2.99 / AED 10.99**, via `expo-iap`. The unlock is cached on device and works offline from then on. **Restore Purchases** button (Apple requires it).
 - **Existing cards are never locked.** Over the limit (import from a paid install, refund), all cards stay viewable and editable; only *adding* a new card is blocked until purchase.
+- The purchase screen connects only after **See purchase price** or **Restore purchases**. It shows the store's localized price before **Unlock for …** opens the native payment sheet. Setup and sandbox checks: `docs/payments.md`.
 
 ## Platform & UX baseline
 
@@ -109,6 +110,7 @@ Depth is shown by shade (`#121212` → `#181818` → `#1F1F1F`), and floating el
 
 - **Type:** Public Sans (OFL, bundled; Spotify's own faces are proprietary) for all text; 400 body, 700 emphasis, 600 sparingly. Compact scale 12 / 14 / **16 body** / 18 / 24, 32 for display. Button labels are uppercase, 14 bold, tracked 1.4. Card numbers use tabular figures.
 - **Shape:** pill everything you press — buttons, chips and icon buttons are full pills, the add and appearance buttons are circles. Panels radius 8 (title and action bars keep their larger rounded ends). Card photos are the card — no box or border — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Text fields a bottom hairline only.
+- **Icons:** one pixel-art set (`src/ui/RetroIcon.tsx`), each drawn on a 12 × 12 grid of 2 px cells so edges stay whole at any density; section and field icons use outline + amber + paper, action buttons the one outline colour. No line icons or icon fonts.
 - **One bold element:** a guilloche rosette (SVG), shown only on the empty state and the app-switcher cover.
 - **Two motions:** a 3D card flip (on the home stack's front card, via the flip button shown on two-sided cards: a spring turn with a slight lift and shading, interruptible mid-turn), and the home screen's wallet-style card stack (cards behind fan out to the right; swipe left sends the front card to the back, swipe right brings the previous one back, tapping a peeking card brings it straight to the front). A Settings switch, **Swipe cards up and down** (off by default), fans the stack out below the front card instead, with swipe up for the next card and swipe down for the previous one. On release the stack finishes on a spring that starts at the finger's speed, so a flick keeps its momentum. Both motions are instant when Reduce Motion is on. Small fades also smooth fields appearing on the edit screen, and the expiry alert sign pops in once.
 - **Surfaces** (glass removed 2026-10-21): every screen sits on the plain page colour (`bg`), with solid panels (`surface`, a hairline `border`) for the chrome: home's title bar, card caption and Add card bar; the card view's header and Share / Edit / Close bar; the edit form's three groups and its Close / Save bar; the boot panel. No blur, translucency or backdrop blobs. Card photos stay unframed on the page.
