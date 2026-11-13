@@ -1,0 +1,42 @@
+# Doc Keeper competitive update — 13 November 2026
+
+## Answer
+
+**Yes. Several apps now offer nearly the same core bundle.** The closest are DocVault (iOS), DocHarbor (iOS), Vaulta (Android), and SecDocKeeper (Android). Folio is the larger cross-platform competitor. A claim that Doc Keeper has no direct competitors would be incorrect.
+
+This updates [the October 19 scan](market-research.md). It compares the current repository, not abandoned proposals. The code and design show photo cards (front/back), PDF import and viewing, on-device photo text recognition and search, tags/pinning, expiry reminders, local encryption, passphrase-encrypted export/import, sharing, an Android widget, and a planned 10-document free limit with a one-time unlock. ADR 0007 removes language-model questions. Caveat: the present `readText` structure holds front/back text, and PDF text search should **not** be marketed as full-document, all-page OCR without further implementation and device verification. The design also contains some older statements (for example, no app lock) that conflict with current strings/code; this report avoids claiming those as proven features.
+
+## Closest direct competitors
+
+| Product | Platform and public reach | Overlap with Doc Keeper | Key difference / commercial signal |
+|---|---|---|---|
+| [DocVault](https://apps.apple.com/ae/app/docvault/id6792242879) | iPhone; insufficient ratings for an overview | Local AES-256 vault, import of images and PDFs, on-device OCR search, tags, expiry reminders, passphrase backup with merge/replace, native sharing | Also scans, annotates, redacts and edits PDFs. **AED 39.99 paid upfront** in the UAE storefront. Its listing says Data Not Collected. This is the closest iOS feature match. |
+| [DocHarbor](https://apps.apple.com/us/app/docharbor-document-vault/id6786043565) | iPhone/iPad; insufficient ratings for an overview | Family IDs, passports and policies; photo/PDF import; on-device OCR; suggested fields; expiry alerts; local storage; widgets; export | Free tier: **5 documents**, reminders on **2**; Pro **$3.99/month, $24.99/year, $49.99 lifetime** in US listing. Store privacy label permits unlinked usage/diagnostic data. No claim of encrypted full-vault export in listing; it advertises ZIP export. |
+| [Vaulta](https://play.google.com/store/apps/details?id=com.zentryx.vault) | Android; **10+ installs** displayed | Offline encrypted vault, OCR content search, tags, expiry reminders, password-encrypted backups, PDF sharing, family records | Adds scanning, bill/location reminders, family emergency access and Pakistan service shortcuts. Its breadth is a product claim, with very little adoption evidence. |
+| [SecDocKeeper](https://play.google.com/store/apps/details?id=com.meerhelm.secdockeeper) | Android; **1+ installs** displayed; listing says internal alpha | No account or network calls, encrypted PDFs/images and metadata, on-device OCR/full-text search, tags, biometric unlock, encrypted backup/share | Open-source Apache-2.0 and a stronger published technical security story; no expiry reminders claimed. Alpha status and install count make it a feature comparator, not evidence of demand. |
+| [Folio Wallet](https://folio.mobi/en/) | iOS/Android; site claims **1M+ documents added**, App Store shows about **6.9K US ratings** | IDs, cards, photos, PDFs, extracted details, organization, expiry alerts, local availability and end-to-end encryption | Account/passkey and optional encrypted cloud sync, family sharing and travel planning. Much stronger distribution, but a different choice for people who want zero account and a manual backup. Folio's site and [security page](https://folio.mobi/en/security/) describe its encryption, so do not claim it lacks strong privacy. |
+| [ID Card Wallet: Offline Secure](https://play.google.com/store/apps/details?id=com.lazybyte.wallet) | Android; **1K+ installs** | Offline photo-card wallet, local encryption, biometrics, categorization and quick card display | Current Play copy focuses on cards, including bank/loyalty cards. Its October listing in the earlier scan described expiry reminders and encrypted backup, but the current listing does not substantiate those specific features; treat them as unverified until installed and tested. |
+
+### Important substitutes
+
+- [Google Wallet “Everything else”](https://support.google.com/wallet/answer/12060038?hl=en) can make passes from photos, including images without barcodes after consent, and retains the original photo. It is a powerful free Android substitute for a simple card-photo use case, though Google's help page does not claim a general PDF vault, arbitrary document OCR search, or passphrase-export workflow. Availability can vary by region and device.
+- [Apple Wallet](https://support.apple.com/guide/iphone/create-passes-el8l5r9jnhyv/ios) now creates passes from a physical card/photo with a barcode or QR code on supported iPhones, and also offers manual text templates. Its documented photo path still requires a code; it does not describe a general photo/PDF document vault.
+- [Catima](https://play.google.com/store/apps/details?id=me.hackerchick.catima) is a free, open-source, no-Internet Android loyalty wallet with **100K+ installs**. Its [changelog](https://github.com/CatimaLoyalty/Android/blob/main/CHANGELOG.md) documents front/back card images and password-protected exports. It competes with the quick-card workflow, but is barcode-first rather than an identity-document/PDF vault.
+- In the UAE, [UAEICP](https://icp.gov.ae/en/uaeicp-mobile-smart-app/) already provides an official-document wallet, family information and renewal notifications; [UAE PASS](https://www.uaepass.ae/about) handles official digital documents and sharing. A generic copy of an Emirates ID is not a substitute for an issuer-verified digital credential. Doc Keeper's potential role is organizing **mixed issuer, family and non-government documents** in one offline place.
+
+## Feature-level conclusion
+
+The **feature bundle is not unique**. In particular, “offline + encrypted + OCR + reminders + backup” is already claimed by DocVault and Vaulta. “Family paperwork + OCR + expiry + widget” is claimed by DocHarbor. The low install bands for several near-clones mean there is also **no public proof here of a large standalone market**. Conversely, Folio's reach shows sustained use of a broader wallet, but its site metric counts documents, not users, revenue or paid conversions. Store descriptions are vendor claims, not independent audits; app-store install bands and ratings are limited proxies for scale.
+
+Doc Keeper still has a plausible position if it excels at **fast presentation of photo cards and PDFs**, straightforward manual encrypted backup, and no account or routine network traffic, on both iOS and Android. Its proposed **$2.99 one-time unlock** is far below DocVault's UAE upfront price and DocHarbor's US lifetime price, but this is not a demand or profitability calculation. Folio's free offer and Google Wallet are stronger price anchors than those paid apps.
+
+## Recommended validation before positioning or launch
+
+1. Install and time the same five tasks in Doc Keeper, DocVault, DocHarbor, Vaulta and Folio: add a front/back ID; add a 3-page PDF; find a printed number; show it at a counter; export and restore a backup. Record taps, time and failures on real devices. Listings cannot establish UX quality.
+2. Check **all-page PDF search** in Doc Keeper. The current code stores front/back recognized text; if page 3 cannot be searched, avoid “search every PDF” marketing or implement it first.
+3. Interview 15–20 target users (especially UAE families/expats) about actual documents they need outside UAEICP/UAE PASS, counter presentation frequency, backup behavior, and willingness to pay. Do not infer these from app-store ratings.
+4. Test store positioning around “private document/card wallet” and “find and show any card quickly”; compare conversion and retention, not only downloads. The competitive gap is more likely **execution and focus** than an unoccupied feature category.
+
+## Method and limits
+
+Sources checked on 13 November 2026: official Apple App Store and Google Play listings; product/vendor pages for Folio; Apple, Google, UAEICP and UAE PASS help pages; Catima's GitHub changelog; local repository code and ADRs. Prices are storefront/region-specific and may change. No app was installed for hands-on testing, no paid analytics database was used, and no revenue or conversion estimates are asserted.
