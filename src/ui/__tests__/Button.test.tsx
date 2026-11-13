@@ -37,3 +37,11 @@ describe.each(['light', 'dark'] as const)('%s theme', (scheme) => {
     expect(contrast(style.borderColor as string, PAPER[scheme])).toBeGreaterThanOrEqual(3);
   });
 });
+
+test('only a button that must be held has the fill that shows the hold', async () => {
+  await render(<Button label="Go" onPress={() => {}} testID="tap" />);
+  expect(screen.queryByTestId('tap-fill')).toBeNull();
+  await render(<Button label="Hold" onPress={() => {}} onLongPress={() => {}} testID="hold" />);
+  // Empty until it is pressed.
+  expect(StyleSheet.flatten(screen.getByTestId('hold-fill').props.style).width).toBe('0%');
+});
