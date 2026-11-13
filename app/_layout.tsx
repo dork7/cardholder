@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppProvider, useApp, useBoot } from '../src/app/AppProvider';
 import { removeModelFiles } from '../src/app/removeModelFiles';
 import { AppLockGate } from '../src/security/AppLockGate';
+import { ShareInReceiver } from '../src/share/ShareInReceiver';
 import { BootScreen } from '../src/app/BootScreen';
 import { setupNotifications } from '../src/reminders/scheduler';
 import { strings } from '../src/strings';
@@ -63,5 +64,10 @@ function RootNavigator() {
 // useApp is only available once boot is ready, so the gate reads it here rather than in RootNavigator.
 function LockedApp({ children }: { children: ReactNode }) {
   const { appLock } = useApp();
-  return <AppLockGate enabled={appLock}>{children}</AppLockGate>;
+  return (
+    <AppLockGate enabled={appLock}>
+      {children}
+      <ShareInReceiver />
+    </AppLockGate>
+  );
 }

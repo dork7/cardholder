@@ -72,7 +72,20 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-image",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": [
+            "image/*",
+            "application/pdf"
+          ],
+          "androidMultiIntentFilters": [
+            "image/*"
+          ],
+          "disableIOS": true
+        }
+      ]
     ],
     "scheme": "cardholder"
   }

@@ -39,20 +39,25 @@ function renderer(): CardPdfModule {
 // A PDF from Files, kept whole: nothing is cropped or extracted. Returns null when the user cancels.
 // The picked copy is a plaintext temp file, deleted before returning.
 export async function pickPdf(): Promise<PdfDocument | null> {
-  const pdf = renderer();
+  renderer();
   const picked = await getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
   if (picked.canceled) return null;
   const uri = picked.assets[0].uri;
   try {
-    const file = new File(uri);
-    if ((file.size ?? 0) > PDF_MAX_BYTES) throw new PdfTooLargeError();
-    // Opened once here, so a damaged or locked PDF is turned away now rather than saved.
-    const first = await pdf.renderPage(uri, 0, 16);
-    discardFile(first.uri);
-    return { pdfBase64: await file.base64(), pageCount: first.pageCount, coverPage: 0 };
+    return await readPdf(uri);
   } finally {
     discardFile(uri);
   }
+}
+
+// A PDF file already on the phone (one shared to the app), kept whole. The caller deletes the file.
+export async function readPdf(uri: string): Promise<PdfDocument> {
+  const file = new File(uri);
+  if ((file.size ?? 0) > PDF_MAX_BYTES) throw new PdfTooLargeError();
+  // Opened once here, so a damaged or locked PDF is turned away now rather than saved.
+  const first = await renderer().renderPage(uri, 0, 16);
+  discardFile(first.uri);
+  return { pdfBase64: await file.base64(), pageCount: first.pageCount, coverPage: 0 };
 }
 
 const pdfDir = () => new Directory(Paths.cache, 'pdf');

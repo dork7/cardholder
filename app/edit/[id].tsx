@@ -7,7 +7,7 @@ import { EASE_OUT } from '../../src/ui/motion';
 import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
 import { displayName } from '../../src/cards/display';
-import { FrontImage, looksVertical } from '../../src/cards/types';
+import { FrontImage, looksVertical, PdfDocument } from '../../src/cards/types';
 import { findDuplicate } from '../../src/cards/duplicates';
 import { allTags, hasTag, normalizeTags, sameTag, tagOptions } from '../../src/cards/tags';
 import { suggestedTag } from '../../src/analysis/documentType';
@@ -33,8 +33,10 @@ import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
-import { clearOriginals, cropFullPhoto, discardFile, pickImage } from '../../src/images/capture';
-import { canPickPdf, isPdfLocked, PDF_BACK_PAGE, PdfTooLargeError, pickPdf, renderCover, renderPdfPage } from '../../src/images/pdf';
+import { clearOriginals, cropFullPhoto, cropSharedImage, discardFile, pickImage } from '../../src/images/capture';
+import { canPickPdf, isPdfLocked, PDF_BACK_PAGE, PdfTooLargeError, pickPdf, readPdf, renderCover, renderPdfPage } from '../../src/images/pdf';
+import { discardShared } from '../../src/share/sharedFiles';
+import { takePendingShared } from '../../src/share/sharedIn';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { askReplace } from '../../src/ui/askReplace';
 import { strings } from '../../src/strings';
@@ -116,6 +118,13 @@ export default function EditCard() {
     if (y !== undefined) scroll.current?.scrollTo({ y: Math.max(0, y - 16), animated: !reduceMotion });
   };
 
+  // Photos or a PDF shared to the app from another one: taken once, when New document opens with them.
+  const takeShared = useRef<(() => Promise<void>) | null>(null);
+  useEffect(() => {
+    if (isNew) void takeShared.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!isNew && !existing) {
     return (
       <Screen style={styles.content}>
@@ -168,9 +177,9 @@ export default function EditCard() {
 
   // The whole PDF is kept. Its first page is the card's picture until another is chosen, and its
   // second page, when it has one, is the card's back (the side the home stack flips to) until removed.
-  const attachPdf = async () => {
+  const attachPdf = async (load: () => Promise<PdfDocument | null> = pickPdf) => {
     try {
-      const pdf = await pickPdf();
+      const pdf = await load();
       if (!pdf) return;
       const cover = ++covers.current;
       const front = await renderCover(pdf);
@@ -189,6 +198,28 @@ export default function EditCard() {
       console.warn('PDF failed', e);
       if (e instanceof PdfTooLargeError) Alert.alert(strings.edit.pdfTooLarge(PDF_MAX_BYTES / 1024 / 1024));
       else Alert.alert(isPdfLocked(e) ? strings.edit.pdfLocked : strings.edit.pdfFailed);
+    }
+  };
+
+  takeShared.current = async () => {
+    const shared = takePendingShared();
+    if (!shared) return;
+    if (shared.kind === 'pdf') {
+      await attachPdf(() => readPdf(shared.path).finally(() => discardShared([shared.path])));
+      return;
+    }
+    try {
+      // The first photo is the front and the second the back; cancelling a crop stops there.
+      for (const [i, path] of shared.paths.entries()) {
+        const image = await cropSharedImage(path);
+        if (!image) break;
+        applyImage(i === 0 ? 'front' : 'back', image);
+      }
+    } catch (e) {
+      console.warn('Opening the shared photo failed', e);
+      Alert.alert(strings.shareIn.failed);
+    } finally {
+      discardShared(shared.paths);
     }
   };
 
@@ -393,7 +424,7 @@ export default function EditCard() {
               uri={frontUri}
               onLibrary={() => capture('front')}
               onFullPhoto={originals.front ? () => void cropWholePhoto('front') : undefined}
-              onPdf={canPickPdf ? attachPdf : undefined}
+              onPdf={canPickPdf ? () => void attachPdf() : undefined}
               pdfLabel={pdfInfo ? strings.edit.replacePdf : undefined}
               error={errorText('front-required')}
               vertical={draft.vertical}

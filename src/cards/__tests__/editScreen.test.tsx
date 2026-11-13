@@ -1,9 +1,10 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { frontImage, image, makeCard } from '../../../test/fixtures';
 import EditCard from '../../../app/edit/[id]';
 import { Folder } from '../types';
 import { strings } from '../../strings';
+import { setPendingShared, takePendingShared } from '../../share/sharedIn';
 
 let mockParams: { id: string } = { id: 'new' };
 const mockBack = jest.fn();
@@ -72,13 +73,18 @@ const mockPickImage = jest.fn(() =>
 const mockCropFullPhoto = jest.fn();
 const mockDiscard = jest.fn();
 const mockClearOriginals = jest.fn();
+const mockCropShared = jest.fn();
 jest.mock('../../images/capture', () => ({
   pickImage: () => mockPickImage(),
   cropFullPhoto: (path: string) => mockCropFullPhoto(path),
   discardFile: (path: string) => mockDiscard(path),
   clearOriginals: () => mockClearOriginals(),
+  cropSharedImage: (path: string) => mockCropShared(path),
 }));
+const mockDiscardShared = jest.fn();
+jest.mock('../../share/sharedFiles', () => ({ discardShared: (paths: string[]) => mockDiscardShared(paths) }));
 const mockPickPdf = jest.fn();
+const mockReadPdf = jest.fn();
 const mockRenderCover = jest.fn();
 const mockRenderPdfPage = jest.fn();
 jest.mock('../../images/pdf', () => {
@@ -86,6 +92,7 @@ jest.mock('../../images/pdf', () => {
   return {
     canPickPdf: true,
     pickPdf: () => mockPickPdf(),
+    readPdf: (uri: string) => mockReadPdf(uri),
     renderCover: (...a: unknown[]) => mockRenderCover(...a),
     renderPdfPage: (...a: unknown[]) => mockRenderPdfPage(...a),
     PDF_BACK_PAGE: 1,
@@ -845,4 +852,51 @@ test('blur preview can be selected and saved with a document', async () => {
   expect(screen.getByTestId('preview-blurred').props.accessibilityState.checked).toBe(true);
   await save();
   expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ blurPreview: true }), expect.anything());
+});
+
+describe('opened with something shared from another app', () => {
+  test('two shared photos are cropped in turn into the front and the back, then deleted', async () => {
+    setPendingShared({ kind: 'photos', paths: ['file:///cache/shared/1-0.jpg', 'file:///cache/shared/1-1.jpg'] });
+    mockCropShared.mockResolvedValueOnce(frontImage('first')).mockResolvedValueOnce(frontImage('second'));
+    await render(<EditCard />);
+    await waitFor(() => expect(mockDiscardShared).toHaveBeenCalledWith(['file:///cache/shared/1-0.jpg', 'file:///cache/shared/1-1.jpg']));
+    expect(mockCropShared.mock.calls).toEqual([['file:///cache/shared/1-0.jpg'], ['file:///cache/shared/1-1.jpg']]);
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ front: frontImage('first'), back: frontImage('second') }));
+  });
+
+  test('cancelling the first crop adds nothing, and the photos are still deleted', async () => {
+    setPendingShared({ kind: 'photos', paths: ['file:///cache/shared/2-0.jpg', 'file:///cache/shared/2-1.jpg'] });
+    mockCropShared.mockResolvedValue(null);
+    await render(<EditCard />);
+    await waitFor(() => expect(mockDiscardShared).toHaveBeenCalled());
+    expect(mockCropShared).toHaveBeenCalledTimes(1);
+    expect(mockAnalyze).not.toHaveBeenCalled();
+  });
+
+  test('a shared PDF becomes a PDF document, and the shared copy is deleted', async () => {
+    setPendingShared({ kind: 'pdf', path: 'file:///cache/shared/3-0.pdf' });
+    mockReadPdf.mockResolvedValue(pdfDoc(0));
+    await render(<EditCard />);
+    await waitFor(() => expect(mockRenderCover).toHaveBeenCalledWith(pdfDoc(0)));
+    expect(mockReadPdf).toHaveBeenCalledWith('file:///cache/shared/3-0.pdf');
+    expect(mockDiscardShared).toHaveBeenCalledWith(['file:///cache/shared/3-0.pdf']);
+  });
+
+  test('a shared photo that cannot be opened says so', async () => {
+    setPendingShared({ kind: 'photos', paths: ['file:///cache/shared/4-0.jpg'] });
+    mockCropShared.mockRejectedValue(new Error('unreadable'));
+    await render(<EditCard />);
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(strings.shareIn.failed));
+    expect(mockDiscardShared).toHaveBeenCalledWith(['file:///cache/shared/4-0.jpg']);
+  });
+
+  test('editing a saved document never takes what was shared', async () => {
+    mockCards = [makeCard({ id: 'old', name: 'Emirates ID' })];
+    mockParams = { id: 'old' };
+    setPendingShared({ kind: 'photos', paths: ['file:///cache/shared/5-0.jpg'] });
+    await render(<EditCard />);
+    expect(mockCropShared).not.toHaveBeenCalled();
+    expect(takePendingShared()).not.toBeNull();
+  });
 });

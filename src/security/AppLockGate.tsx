@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,10 @@ interface Props {
   enabled: boolean;
   children: ReactNode;
 }
+
+// Whether the lock is covering the app right now, for screens underneath that must wait for it.
+const LockedContext = createContext(false);
+export const useAppLocked = () => useContext(LockedContext);
 
 // With the app lock on, the app opens locked and locks again after a while in the background. The
 // screens stay mounted underneath (so a reminder or shortcut that opened a card is still there after
@@ -97,7 +101,7 @@ export function AppLockGate({ enabled, children }: Props) {
         accessibilityElementsHidden={showLock}
         importantForAccessibility={showLock ? 'no-hide-descendants' : 'auto'}
       >
-        {children}
+        <LockedContext.Provider value={showLock}>{children}</LockedContext.Provider>
       </View>
       {/* On iOS the edit, card and backup screens are native modals above this view; only a
           full-window overlay draws over them. On Android they live in this view, so a plain cover does. */}

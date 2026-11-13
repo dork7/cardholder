@@ -393,8 +393,8 @@ export const strings = {
     failed: "The purchase didn't go through. You weren't charged.",
   },
   shareIn: {
-    tooMany: 'Share one photo for the front, or two for the front and back.',
-    failed: "Couldn't open the shared photo. Try sharing it again.",
+    tooMany: 'Share one photo for the front, two for the front and back, or one PDF.',
+    failed: "Couldn't open what was shared. Try sharing it again.",
   },
   reminders: {
     title: (name: string, days: number) =>
