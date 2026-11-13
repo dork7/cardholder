@@ -44,6 +44,8 @@ export const strings = {
     showCard: (i: number, n: number) => `Show card ${i} of ${n}`,
     showBack: 'Show the back',
     showFront: 'Show the front',
+    blurPreview: 'Blur preview',
+    clearPreview: 'Show preview clearly',
     stackHint: 'Swipe left or right to change cards. Double-tap to open.',
     stackHintVertical: 'Swipe up or down to change cards. Double-tap to open.',
     reorderHint: 'Long-press and drag to reorder.',

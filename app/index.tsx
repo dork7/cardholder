@@ -7,7 +7,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
-import { addTags, overTagLimit, removeAll, shouldUnpin, togglePinned } from '../src/cards/batch';
+import { addTags, overTagLimit, removeAll, setBlurPreview, shouldUnpin, togglePinned } from '../src/cards/batch';
 import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
 import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
@@ -93,6 +93,17 @@ export default function Home() {
   const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
   const selecting = gallery === 'gallery' && selected.length > 0;
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  // The blur button on the stack's front card: saved straight away, like the choice on the edit screen.
+  const toggleBlur = async (card: Card) => {
+    try {
+      await setBlurPreview(services.store, card, !card.blurPreview);
+      await refresh();
+    } catch (e) {
+      console.warn('Changing the blur failed', e);
+      Alert.alert(strings.common.error);
+    }
+  };
+
   const toggleSelected = (card: Card) =>
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -272,6 +283,7 @@ export default function Home() {
                 cards={shown}
                 onOpen={(card) => router.push(`/card/${card.id}`)}
                 vertical={stackVertical}
+                onToggleBlur={(card) => void toggleBlur(card)}
               />
             )}
             {/* Which parts of the folder row show is chosen in settings. */}

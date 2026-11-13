@@ -18,6 +18,10 @@ export const fieldsOf = (card: Card): CardFields => ({
   blurPreview: card.blurPreview,
 });
 
+// Blurs or clears one card's previews; everything else about it stays as it is.
+export const setBlurPreview = (store: CardStore, card: Card, blurPreview: boolean) =>
+  store.update(card.id, { ...fieldsOf(card), blurPreview });
+
 async function each(cards: Card[], what: string, run: (card: Card) => Promise<unknown>): Promise<number> {
   let failed = 0;
   for (const card of cards) {

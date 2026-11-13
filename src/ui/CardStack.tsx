@@ -41,6 +41,7 @@ import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 import { CardPicture } from './CardPicture';
+import { RetroIcon } from './RetroIcon';
 
 const EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
 const DURATION = 380;
@@ -58,12 +59,14 @@ interface Props {
   cards: Card[];
   onOpen: (card: Card) => void;
   vertical?: boolean; // swipe up and down, the pile fanned out below (a setting)
+  // Given, the front card carries a button that blurs or clears that document's previews.
+  onToggleBlur?: (card: Card) => void;
 }
 
 // Wallet-style stack: the front card is fully visible, the cards behind it fan out to its right,
 // swiping left sends the front card to the back, swiping right brings the previous one back,
 // and tapping a strip brings that card straight to the front.
-export function CardStack({ cards, onOpen, vertical = false }: Props) {
+export function CardStack({ cards, onOpen, vertical = false, onToggleBlur }: Props) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
   const [width, setWidth] = useState(0);
@@ -270,6 +273,7 @@ export function CardStack({ cards, onOpen, vertical = false }: Props) {
     else if (e.nativeEvent.actionName === 'decrement' && !busy.value) goBack();
     else if (e.nativeEvent.actionName === 'activate') tapAt(0, 0);
     else if (e.nativeEvent.actionName === 'flip') toggleFlip();
+    else if (e.nativeEvent.actionName === 'blur' && cards[active]) onToggleBlur?.(cards[active]);
   };
 
   // The flip button rides on the front card and fades out as soon as the stack starts to move.
@@ -281,6 +285,8 @@ export function CardStack({ cards, onOpen, vertical = false }: Props) {
   const flipTip = useTooltip(flipLabel);
 
   const front = cards[active];
+  const blurLabel = front?.blurPreview ? strings.home.clearPreview : strings.home.blurPreview;
+  const blurTip = useTooltip(blurLabel);
   if (!front) return null;
 
   return (
@@ -301,6 +307,7 @@ export function CardStack({ cards, onOpen, vertical = false }: Props) {
               { name: 'decrement' },
               { name: 'activate' },
               ...(front.hasBack ? [{ name: 'flip', label: flipLabel }] : []),
+              ...(onToggleBlur ? [{ name: 'blur', label: blurLabel }] : []),
             ]}
             onAccessibilityAction={onAccessibilityAction}
             testID="card-stack"
@@ -337,6 +344,28 @@ export function CardStack({ cards, onOpen, vertical = false }: Props) {
           >
             <FlipIcon />
             {flipTip.tooltip}
+          </Pressable>
+        </Animated.View>
+      )}
+
+      {/* Blur sits in the top right corner too, left of the flip button when the card has a back. */}
+      {width > 0 && onToggleBlur && (
+        <Animated.View
+          style={[styles.flipButtonSlot, { left: geo.cardW - (front.hasBack ? 2 : 1) * (FLIP_BUTTON + 8) }, flipButtonStyle]}
+          pointerEvents="box-none"
+        >
+          <Pressable
+            ref={blurTip.ref}
+            onPress={() => onToggleBlur(front)}
+            onLongPress={blurTip.onLongPress}
+            accessibilityRole="button"
+            accessibilityLabel={blurLabel}
+            testID="blur-card"
+            // Amber while the previews are blurred, so the button shows which way it is set.
+            style={({ pressed }) => [styles.flipButton, front.blurPreview && { backgroundColor: theme.accent }, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <RetroIcon name="blur" size={24} color={front.blurPreview ? theme.onAccent : '#FFFFFF'} backgroundColor={front.blurPreview ? theme.accent : '#1A1A1A'} />
+            {blurTip.tooltip}
           </Pressable>
         </Animated.View>
       )}
