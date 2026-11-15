@@ -12,9 +12,10 @@ import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
 import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
-import { PdfUnavailableError, shareCards } from '../src/share/shareCard';
+import { shareCards } from '../src/share/shareCard';
 import { confirmIdShare } from '../src/share/idWarning';
 import { strings } from '../src/strings';
+import { showError } from '../src/ui/errorAlert';
 import { Button } from '../src/ui/Button';
 import { CardGrid } from '../src/ui/CardGrid';
 import { TagSheet } from '../src/ui/TagSheet';
@@ -112,7 +113,7 @@ export default function Home() {
       await refresh();
     } catch (e) {
       console.warn('Changing the blur failed', e);
-      Alert.alert(strings.common.error);
+      showError('blur', e);
     }
   };
 
@@ -135,11 +136,17 @@ export default function Home() {
   }, [selecting, clearSelection]);
 
   // Runs a batch action on the selection, then leaves selection and reloads the cards.
-  const onSelection = async (run: (cards: Card[]) => Promise<number>) => {
+  const onSelection = async (
+    run: (cards: Card[]) => Promise<number>,
+    failure: (n: number) => { title: string; body: string },
+  ) => {
     const failed = await run(selected);
     clearSelection();
     await refresh().catch((e) => console.warn('Refresh after a batch action failed', e));
-    if (failed > 0) Alert.alert(strings.common.error, strings.home.selectionFailed(failed));
+    if (failed > 0) {
+      const { title, body } = failure(failed);
+      Alert.alert(title, body);
+    }
   };
 
   // Adds the chosen tags to every selected card. If any card would go over the limit, nothing is
@@ -151,14 +158,14 @@ export default function Home() {
       return;
     }
     setChoosingTags(false);
-    void onSelection((picked) => addTags(services.store, picked, tags));
+    void onSelection((picked) => addTags(services.store, picked, tags), strings.errors.tagMany);
   };
 
   // Recreate .md on the selection: reads each document's text again from its pictures, which its
   // Details (.md) are made from. Can take a while, so the bar counts through them.
   const recreateSelected = async () => {
     if (!canReadText) {
-      Alert.alert(strings.common.error, strings.recreate.unavailable);
+      showError('readTextUnavailable', null);
       return;
     }
     const picked = selected;
@@ -179,7 +186,7 @@ export default function Home() {
       {
         text: strings.common.delete,
         style: 'destructive',
-        onPress: () => onSelection((cards) => removeAll(services.store, cards)),
+        onPress: () => onSelection((cards) => removeAll(services.store, cards), strings.errors.deleteMany),
       },
     ]);
 
@@ -195,7 +202,7 @@ export default function Home() {
       go: () =>
         shareCards(services.store, picked).catch((e) => {
           console.warn('Share failed', e);
-          Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
+          showError('shareMany', e);
         }),
       stopWarning: () => setWarnIdShare(false),
     });
@@ -315,7 +322,7 @@ export default function Home() {
               icon={shouldUnpin(selected) ? 'unpin' : 'pin'}
               label={shouldUnpin(selected) ? strings.home.unpinSelected : strings.home.pinSelected}
               caption={shouldUnpin(selected) ? strings.home.selectionCaptions.unpin : strings.home.selectionCaptions.pin}
-              onPress={() => void onSelection((cards) => togglePinned(services.store, cards))}
+              onPress={() => void onSelection((cards) => togglePinned(services.store, cards), strings.errors.pinMany)}
               testID="selection-pin"
             />
             <IconButton

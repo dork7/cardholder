@@ -7,6 +7,7 @@ import { FREE_CARD_LIMIT, FOLDERS_ENABLED } from '../src/config';
 import { ProblemsSettings } from '../src/diagnostics/ProblemsSettings';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
 import { strings } from '../src/strings';
+import { showError } from '../src/ui/errorAlert';
 import { formatAgo } from '../src/time/dates';
 import { canSelfUpdate, clearDownloads } from '../src/update/download';
 import {
@@ -69,7 +70,7 @@ export default function SettingsScreen() {
       else if (result === 'no-device-lock') Alert.alert(strings.settings.noDeviceLock);
     } catch (e) {
       console.warn('Changing the app lock failed', e);
-      Alert.alert(strings.common.error);
+      showError('appLock', e);
     } finally {
       setChangingLock(false);
     }
