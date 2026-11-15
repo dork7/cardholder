@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- No camera permission: the photo is taken by the phone's own camera app. With CAMERA left
+       undeclared (it is blocked in app.json), the image-capture intent needs no permission. -->
+  <queries>
+    <!-- Android 11+ package visibility: lets the app see whether a camera app is installed. -->
+    <intent>
+      <action android:name="android.media.action.IMAGE_CAPTURE" />
+    </intent>
+  </queries>
+</manifest>

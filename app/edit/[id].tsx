@@ -33,7 +33,7 @@ import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
-import { clearOriginals, cropFullPhoto, cropSharedImage, discardFile, pickImage } from '../../src/images/capture';
+import { canTakePhoto, clearOriginals, cropFullPhoto, cropSharedImage, discardFile, pickImage, takePhoto } from '../../src/images/capture';
 import { canPickPdf, isPdfLocked, PDF_BACK_PAGE, PdfTooLargeError, pickPdf, readPdf, renderCover, renderPdfPage } from '../../src/images/pdf';
 import { discardShared } from '../../src/share/sharedFiles';
 import { takePendingShared } from '../../src/share/sharedIn';
@@ -149,6 +149,26 @@ export default function EditCard() {
       console.warn('Capture failed', e);
       Alert.alert(strings.edit.captureFailed);
     } finally {
+      setBusy(null);
+    }
+  };
+
+  // The phone's camera app → the same crop as a shared photo. The plaintext photo is deleted once used.
+  const captureWithCamera = async (side: 'front' | 'back') => {
+    let shot: string | null = null;
+    try {
+      shot = await takePhoto();
+      if (!shot) return;
+      setBusy(strings.edit.preparingPhoto);
+      const image = await cropSharedImage(shot);
+      if (!image) return;
+      applyImage(side, image);
+      setOriginal(side, null);
+    } catch (e) {
+      console.warn('Taking a photo failed', e);
+      Alert.alert(strings.edit.cameraFailed);
+    } finally {
+      if (shot) discardFile(shot);
       setBusy(null);
     }
   };
@@ -429,9 +449,10 @@ export default function EditCard() {
           <Panel style={styles.group} onLayout={onPanelLayout('photos')}>
             <ImageField
               label={pdfInfo ? strings.edit.pdfFront : strings.edit.front}
-              hint={!frontUri && !pdfInfo ? strings.edit.libraryHint : undefined}
+              hint={!frontUri && !pdfInfo ? strings.edit.libraryHint(canTakePhoto) : undefined}
               uri={frontUri}
               onLibrary={() => capture('front')}
+              onCamera={canTakePhoto ? () => void captureWithCamera('front') : undefined}
               onFullPhoto={originals.front ? () => void cropWholePhoto('front') : undefined}
               onPdf={canPickPdf ? () => void attachPdf() : undefined}
               pdfLabel={pdfInfo ? strings.edit.replacePdf : undefined}
@@ -453,6 +474,7 @@ export default function EditCard() {
                       label={strings.edit.pdfBack}
                       uri={backUri}
                       onLibrary={() => capture('back')}
+                      onCamera={canTakePhoto ? () => void captureWithCamera('back') : undefined}
                       onRemove={removeBack}
                       removeAsCross
                       vertical={draft.vertical}
@@ -481,6 +503,7 @@ export default function EditCard() {
                   label={strings.edit.back}
                   uri={backUri}
                   onLibrary={() => capture('back')}
+                  onCamera={canTakePhoto ? () => void captureWithCamera('back') : undefined}
                   onFullPhoto={originals.back ? () => void cropWholePhoto('back') : undefined}
                   onRemove={backUri ? removeBack : undefined}
                   vertical={draft.vertical}

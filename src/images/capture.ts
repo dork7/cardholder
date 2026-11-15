@@ -1,3 +1,4 @@
+import { requireOptionalNativeModule } from 'expo';
 import { Directory, File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import ImagePicker, { Image as PickedImage } from 'react-native-image-crop-picker';
@@ -27,6 +28,31 @@ export function discardFile(path: string): void {
   } catch {
     // ignore
   }
+}
+
+// modules/photo-capture (Android only): the phone's own camera app through the system image-capture
+// intent, so Doc Keeper never holds the camera permission. Missing on iOS and in older builds, and
+// unavailable when no camera app is installed; Take photo is then hidden.
+interface PhotoCaptureModule {
+  isAvailable(): boolean;
+  takePhoto(): Promise<string | null>;
+}
+const photoCapture = requireOptionalNativeModule<PhotoCaptureModule>('PhotoCapture');
+
+function captureAvailable(): boolean {
+  try {
+    return photoCapture?.isAvailable() ?? false;
+  } catch {
+    return false;
+  }
+}
+export const canTakePhoto = captureAvailable();
+
+// Opens the camera app. Returns the file:// path of the photo taken, a plaintext file in the cache
+// for the caller to crop (cropSharedImage) and then discard (discardFile); null when cancelled.
+export async function takePhoto(): Promise<string | null> {
+  if (!photoCapture) throw new Error('Taking a photo is not available in this build');
+  return photoCapture.takePhoto();
 }
 
 const isCancel = (e: unknown) => (e as { code?: string }).code === 'E_PICKER_CANCELLED';
