@@ -203,6 +203,23 @@ export function backupFileName(date: Date): string {
   return `DocKeeper-backup-${toIsoDate(date)}.cardholder`;
 }
 
+// Writes an encrypted backup into a folder the user picks (Files on iPhone, the system folder picker
+// on Android). Resolves to the saved file's name, or null when the picker was cancelled. Unlike the
+// share sheet, this says for certain whether a copy exists, so it is the path that counts as a backup.
+export async function saveBackupFile(bytes: Uint8Array, date: Date): Promise<string | null> {
+  let folder: Directory;
+  try {
+    folder = await Directory.pickDirectoryAsync();
+  } catch (e) {
+    if (isCancelled(e)) return null;
+    throw e;
+  }
+  const name = freeFileName(backupFileName(date), new Set(folder.list().map((entry) => entry.name)));
+  const saved = folder.createFile(name, 'application/octet-stream');
+  await saved.write(bytes);
+  return saved.name;
+}
+
 // Shares an encrypted backup file. Resolves once the share sheet is closed; the OS doesn't say
 // whether the file was saved or the sheet was dismissed.
 export async function shareBackupFile(bytes: Uint8Array, date: Date): Promise<void> {

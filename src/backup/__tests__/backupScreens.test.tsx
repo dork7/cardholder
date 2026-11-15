@@ -44,7 +44,11 @@ jest.mock('../backupService', () => ({
   applySnapshot: (...args: unknown[]) => mockApply(...args),
 }));
 const mockShare = jest.fn(async () => {});
-jest.mock('../../share/shareCard', () => ({ shareBackupFile: (...args: unknown[]) => mockShare(...(args as [])) }));
+const mockSave = jest.fn(async (): Promise<string | null> => 'DocKeeper-backup-2026-11-15.cardholder');
+jest.mock('../../share/shareCard', () => ({
+  shareBackupFile: (...args: unknown[]) => mockShare(...(args as [])),
+  saveBackupFile: (...args: unknown[]) => mockSave(...(args as [])),
+}));
 
 const mockPick = jest.fn();
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: (...args: unknown[]) => mockPick(...args) }));
@@ -93,18 +97,40 @@ describe('export', () => {
     expect(mockEncode).not.toHaveBeenCalled();
   });
 
-  test('a good passphrase encrypts, shares and records the export', async () => {
+  test('a good passphrase encrypts, saves the file where the user picks, and records the export', async () => {
     await render(<ExportScreen />);
     await fill('long enough', 'long enough');
     expect(mockEncode).toHaveBeenCalledWith({}, 'long enough');
-    expect(mockShare).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]), expect.any(Date));
+    expect(mockSave).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]), expect.any(Date));
+    expect(mockShare).not.toHaveBeenCalled();
     expect(mockSettings.get('lastExportAt')).toEqual(expect.any(String));
-    expect(alert).toHaveBeenCalledWith(strings.export.done);
+    expect(alert).toHaveBeenCalledWith(strings.export.done('DocKeeper-backup-2026-11-15.cardholder'));
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
-  test('a failed share leaves the last backup date alone', async () => {
-    mockShare.mockRejectedValueOnce(new Error('no share sheet'));
+  test('cancelling the folder picker records nothing and stays on the screen', async () => {
+    mockSave.mockResolvedValueOnce(null);
+    await render(<ExportScreen />);
+    await fill('long enough', 'long enough');
+    expect(mockSettings.has('lastExportAt')).toBe(false);
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockRouter.back).not.toHaveBeenCalled();
+  });
+
+  test('sending through the share sheet never counts as a backup', async () => {
+    await render(<ExportScreen />);
+    await fireEvent.changeText(screen.getByTestId('export-passphrase'), 'long enough');
+    await fireEvent.changeText(screen.getByTestId('export-confirm'), 'long enough');
+    await act(async () => fireEvent.press(screen.getByTestId('export-send')));
+    expect(mockShare).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]), expect.any(Date));
+    expect(mockSave).not.toHaveBeenCalled();
+    expect(mockSettings.has('lastExportAt')).toBe(false);
+    expect(alert).toHaveBeenCalledWith(strings.export.sent);
+    expect(mockRouter.back).toHaveBeenCalled();
+  });
+
+  test('a failed save leaves the last backup date alone', async () => {
+    mockSave.mockRejectedValueOnce(new Error('disk full'));
     await render(<ExportScreen />);
     await fill('long enough', 'long enough');
     expect(mockSettings.has('lastExportAt')).toBe(false);

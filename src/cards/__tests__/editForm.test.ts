@@ -262,12 +262,13 @@ describe('text read off the card, for search', () => {
   });
 });
 
-test('reminder days are saved as a number; a bad value blocks the save only while there is an expiry date', () => {
+test('reminder days are saved as a number; a cleared field means the default; a bad value blocks the save only while there is an expiry date', () => {
   const existing = makeCard({ id: 'c1', expiresOn: '2027-01-01' });
   const ctx = { existing, cardCount: 1, unlocked: false };
   const ok = planSave({ ...draftFor(existing), remindDaysBefore: '30' }, ctx);
   expect(ok).toMatchObject({ kind: 'update', fields: { remindDaysBefore: 30 } });
-  expect(planSave({ ...draftFor(existing), remindDaysBefore: '' }, ctx)).toEqual({ kind: 'invalid', errors: ['bad-reminder'] });
+  expect(planSave({ ...draftFor(existing), remindDaysBefore: '' }, ctx)).toMatchObject({ kind: 'update', fields: { remindDaysBefore: 14 } });
+  expect(planSave({ ...draftFor(existing), remindDaysBefore: '0' }, ctx)).toEqual({ kind: 'invalid', errors: ['bad-reminder'] });
   const noExpiry = planSave({ ...draftFor(existing), expiresOn: null, remindDaysBefore: '' }, ctx);
   expect(noExpiry).toMatchObject({ kind: 'update', fields: { remindDaysBefore: 14 } });
 });

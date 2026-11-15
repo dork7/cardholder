@@ -6,6 +6,7 @@ import {
   cardFileBase,
   exportCardPdf,
   freeFileName,
+  saveBackupFile,
   PdfUnavailableError,
   shareBackupFile,
   shareCard,
@@ -179,6 +180,17 @@ test('shares the backup bytes as a file, then removes the copy', async () => {
   });
   expect(shared).toEqual(bytes);
   expect(mockDisk.size).toBe(0);
+});
+
+test('saving a backup writes it into the picked folder under a free name, or does nothing when cancelled', async () => {
+  mockDisk.set('picked/DocKeeper-backup-2026-10-23.cardholder', utf8.encode('older'));
+  const bytes = utf8.encode('CHBK…');
+  await expect(saveBackupFile(bytes, new Date(2026, 9, 23))).resolves.toBe('DocKeeper-backup-2026-10-23 (2).cardholder');
+  expect(mockDisk.get('picked/DocKeeper-backup-2026-10-23 (2).cardholder')).toEqual(bytes);
+  expect(shareAsync).not.toHaveBeenCalled();
+  mockPicked = null;
+  await expect(saveBackupFile(bytes, new Date(2026, 9, 23))).resolves.toBeNull();
+  expect(mockDisk.size).toBe(2);
 });
 
 test('the backup copy is removed even when sharing fails', async () => {

@@ -89,10 +89,12 @@ describe('a backup from before categories became tags', () => {
 test('reminder days: a whole number from 1 to 365, typed or stored; missing means 14', () => {
   const remind = (remindDaysBefore: unknown) => validateCardFields({ remindDaysBefore });
   expect(remind(undefined)).toMatchObject({ ok: true, value: { remindDaysBefore: 14 } });
+  expect(remind('')).toMatchObject({ ok: true, value: { remindDaysBefore: 14 } });
+  expect(remind('  ')).toMatchObject({ ok: true, value: { remindDaysBefore: 14 } });
   expect(remind(30)).toMatchObject({ ok: true, value: { remindDaysBefore: 30 } });
   expect(remind(' 7 ')).toMatchObject({ ok: true, value: { remindDaysBefore: 7 } });
   expect(remind(365)).toMatchObject({ ok: true });
-  for (const bad of ['', '0', 0, 366, 1.5, '-3', 'ten', null]) {
+  for (const bad of ['0', 0, 366, 1.5, '-3', 'ten', null]) {
     expect(remind(bad)).toEqual({ ok: false, errors: ['bad-reminder'] });
   }
 });

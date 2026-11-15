@@ -42,7 +42,8 @@ function parseTags(v: unknown): string[] | null {
 
 // Missing means the default: cards and backups from before the setting have none.
 export function parseRemindDays(v: unknown): number | null {
-  if (v === undefined) return DEFAULT_REMIND_DAYS;
+  // Missing, or a field the user cleared: the default the field's hint promises.
+  if (v === undefined || (typeof v === 'string' && v.trim() === '')) return DEFAULT_REMIND_DAYS;
   const n = typeof v === 'number' ? v : typeof v === 'string' && /^\s*\d+\s*$/.test(v) ? Number(v) : NaN;
   return Number.isInteger(n) && n >= 1 && n <= MAX_REMIND_DAYS ? n : null;
 }

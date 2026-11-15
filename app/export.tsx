@@ -7,7 +7,7 @@ import { buildSnapshot } from '../src/backup/backupService';
 import { recordExport } from '../src/backup/lastExport';
 import { validateNewPassphrase } from '../src/backup/passphrase';
 import { MIN_PASSPHRASE_LENGTH } from '../src/config';
-import { shareBackupFile } from '../src/share/shareCard';
+import { saveBackupFile, shareBackupFile } from '../src/share/shareCard';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { Field, useInputStyle } from '../src/ui/Field';
@@ -28,7 +28,9 @@ export default function ExportScreen() {
   const running = useRef(false); // synchronous guard against a double tap starting two exports
   const confirmRef = useRef<ComponentRef<typeof TextInput>>(null);
 
-  const run = async () => {
+  // 'save' writes the file where the user picks and is the only path that counts as a backup: the
+  // share sheet ('send') can't say whether the file went anywhere, so it never records an export.
+  const run = async (how: 'save' | 'send') => {
     if (running.current) return;
     const problem = validateNewPassphrase(passphrase, confirmation);
     if (problem) {
@@ -41,10 +43,16 @@ export default function ExportScreen() {
     try {
       const now = Date.now();
       const bytes = await encodeBackup(await buildSnapshot(services.store, now), passphrase);
-      await shareBackupFile(bytes, new Date(now));
-      // The share sheet doesn't report whether the file was saved, so closing it counts as an export.
+      if (how === 'send') {
+        await shareBackupFile(bytes, new Date(now));
+        Alert.alert(strings.export.sent);
+        router.back();
+        return;
+      }
+      const saved = await saveBackupFile(bytes, new Date(now));
+      if (saved === null) return; // the folder picker was cancelled: nothing happened
       await recordExport(services.settings, now);
-      Alert.alert(strings.export.done);
+      Alert.alert(strings.export.done(saved));
       router.back();
     } catch (e) {
       console.warn('Export failed', e);
@@ -84,7 +92,7 @@ export default function ExportScreen() {
                 ref={confirmRef}
                 value={confirmation}
                 onChangeText={setConfirmation}
-                onSubmitEditing={run}
+                onSubmitEditing={() => run('save')}
                 returnKeyType="done"
                 secureTextEntry
                 autoCapitalize="none"
@@ -102,7 +110,17 @@ export default function ExportScreen() {
               <LiveText style={[styles.body, { color: theme.muted }]}>{strings.export.working}</LiveText>
             </View>
           ) : (
-            <Button icon="backup" label={strings.export.action} onPress={run} testID="export-run" />
+            <View style={styles.actions}>
+              <Button icon="backup" label={strings.export.action} onPress={() => run('save')} testID="export-run" />
+              <Button
+                variant="secondary"
+                label={strings.export.send}
+                accessibilityHint={strings.export.sendHint}
+                onPress={() => run('send')}
+                testID="export-send"
+              />
+              <Text style={[styles.hint, { color: theme.muted }]}>{strings.export.sendHint}</Text>
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -116,4 +134,6 @@ const styles = StyleSheet.create({
   body: { fontSize: TYPE.body },
   warning: { fontWeight: '700' },
   busy: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 48 },
+  actions: { gap: 12 },
+  hint: { fontSize: TYPE.secondary, textAlign: 'center' },
 });

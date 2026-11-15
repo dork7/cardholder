@@ -27,7 +27,7 @@ import {
   SaveError,
   SavePlan,
 } from '../../src/cards/editForm';
-import { DEFAULT_REMIND_DAYS, FOLDERS_ENABLED, NAME_MAX_LENGTH, PDF_MAX_BYTES } from '../../src/config';
+import { DEFAULT_REMIND_DAYS, FOLDERS_ENABLED, MAX_TAGS, NAME_MAX_LENGTH, PDF_MAX_BYTES } from '../../src/config';
 import { parseRemindDays } from '../../src/cards/validate';
 import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
@@ -488,7 +488,13 @@ export default function EditCard() {
                 <TagChips
                   tags={offeredTags}
                   selected={draft.tags}
-                  onPress={(tag) => tag && update({ tags: hasTag(draft, tag) ? draft.tags.filter((t) => !sameTag(t, tag)) : [...draft.tags, tag] })}
+                  onPress={(tag) => {
+                    if (!tag) return;
+                    if (hasTag(draft, tag)) return update({ tags: draft.tags.filter((t) => !sameTag(t, tag)) });
+                    // The cap is checked here, like the tag sheet does, rather than at Save.
+                    if (draft.tags.length >= MAX_TAGS) return Alert.alert(strings.tags.tooManyTitle, strings.tags.tooMany(1, MAX_TAGS));
+                    update({ tags: [...draft.tags, tag] });
+                  }}
                   onAddNew={() => setNamingTag(true)}
                   multiple
                   wrap
