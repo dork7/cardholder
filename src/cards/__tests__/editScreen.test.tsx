@@ -74,7 +74,14 @@ const mockCropFullPhoto = jest.fn();
 const mockDiscard = jest.fn();
 const mockClearOriginals = jest.fn();
 const mockCropShared = jest.fn();
+// The system camera app: a path to the photo taken, or null when cancelled. Unavailable on iOS.
+const mockTakePhoto = jest.fn();
+let mockCanTakePhoto = true;
 jest.mock('../../images/capture', () => ({
+  get canTakePhoto() {
+    return mockCanTakePhoto;
+  },
+  takePhoto: () => mockTakePhoto(),
   pickImage: () => mockPickImage(),
   cropFullPhoto: (path: string) => mockCropFullPhoto(path),
   discardFile: (path: string) => mockDiscard(path),
@@ -110,6 +117,7 @@ let alert: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
   mockFoldersEnabled = true;
+  mockCanTakePhoto = true;
   mockParams = { id: 'new' };
   mockCards = [];
   mockFolders = [];
@@ -856,6 +864,65 @@ test('blur preview can be selected and saved with a document', async () => {
   expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ blurPreview: true }), expect.anything());
 });
 
+describe('reminder days', () => {
+  const checked = (id: string) => screen.getByTestId(id).props.accessibilityState?.checked;
+  async function openCard(remindDaysBefore: number) {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard({ expiresOn: '2030-11-09', remindDaysBefore })];
+    await render(<EditCard />);
+  }
+  const savedDays = () => mockUpdate.mock.calls[0][1].remindDaysBefore;
+
+  test('choosing 7, 14 or 30 days sets the reminder', async () => {
+    await openCard(14);
+    expect(checked('remind-14')).toBe(true);
+    await fireEvent.press(screen.getByTestId('remind-30'));
+    expect(checked('remind-30')).toBe(true);
+    expect(checked('remind-14')).toBe(false);
+    await save();
+    expect(savedDays()).toBe(30);
+  });
+
+  test('the number field shows only under Custom, and saves the number typed there', async () => {
+    await openCard(14);
+    expect(screen.queryByTestId('remind-days')).toBeNull();
+    await fireEvent.press(screen.getByTestId('remind-custom'));
+    expect(checked('remind-custom')).toBe(true);
+    expect(checked('remind-14')).toBe(false);
+    await fireEvent.changeText(screen.getByTestId('remind-days'), '45');
+    await save();
+    expect(savedDays()).toBe(45);
+  });
+
+  test('a document saved with another number opens on Custom with that number', async () => {
+    await openCard(60);
+    expect(checked('remind-custom')).toBe(true);
+    expect(screen.getByTestId('remind-days').props.value).toBe('60');
+  });
+
+  test('clearing the custom field means the default, and Custom stays chosen', async () => {
+    await openCard(60);
+    await fireEvent.changeText(screen.getByTestId('remind-days'), '');
+    expect(checked('remind-custom')).toBe(true);
+    expect(screen.getByText(strings.edit.remindDaysHint(14))).toBeTruthy();
+    await save();
+    expect(savedDays()).toBe(14);
+  });
+
+  test('a new document starts on 14 days', async () => {
+    await fillNewCard();
+    await fireEvent.press(screen.getByRole('button', { name: strings.edit.addExpiry }));
+    expect(checked('remind-14')).toBe(true);
+  });
+});
+
+test('the name field capitalises words and closes the keyboard on Done', async () => {
+  await render(<EditCard />);
+  const name = screen.getByTestId('card-name');
+  expect(name.props.autoCapitalize).toBe('words');
+  expect(name.props.returnKeyType).toBe('done');
+});
+
 describe('opened with something shared from another app', () => {
   test('two shared photos are cropped in turn into the front and the back, then deleted', async () => {
     setPendingShared({ kind: 'photos', paths: ['file:///cache/shared/1-0.jpg', 'file:///cache/shared/1-1.jpg'] });
@@ -900,5 +967,95 @@ describe('opened with something shared from another app', () => {
     await render(<EditCard />);
     expect(mockCropShared).not.toHaveBeenCalled();
     expect(takePendingShared()).not.toBeNull();
+  });
+});
+
+describe('taking a photo with the camera', () => {
+  const SHOT = 'file:///cache/capture-1.jpg';
+
+  test('a photo taken for the front is cropped, becomes the front and is read, then deleted', async () => {
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockResolvedValue(frontImage('shot'));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    expect(mockCropShared).toHaveBeenCalledWith(SHOT);
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('shot').jpegBase64);
+    expect(mockDiscard).toHaveBeenCalledWith(SHOT);
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ front: frontImage('shot') }));
+  });
+
+  test('a photo taken for the back becomes the back', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockResolvedValue(frontImage('back-shot'));
+    await fireEvent.press(screen.getByTestId('back-camera'));
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym');
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ front: frontImage('picked'), back: frontImage('back-shot') }));
+  });
+
+  test('cancelling the camera leaves the form unchanged', async () => {
+    mockTakePhoto.mockResolvedValue(null);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    expect(mockCropShared).not.toHaveBeenCalled();
+    expect(mockAnalyze).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('back-library')).toBeNull(); // still no front
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  test('cancelling the crop leaves the form unchanged, and the photo is still deleted', async () => {
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockResolvedValue(null);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    expect(mockAnalyze).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('back-library')).toBeNull();
+    expect(mockDiscard).toHaveBeenCalledWith(SHOT);
+  });
+
+  test('a camera that fails says so, and the photo is still deleted', async () => {
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockRejectedValue(new Error('unreadable'));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    expect(alert).toHaveBeenCalledWith(strings.edit.cameraFailed);
+    expect(mockDiscard).toHaveBeenCalledWith(SHOT);
+  });
+
+  test('a photo taken for the front of a PDF document turns it into a photo document', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockResolvedValue(frontImage('shot'));
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym');
+    await save();
+    // No PDF, and the back (a page of that PDF) went with it.
+    expect(mockCreate.mock.calls.at(-1)?.[1]).toEqual({ front: frontImage('shot'), back: null });
+  });
+
+  test('the Front hint points at Take photo and the photo library, not another app', async () => {
+    await render(<EditCard />);
+    expect(screen.getByText(/Take photo.*photo library/)).toBeTruthy();
+    expect(screen.queryByText(/camera app/)).toBeNull();
+  });
+
+  test('without the camera, the Front hint points at the photo library only', async () => {
+    mockCanTakePhoto = false;
+    await render(<EditCard />);
+    expect(screen.queryByText(/Take photo/)).toBeNull();
+    expect(screen.getByText(/photo library/)).toBeTruthy();
+    expect(screen.queryByText(/camera app/)).toBeNull();
+  });
+
+  test('Take photo is not offered where the camera cannot be used', async () => {
+    mockCanTakePhoto = false;
+    await render(<EditCard />);
+    expect(screen.queryByTestId('front-camera')).toBeNull();
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.queryByTestId('back-camera')).toBeNull();
   });
 });

@@ -12,6 +12,8 @@ interface Props {
   hint?: string; // under the label: what to do before tapping, e.g. that photos come from the library
   uri: string | null;
   onLibrary: () => void;
+  // Take photo with the phone's camera app; left out where capture isn't available.
+  onCamera?: () => void;
   onPdf?: () => void;
   pdfLabel?: string; // defaults to "Use a PDF"
   onRemove?: () => void;
@@ -24,7 +26,7 @@ interface Props {
   testIDPrefix: string;
 }
 
-export function ImageField({ label, hint, uri, onLibrary, onPdf, pdfLabel, onRemove, removeAsCross, onFullPhoto, error, vertical = false, testIDPrefix }: Props) {
+export function ImageField({ label, hint, uri, onLibrary, onCamera, onPdf, pdfLabel, onRemove, removeAsCross, onFullPhoto, error, vertical = false, testIDPrefix }: Props) {
   const theme = useTheme();
   return (
     <Field label={label} hint={hint} error={error}>
@@ -74,8 +76,17 @@ export function ImageField({ label, hint, uri, onLibrary, onPdf, pdfLabel, onRem
           </Pressable>
         )}
       </View>
-      {(onFullPhoto || onPdf || (onRemove && !removeAsCross)) && (
+      {(onCamera || onFullPhoto || onPdf || (onRemove && !removeAsCross)) && (
         <View style={styles.actions}>
+          {onCamera && (
+            <Button
+              variant="secondary"
+              label={strings.edit.takePhoto}
+              onPress={onCamera}
+              accessibilityHint={label}
+              testID={`${testIDPrefix}-camera`}
+            />
+          )}
           {onFullPhoto && (
             <Button
               variant="secondary"

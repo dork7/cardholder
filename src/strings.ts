@@ -26,7 +26,7 @@ export const strings = {
   home: {
     title: 'Doc Keeper',
     emptyTitle: 'Add your first card',
-    emptyHint: 'Take a photo of the card with your camera app first, then tap + to pick it from your photos.',
+    emptyHint: 'Tap Add image to add a photo or PDF of your document.',
     addCard: 'Add card',
     addImage: 'Add image',
     galleryLabel: 'Gallery',
@@ -98,12 +98,17 @@ export const strings = {
     back: 'Back (optional)',
     noImage: 'No photo yet',
     tapToAddPhoto: 'Tap to pick a photo',
-    libraryHint: 'Photos come from your photo library, so take the picture with your camera app first.',
+    // `camera`: Take photo is offered (Android).
+    libraryHint: (camera: boolean) =>
+      camera
+        ? 'Use Take photo, or tap the box to pick a photo from your photo library.'
+        : 'Tap the box to pick a photo from your photo library.',
     preparingPhoto: 'Preparing the photo…',
     openingPdf: 'Opening the PDF…',
     blank: 'Empty notes are discarded when you leave.',
     saving: 'Saving…',
     addPhoto: 'Add photo',
+    takePhoto: 'Take photo',
     changePhoto: 'Change photo',
     removeBack: 'Remove back',
     pdfBack: 'Back',
@@ -125,6 +130,9 @@ export const strings = {
     addExpiry: 'Add expiry date',
     clearExpiry: 'Clear',
     remindDays: 'Remind me (days before)',
+    remindChoice: (days: number) => `${days} days`,
+    remindCustom: 'Custom',
+    remindCustomDays: 'Custom number of days',
     remindDaysHint: (days: number) =>
       `A reminder every day from ${days} ${plural(days, 'day', 'days')} before it expires, until it expires or you change the date.`,
     suggested: 'Suggested from the photo',
@@ -140,6 +148,7 @@ export const strings = {
     deleteConfirmTitle: 'Delete this card?',
     deleteConfirmBody: 'Its photos are removed from this phone immediately.',
     captureFailed: "Couldn't open that photo. Check Doc Keeper's photo access in Settings.",
+    cameraFailed: "Couldn't take a photo. Try again, or pick one from your photos.",
     pdfFailed: "Couldn't open that PDF.",
     pdfLocked: 'That PDF is password protected. Save an unlocked copy and try again.',
     pdfTooLarge: (mb: number) => `That PDF is over ${mb} MB. Choose a smaller file.`,
@@ -237,6 +246,11 @@ export const strings = {
     removeBody: (tag: string) => `Remove "${tag}" from this card? The card itself is kept.`,
     remove: 'Remove',
   },
+  // The buttons of the warning before an unencrypted copy of an ID leaves the app.
+  idShare: {
+    share: 'Share',
+    dontAskAgain: "Don't ask again",
+  },
   card: {
     unnamed: 'Document', // a card with no name and no tags
     viewCard: 'Card',
@@ -254,12 +268,7 @@ export const strings = {
     back: 'Back',
     flip: 'Flip',
     exportPdf: 'Export as PDF',
-    exportPdfHint: 'The whole card as one PDF file, front then back, to save in Files or send to someone.',
-    exportPdfTitle: 'Export as PDF',
-    exportPdfBody: 'Save the card as a PDF file on this phone, or send it to someone.',
-    exportPdfSave: 'Save to Files',
-    exportPdfSend: 'Send',
-    exportPdfSaved: (name: string) => `Saved as ${name}.`,
+    exportPdfHint: 'The whole card as one PDF file, front then back, through the share sheet: send it, or save it to Files.',
     exportPdfNeedsUpdate: 'Exporting as PDF needs a newer version of Doc Keeper.',
     share: 'Quick share',
     shareHint: 'AirDrop on iPhone, Quick Share on Android, over Bluetooth and Wi-Fi, or any other app.',
@@ -298,6 +307,8 @@ export const strings = {
     appLock: 'App lock',
     appLockHint: "Ask for Face ID, fingerprint or your phone's passcode when Doc Keeper opens.",
     noDeviceLock: 'Set a passcode, Face ID or fingerprint on this phone first, then turn this on.',
+    warnIdShare: 'Warn before sharing an ID',
+    warnIdShareHint: 'Ask first when an ID is about to leave the app as an unencrypted copy.',
     cardView: 'Showing a card',
     fullBrightness: 'Full brightness',
     fullBrightnessHint: 'Turn the screen all the way up while a card is open, so it is easy to read and scan.',

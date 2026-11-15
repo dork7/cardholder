@@ -12,6 +12,7 @@ export type SettingKey =
   | 'homeManageFolders'
   | 'cardBrightness'
   | 'stackVertical'
+  | 'warnIdShare'
   | 'seenTips';
 
 export interface Settings {

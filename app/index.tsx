@@ -13,6 +13,7 @@ import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { PdfUnavailableError, shareCards } from '../src/share/shareCard';
+import { confirmIdShare } from '../src/share/idWarning';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { CardGrid } from '../src/ui/CardGrid';
@@ -39,8 +40,19 @@ import { GestureTip, GestureTipName, useGestureTips } from '../src/ui/GestureTip
 const ENTER = 360;
 
 export default function Home() {
-  const { cards, folders, unlocked, openImportOnReady, clearOpenImport, homeFolders, services, refresh, stackVertical } =
-    useApp();
+  const {
+    cards,
+    folders,
+    unlocked,
+    openImportOnReady,
+    clearOpenImport,
+    homeFolders,
+    services,
+    refresh,
+    stackVertical,
+    warnIdShare,
+    setWarnIdShare,
+  } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -187,23 +199,22 @@ export default function Home() {
       },
     ]);
 
-  // One PDF of every selected card. An ID is worth a second thought before an unencrypted copy leaves
-  // the app, as on the card's own screen. Selection stays, so the same cards can be sent elsewhere.
+  // One PDF of every selected card. An ID asks first, as on the card's own screen, unless the
+  // warning is turned off. Selection stays, so the same cards can be sent elsewhere.
   const shareSelected = () => {
     const picked = selected;
-    const go = () =>
-      shareCards(services.store, picked).catch((e) => {
-        console.warn('Share failed', e);
-        Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
-      });
-    if (picked.some(isId)) {
-      Alert.alert(strings.home.shareIdsTitle, strings.home.shareIdsBody, [
-        { text: strings.common.cancel, style: 'cancel' },
-        { text: strings.card.share, onPress: () => void go() },
-      ]);
-    } else {
-      void go();
-    }
+    confirmIdShare({
+      hasId: picked.some(isId),
+      warn: warnIdShare,
+      title: strings.home.shareIdsTitle,
+      body: strings.home.shareIdsBody,
+      go: () =>
+        shareCards(services.store, picked).catch((e) => {
+          console.warn('Share failed', e);
+          Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
+        }),
+      stopWarning: () => setWarnIdShare(false),
+    });
   };
 
   const sortChips = [
