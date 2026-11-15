@@ -74,7 +74,14 @@ const mockCropFullPhoto = jest.fn();
 const mockDiscard = jest.fn();
 const mockClearOriginals = jest.fn();
 const mockCropShared = jest.fn();
+// The system camera app: a path to the photo taken, or null when cancelled. Unavailable on iOS.
+const mockTakePhoto = jest.fn();
+let mockCanTakePhoto = true;
 jest.mock('../../images/capture', () => ({
+  get canTakePhoto() {
+    return mockCanTakePhoto;
+  },
+  takePhoto: () => mockTakePhoto(),
   pickImage: () => mockPickImage(),
   cropFullPhoto: (path: string) => mockCropFullPhoto(path),
   discardFile: (path: string) => mockDiscard(path),
@@ -110,6 +117,7 @@ let alert: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
   mockFoldersEnabled = true;
+  mockCanTakePhoto = true;
   mockParams = { id: 'new' };
   mockCards = [];
   mockFolders = [];
@@ -959,5 +967,95 @@ describe('opened with something shared from another app', () => {
     await render(<EditCard />);
     expect(mockCropShared).not.toHaveBeenCalled();
     expect(takePendingShared()).not.toBeNull();
+  });
+});
+
+describe('taking a photo with the camera', () => {
+  const SHOT = 'file:///cache/capture-1.jpg';
+
+  test('a photo taken for the front is cropped, becomes the front and is read, then deleted', async () => {
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockResolvedValue(frontImage('shot'));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    expect(mockCropShared).toHaveBeenCalledWith(SHOT);
+    expect(mockAnalyze).toHaveBeenCalledWith(frontImage('shot').jpegBase64);
+    expect(mockDiscard).toHaveBeenCalledWith(SHOT);
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ front: frontImage('shot') }));
+  });
+
+  test('a photo taken for the back becomes the back', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockResolvedValue(frontImage('back-shot'));
+    await fireEvent.press(screen.getByTestId('back-camera'));
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym');
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ front: frontImage('picked'), back: frontImage('back-shot') }));
+  });
+
+  test('cancelling the camera leaves the form unchanged', async () => {
+    mockTakePhoto.mockResolvedValue(null);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    expect(mockCropShared).not.toHaveBeenCalled();
+    expect(mockAnalyze).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('back-library')).toBeNull(); // still no front
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  test('cancelling the crop leaves the form unchanged, and the photo is still deleted', async () => {
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockResolvedValue(null);
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    expect(mockAnalyze).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('back-library')).toBeNull();
+    expect(mockDiscard).toHaveBeenCalledWith(SHOT);
+  });
+
+  test('a camera that fails says so, and the photo is still deleted', async () => {
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockRejectedValue(new Error('unreadable'));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    expect(alert).toHaveBeenCalledWith(strings.edit.cameraFailed);
+    expect(mockDiscard).toHaveBeenCalledWith(SHOT);
+  });
+
+  test('a photo taken for the front of a PDF document turns it into a photo document', async () => {
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    mockTakePhoto.mockResolvedValue(SHOT);
+    mockCropShared.mockResolvedValue(frontImage('shot'));
+    await fireEvent.press(screen.getByTestId('front-camera'));
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym');
+    await save();
+    // No PDF, and the back (a page of that PDF) went with it.
+    expect(mockCreate.mock.calls.at(-1)?.[1]).toEqual({ front: frontImage('shot'), back: null });
+  });
+
+  test('the Front hint points at Take photo and the photo library, not another app', async () => {
+    await render(<EditCard />);
+    expect(screen.getByText(/Take photo.*photo library/)).toBeTruthy();
+    expect(screen.queryByText(/camera app/)).toBeNull();
+  });
+
+  test('without the camera, the Front hint points at the photo library only', async () => {
+    mockCanTakePhoto = false;
+    await render(<EditCard />);
+    expect(screen.queryByText(/Take photo/)).toBeNull();
+    expect(screen.getByText(/photo library/)).toBeTruthy();
+    expect(screen.queryByText(/camera app/)).toBeNull();
+  });
+
+  test('Take photo is not offered where the camera cannot be used', async () => {
+    mockCanTakePhoto = false;
+    await render(<EditCard />);
+    expect(screen.queryByTestId('front-camera')).toBeNull();
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.queryByTestId('back-camera')).toBeNull();
   });
 });

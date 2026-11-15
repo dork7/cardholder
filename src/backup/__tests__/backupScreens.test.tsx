@@ -6,6 +6,7 @@ import ImportScreen from '../../../app/import';
 import SettingsScreen from '../../../app/settings';
 import { MIN_PASSPHRASE_LENGTH } from '../../config';
 import { strings } from '../../strings';
+import { formatAgo } from '../../time/dates';
 import { BackupError } from '../backupFile';
 
 const mockRouter = { back: jest.fn(), push: jest.fn(), dismissAll: jest.fn() };
@@ -19,12 +20,13 @@ jest.mock('expo-router', () => {
 
 const mockSettings = new Map<string, string>();
 const mockRefresh = jest.fn(() => Promise.resolve());
+const mockSteps: string[] = [];
 let mockNoteCount = 0;
 let mockNotesChangedAt: number | null = null;
 const mockServices = {
   store: {},
   notes: { list: async () => Array.from({ length: mockNoteCount }, () => ({})), lastChangeAt: async () => mockNotesChangedAt },
-  noteEditors: { flushAll: async () => {} },
+  noteEditors: { flushAll: async () => void mockSteps.push('flush') },
   settings: {
     getNumber: async (key: string) => (mockSettings.has(key) ? Number(mockSettings.get(key)) : null),
     set: async (key: string, value: string) => void mockSettings.set(key, value),
@@ -44,7 +46,7 @@ jest.mock('../backupFile', () => ({
 }));
 const mockApply = jest.fn();
 jest.mock('../backupService', () => ({
-  buildSnapshot: async () => ({}),
+  buildSnapshot: async () => (mockSteps.push('snapshot'), {}),
   applySnapshot: (...args: unknown[]) => mockApply(...args),
 }));
 const mockShare = jest.fn(async () => {});
@@ -80,9 +82,18 @@ beforeEach(() => {
   mockNoteCount = 0;
   mockNotesChangedAt = null;
   mockDeleted.length = 0;
+  mockSteps.length = 0;
 });
 
 describe('export', () => {
+  test('pending note edits are saved before the backup is built', async () => {
+    await render(<ExportScreen />);
+    await fireEvent.changeText(screen.getByTestId('export-passphrase'), 'long enough');
+    await fireEvent.changeText(screen.getByTestId('export-confirm'), 'long enough');
+    await act(async () => fireEvent.press(screen.getByTestId('export-run')));
+    expect(mockSteps).toEqual(['flush', 'snapshot']);
+  });
+
   test('shows how many notes are included in the encrypted backup', async () => {
     mockNoteCount = 2;
     await render(<ExportScreen />);
@@ -205,6 +216,18 @@ describe('import', () => {
     expect(alert).toHaveBeenCalledWith(strings.import.replaceConfirmTitle, strings.import.replaceConfirmBody, expect.any(Array));
     expect(mockApply).not.toHaveBeenCalled();
   });
+
+  test('the replace warning says current notes go too, even when the backup has none', async () => {
+    mockDecode.mockResolvedValue({ ...backupSnapshot(), notes: [] });
+    mockApply.mockResolvedValue({ added: 2, skipped: 0, notesAdded: 0, notesSkipped: 0 });
+    await pickAndUnlock('right one');
+    await fireEvent.press(screen.getByRole('button', { name: strings.import.replace }));
+    const [title, body, buttons] = alert.mock.calls[0] as [string, string, { text: string; onPress?: () => void }[]];
+    expect(title).toMatch(/notes/);
+    expect(body).toMatch(/without notes will remove all current notes/);
+    await act(async () => buttons.find((b) => b.text === strings.import.replace)!.onPress!());
+    expect(mockApply).toHaveBeenCalledWith(mockServices.store, expect.anything(), 'replace', mockServices.notes);
+  });
 });
 
 describe('settings', () => {
@@ -213,6 +236,14 @@ describe('settings', () => {
     mockNotesChangedAt = 2000;
     await render(<SettingsScreen />);
     expect(await screen.findByText(strings.notes.changesSinceBackup)).toBeTruthy();
+  });
+
+  test('says nothing about notes when they have not changed since the last backup', async () => {
+    mockSettings.set('lastExportAt', '2000');
+    mockNotesChangedAt = 2000;
+    await render(<SettingsScreen />);
+    expect(await screen.findByText(strings.settings.lastBackup(formatAgo(2000, Date.now())))).toBeTruthy();
+    expect(screen.queryByText(strings.notes.changesSinceBackup)).toBeNull();
   });
 
   test('says when there has never been a backup', async () => {

@@ -71,8 +71,12 @@ const mockServices = {
     set: mockSettingsSet,
   },
 };
+let mockWarnIdShare = true;
+const mockSetWarnIdShare = jest.fn((_on: boolean) => Promise.resolve());
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
+    warnIdShare: mockWarnIdShare,
+    setWarnIdShare: (on: boolean) => mockSetWarnIdShare(on),
     cards: mockCards,
     folders: mockFolders,
     unlocked: mockUnlocked,
@@ -87,6 +91,8 @@ jest.mock('../../app/AppProvider', () => ({
 }));
 
 beforeEach(() => {
+  mockWarnIdShare = true;
+  mockSetWarnIdShare.mockClear();
   mockPush.mockClear();
   mockSettingsSet.mockClear();
   mockRemove.mockClear();
@@ -279,6 +285,15 @@ test('with no cards, home shows the empty state without search or filters', asyn
   });
 });
 
+test('the empty state names the Add image button and sends no one to another app', async () => {
+  await withCards([], async () => {
+    await renderHome();
+    const hint = screen.getByText(strings.home.emptyHint);
+    expect(hint.props.children).toContain('Add image');
+    expect(hint.props.children).not.toMatch(/camera app|\+/);
+  });
+});
+
 test('pinned cards appear on the home page, stay put while searching, and open on tap', async () => {
   await withCards(
     [
@@ -331,6 +346,21 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
     expect(screen.queryByTestId('card-grid')).toBeNull();
     expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'stack');
+  });
+
+  test('the view toggle names the view it switches to; a screen reader hears one Gallery view switch', async () => {
+    await renderHome();
+    const toggle = () => screen.getByTestId('gallery-toggle');
+    expect(within(toggle()).getByText('Gallery')).toBeTruthy();
+    expect(toggle().props.accessibilityRole).toBe('switch');
+    expect(toggle().props.accessibilityLabel).toBe('Gallery view');
+    expect(toggle().props.accessibilityState).toEqual({ checked: false });
+
+    await act(async () => fireEvent.press(toggle()));
+    expect(within(toggle()).getByText('Stack')).toBeTruthy();
+    expect(within(toggle()).queryByText('Gallery')).toBeNull();
+    expect(toggle().props.accessibilityLabel).toBe('Gallery view');
+    expect(toggle().props.accessibilityState).toEqual({ checked: true });
   });
 
   test('opens in the gallery when that was the last choice', async () => {
@@ -492,6 +522,30 @@ describe('gallery view', () => {
     expect(screen.getByText(strings.home.noneExpiring(30))).toBeTruthy();
   });
 
+  test('every selection-bar action has a word under its icon, and keeps its full name for screen readers', async () => {
+    await showGallery();
+    await select('a');
+    const captions: [string, string, string][] = [
+      ['selection-pin', 'Pin', strings.home.pinSelected],
+      ['selection-tags', 'Tag', strings.home.tagSelected],
+      ['selection-recreate', 'Read again', strings.recreate.button],
+      ['selection-share', 'Share', strings.home.shareSelected],
+      ['selection-delete', 'Delete', strings.home.deleteSelected],
+    ];
+    for (const [id, caption, label] of captions) {
+      expect(within(screen.getByTestId(id)).getByText(caption)).toBeTruthy();
+      expect(screen.getByTestId(id).props.accessibilityLabel).toBe(label);
+    }
+  });
+
+  test('the pin caption reads Unpin when every selected card is pinned', async () => {
+    await withCards([makeCard({ id: 'p', name: 'Pinned', pinned: true })], async () => {
+      await showGallery();
+      await select('p');
+      expect(within(screen.getByTestId('selection-pin')).getByText('Unpin')).toBeTruthy();
+    });
+  });
+
   test('pins the selected cards; when all are pinned, the same button unpins them', async () => {
     await showGallery();
     await select('a', 'c');
@@ -559,7 +613,25 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
     expect(alert).toHaveBeenCalledWith(strings.home.shareIdsTitle, strings.home.shareIdsBody, expect.any(Array));
     expect(mockShareCards).not.toHaveBeenCalled();
-    await answer(strings.card.share);
+    await answer(strings.idShare.share);
+    expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  test("Don't ask again shares the selection and turns the ID warning off", async () => {
+    await showGallery();
+    await select('a', 'b');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
+    await answer(strings.idShare.dontAskAgain);
+    expect(mockSetWarnIdShare).toHaveBeenCalledWith(false);
+    expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  test('with the ID warning off, a selection with an ID shares without asking', async () => {
+    mockWarnIdShare = false;
+    await showGallery();
+    await select('a', 'b');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
+    expect(alert).not.toHaveBeenCalled();
     expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
   });
 });
