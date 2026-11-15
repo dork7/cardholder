@@ -42,12 +42,12 @@ const text = (b64: string | null) => (b64 === null ? null : utf8.decode(base64.d
 const INSERT =
   'INSERT INTO cards (id, pinned, position, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
 
-test('create stores fields and tags, and leaves the card unpinned', async () => {
+test('create stores fields and tags, and pins the card at the end of the home strip', async () => {
   const { store } = await makeStore();
   const a = await store.create(fields({ name: 'Emirates ID', tags: ['ID', 'Government'] }), images('a'));
   const b = await store.create(fields({ name: 'Gym' }), images('b', true));
-  expect(a).toMatchObject({ id: 'card1', name: 'Emirates ID', tags: ['ID', 'Government'], pinned: false, position: 0, hasBack: false, backAspect: null });
-  expect(b).toMatchObject({ id: 'card2', tags: [], pinned: false, position: 0, hasBack: true, backAspect: 1.586 });
+  expect(a).toMatchObject({ id: 'card1', name: 'Emirates ID', tags: ['ID', 'Government'], pinned: true, position: 0, hasBack: false, backAspect: null });
+  expect(b).toMatchObject({ id: 'card2', tags: [], pinned: true, position: 1, hasBack: true, backAspect: 1.586 });
   expect(await store.get('card1')).toEqual(a);
   expect(await store.count()).toBe(2);
   expect((await store.ids()).sort()).toEqual(['card1', 'card2']);
@@ -127,7 +127,10 @@ test('unpinned cards sort alphabetically after pinned; re-pinning appends to the
   const a = await store.create(fields({ name: 'B card' }), images('a'));
   const b = await store.create(fields({ name: 'A card' }), images('b'));
   const c = await store.create(fields({ name: 'C card' }), images('c'));
-  await store.setPinned(c.id, true);
+  // New cards start pinned in the order made; unpin the first two so only C stays on the strip.
+  expect((await store.list()).map((x) => x.id)).toEqual([a.id, b.id, c.id]);
+  await store.setPinned(a.id, false);
+  await store.setPinned(b.id, false);
   expect((await store.list()).map((x) => x.id)).toEqual([c.id, b.id, a.id]);
   await store.setPinned(a.id, true);
   expect((await store.list()).map((x) => x.id)).toEqual([c.id, a.id, b.id]);

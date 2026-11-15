@@ -247,33 +247,57 @@ export default function CardView() {
       <Button label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
   ) : (
-    /* Every action in the thumb zone: the card's actions as icons in a row, and Close, the one
-       you need most, full width at the bottom. Delete asks first. */
+    /* Every action in the thumb zone: the card's actions as captioned icons in a row, the one for
+       the counter first and Delete last, and Close, the one you need most, full width at the
+       bottom. Delete asks first. */
     <Panel style={styles.footer} radius={28}>
       <View style={styles.actions}>
-        <IconButton icon="trash" variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} testID="delete-card" />
-        <IconButton
-          icon="share"
-          label={strings.card.share}
-          hint={view === 'details' ? strings.card.shareMarkdownHint : strings.card.shareHint}
-          onPress={share}
-          testID="share-card"
-        />
-        <IconButton icon="pdf" label={strings.card.exportPdf} hint={strings.card.exportPdfHint} onPress={exportPdf} testID="export-pdf" />
-        <IconButton
-          icon={card.pinned ? 'unpin' : 'pin'}
-          label={card.pinned ? strings.card.unpin : strings.card.pin}
-          onPress={togglePin}
-          testID="pin-card"
-        />
         <IconButton
           icon="present"
           label={strings.card.showToStaff}
+          caption={strings.card.captions.show}
           hint={strings.card.staffHint}
           onPress={startStaff}
           testID="show-to-staff"
         />
-        <IconButton icon="edit" label={strings.card.edit} onPress={() => router.push(`/edit/${card.id}`)} testID="edit-card" />
+        <IconButton
+          icon="share"
+          label={strings.card.share}
+          caption={strings.card.captions.share}
+          hint={view === 'details' ? strings.card.shareMarkdownHint : strings.card.shareHint}
+          onPress={share}
+          testID="share-card"
+        />
+        <IconButton
+          icon="pdf"
+          label={strings.card.exportPdf}
+          caption={strings.card.captions.pdf}
+          hint={strings.card.exportPdfHint}
+          onPress={exportPdf}
+          testID="export-pdf"
+        />
+        <IconButton
+          icon={card.pinned ? 'unpin' : 'pin'}
+          label={card.pinned ? strings.card.unpin : strings.card.pin}
+          caption={card.pinned ? strings.card.captions.unpin : strings.card.captions.pin}
+          onPress={togglePin}
+          testID="pin-card"
+        />
+        <IconButton
+          icon="edit"
+          label={strings.card.edit}
+          caption={strings.card.captions.edit}
+          onPress={() => router.push(`/edit/${card.id}`)}
+          testID="edit-card"
+        />
+        <IconButton
+          icon="trash"
+          variant="danger"
+          label={strings.edit.deleteCard}
+          caption={strings.card.captions.delete}
+          onPress={confirmDelete}
+          testID="delete-card"
+        />
       </View>
       <Button label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
@@ -411,7 +435,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   // Shown as the file it saves as: monospaced, so the Markdown reads as written.
   markdown: { fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }), fontSize: 13, lineHeight: 19 },
-  // Five icon buttons: an 8 pt gap keeps each well over 44 pt wide on a 375 pt phone.
-  actions: { flexDirection: 'row', gap: 8 },
+  // Six captioned icon buttons: a 6 pt gap keeps each about 50 pt wide on a 375 pt phone.
+  actions: { flexDirection: 'row', gap: 6 },
   hint: { fontSize: TYPE.secondary, textAlign: 'center' },
 });

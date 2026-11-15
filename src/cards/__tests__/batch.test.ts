@@ -2,12 +2,18 @@ import { fields, images, makeStore } from '../../../test/fixtures';
 import { addTags, overTagLimit, removeAll, removeTag, removeTagEverywhere, shouldUnpin, togglePinned, withTags } from '../batch';
 import { sortCards } from '../listing';
 
+// Three cards, none pinned: new cards start pinned, and these tests are about pinning them.
 async function threeCards() {
   const { store } = await makeStore();
-  const a = await store.create(fields({ name: 'A' }), images('a'));
-  const b = await store.create(fields({ name: 'B', expiresOn: '2027-01-01' }), images('b'));
-  const c = await store.create(fields({ name: 'C' }), images('c'));
+  const made = [
+    await store.create(fields({ name: 'A' }), images('a')),
+    await store.create(fields({ name: 'B', expiresOn: '2027-01-01' }), images('b')),
+    await store.create(fields({ name: 'C' }), images('c')),
+  ];
+  for (const card of made) await store.setPinned(card.id, false);
   const byId = async () => new Map((await store.list()).map((card) => [card.id, card]));
+  const cards = await byId();
+  const [a, b, c] = made.map((card) => cards.get(card.id)!);
   return { store, a, b, c, byId };
 }
 

@@ -9,6 +9,7 @@ import { useTheme } from './theme';
 
 interface Props {
   label: string;
+  hint?: string; // under the label: what to do before tapping, e.g. that photos come from the library
   uri: string | null;
   onLibrary: () => void;
   onPdf?: () => void;
@@ -23,10 +24,10 @@ interface Props {
   testIDPrefix: string;
 }
 
-export function ImageField({ label, uri, onLibrary, onPdf, pdfLabel, onRemove, removeAsCross, onFullPhoto, error, vertical = false, testIDPrefix }: Props) {
+export function ImageField({ label, hint, uri, onLibrary, onPdf, pdfLabel, onRemove, removeAsCross, onFullPhoto, error, vertical = false, testIDPrefix }: Props) {
   const theme = useTheme();
   return (
-    <Field label={label} error={error}>
+    <Field label={label} hint={hint} error={error}>
       <View>
         <Pressable
           onPress={onLibrary}

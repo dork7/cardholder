@@ -229,9 +229,10 @@ export function createCardStore({
       const card: Card = {
         ...fields,
         id,
-        // Pinning is the user's choice; a new card joins the unpinned, alphabetical rest.
-        pinned: false,
-        position: 0,
+        // A new card starts pinned, so it is one tap away on the home strip, in the quick actions and
+        // the widget until the user decides otherwise (docs/design.md, "New cards are pinned by default").
+        pinned: true,
+        position: await nextPinnedPosition(), // the end of the strip, after the cards pinned so far
         hasBack: images.back !== null,
         frontAspect: images.front.aspect,
         backAspect: images.back?.aspect ?? null,
@@ -239,7 +240,7 @@ export function createCardStore({
         createdAt: t,
         updatedAt: t,
       };
-      await db.runAsync(INSERT_SQL, [card.id, 0, card.position, card.folderId, seal(card), t, t]);
+      await db.runAsync(INSERT_SQL, [card.id, card.pinned ? 1 : 0, card.position, card.folderId, seal(card), t, t]);
       return card;
     },
 

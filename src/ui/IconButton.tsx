@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { ActionIconName, RetroIcon } from './RetroIcon';
-import { useTheme } from './theme';
+import { Text } from './Text';
+import { TYPE, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 
 export type IconName = ActionIconName;
@@ -8,6 +9,7 @@ export type IconName = ActionIconName;
 interface Props {
   icon: IconName;
   label: string; // spoken by screen readers; the icon alone carries no text
+  caption?: string; // a short word under the icon, so the action is readable at a glance
   hint?: string;
   onPress: () => void;
   variant?: 'secondary' | 'danger';
@@ -16,7 +18,7 @@ interface Props {
 }
 
 // An outlined button with only an icon. Same outline rules as Button: 3:1 against the page.
-export function IconButton({ icon, label, hint, onPress, variant = 'secondary', disabled = false, testID }: Props) {
+export function IconButton({ icon, label, caption, hint, onPress, variant = 'secondary', disabled = false, testID }: Props) {
   const theme = useTheme();
   const color = variant === 'danger' ? theme.danger : theme.text;
   const outline = variant === 'danger' ? theme.danger : theme.rosette;
@@ -36,6 +38,11 @@ export function IconButton({ icon, label, hint, onPress, variant = 'secondary', 
       style={({ pressed }) => [styles.base, { borderColor: outline, opacity: disabled ? 0.4 : pressed ? 0.7 : 1 }]}
     >
       <RetroIcon name={icon} size={24} color={color} />
+      {caption && (
+        <Text style={[styles.caption, { color }]} numberOfLines={1}>
+          {caption}
+        </Text>
+      )}
       {tooltip}
     </Pressable>
   );
@@ -49,5 +56,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 6,
   },
+  caption: { fontSize: TYPE.caption, fontWeight: '600' },
 });

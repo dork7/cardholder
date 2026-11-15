@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Platform, ScrollView, StyleSheet } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { FREE_CARD_LIMIT } from '../src/config';
@@ -38,6 +38,9 @@ export default function PaywallScreen() {
   const state = useSyncExternalStore(purchases.subscribe, purchases.getSnapshot, purchases.getSnapshot);
   useEffect(() => () => { void purchases.dispose(); }, [purchases]);
   const purchased = unlocked || state.message === 'purchased' || state.message === 'finishing-failed';
+  // Which request is running, so the busy line says what the store is being asked for.
+  const [doing, setDoing] = useState<'price' | 'buy' | 'restore'>('price');
+  const busyLabels = { price: strings.paywall.loadingPrice, buy: strings.paywall.buying, restore: strings.paywall.restoring };
 
   return (
     <Screen>
@@ -52,15 +55,15 @@ export default function PaywallScreen() {
             <Text style={[styles.body, { color: theme.muted }]}>{strings.paywall.priceHint}</Text>
             {state.price ? (
               <Button label={strings.paywall.buy(state.price)} disabled={state.busy}
-                onPress={() => void purchases.buy()} testID="buy-unlimited" />
+                onPress={() => { setDoing('buy'); void purchases.buy(); }} testID="buy-unlimited" />
             ) : (
               <Button label={strings.paywall.checkPrice} disabled={state.busy}
-                onPress={() => void purchases.price()} testID="purchase-price" />
+                onPress={() => { setDoing('price'); void purchases.price(); }} testID="purchase-price" />
             )}
           </>}
           <Button variant="secondary" label={strings.paywall.restore} disabled={state.busy}
-            onPress={() => void purchases.restore(Platform.OS)} testID="restore-purchases" />
-          {state.busy && <LiveText style={[styles.body, { color: theme.muted }]}>{strings.paywall.loadingPrice}</LiveText>}
+            onPress={() => { setDoing('restore'); void purchases.restore(Platform.OS); }} testID="restore-purchases" />
+          {state.busy && <LiveText style={[styles.body, { color: theme.muted }]}>{busyLabels[doing]}</LiveText>}
           {state.message && <LiveText style={[styles.body, { color: theme.text }]} testID="purchase-message">
             {messages[state.message]}
           </LiveText>}

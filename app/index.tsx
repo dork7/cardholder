@@ -242,6 +242,7 @@ export default function Home() {
               {strings.home.emptyTitle}
             </Text>
             <Text style={[styles.promise, { color: theme.muted }]}>{strings.promise}</Text>
+            <Text style={[styles.promise, { color: theme.text }]}>{strings.home.emptyHint}</Text>
           </View>
         ) : (
           <>

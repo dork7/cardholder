@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EASE_OUT } from '../../src/ui/motion';
@@ -89,6 +89,9 @@ export default function EditCard() {
   }, []);
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
+  // What the screen is waiting on between the OS picker closing and the form changing: the photo
+  // being cut around the card, or the PDF's pages being drawn. Null when nothing is.
+  const [busy, setBusy] = useState<string | null>(null);
   const [namingFolder, setNamingFolder] = useState(false);
   const [namingTag, setNamingTag] = useState(false);
   const writing = useRef(false); // synchronous guard: state updates land a render too late for a fast double tap
@@ -127,6 +130,7 @@ export default function EditCard() {
   }
 
   const capture = async (side: 'front' | 'back') => {
+    setBusy(strings.edit.preparingPhoto);
     try {
       const picked = await pickImage();
       if (!picked) return;
@@ -135,6 +139,8 @@ export default function EditCard() {
     } catch (e) {
       console.warn('Capture failed', e);
       Alert.alert(strings.edit.captureFailed);
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -169,6 +175,7 @@ export default function EditCard() {
   // The whole PDF is kept. Its first page is the card's picture until another is chosen, and its
   // second page, when it has one, is the card's back (the side the home stack flips to) until removed.
   const attachPdf = async () => {
+    setBusy(strings.edit.openingPdf);
     try {
       const pdf = await pickPdf();
       if (!pdf) return;
@@ -189,6 +196,8 @@ export default function EditCard() {
       console.warn('PDF failed', e);
       if (e instanceof PdfTooLargeError) Alert.alert(strings.edit.pdfTooLarge(PDF_MAX_BYTES / 1024 / 1024));
       else Alert.alert(isPdfLocked(e) ? strings.edit.pdfLocked : strings.edit.pdfFailed);
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -389,6 +398,7 @@ export default function EditCard() {
           <Panel style={styles.group} onLayout={onPanelLayout('photos')}>
             <ImageField
               label={pdfInfo ? strings.edit.pdfFront : strings.edit.front}
+              hint={!frontUri && !pdfInfo ? strings.edit.libraryHint : undefined}
               uri={frontUri}
               onLibrary={() => capture('front')}
               onFullPhoto={originals.front ? () => void cropWholePhoto('front') : undefined}
@@ -455,6 +465,14 @@ export default function EditCard() {
             <Field icon="blur" label={strings.edit.blurPreview} hint={strings.edit.blurPreviewHint}>
               <ChipRow chips={previewChips} accessibilityLabel={strings.edit.blurPreview} />
             </Field>
+            {busy && (
+              <View style={styles.busyRow}>
+                <ActivityIndicator color={theme.accent} />
+                <LiveText style={{ color: theme.muted, fontSize: 16 }} testID="busy-card">
+                  {busy}
+                </LiveText>
+              </View>
+            )}
             {reading > 0 && (
               <LiveText style={{ color: theme.muted, fontSize: 16 }} testID="reading-card">
                 {strings.edit.reading}
@@ -584,7 +602,7 @@ export default function EditCard() {
             </View>
             <View style={styles.action}>
               <Button
-                label={isNew ? strings.edit.create : strings.edit.saveChanges}
+                label={saving ? strings.edit.saving : isNew ? strings.edit.create : strings.edit.saveChanges}
                 onPress={save}
                 disabled={saving}
                 testID="save-card"
@@ -606,6 +624,7 @@ const MOVE = LinearTransition.duration(200).easing(EASE_OUT);
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   group: { padding: 16, gap: 20 },
+  busyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   danger: { marginTop: 28 },
   offer: { gap: 8, padding: 16, borderRadius: 16 },
   inset: { paddingHorizontal: 16, paddingTop: 8 },
