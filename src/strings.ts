@@ -26,7 +26,7 @@ export const strings = {
   home: {
     title: 'Doc Keeper',
     emptyTitle: 'Add your first card',
-    emptyHint: 'Take a photo of the card with your camera app first, then tap + to pick it from your photos.',
+    emptyHint: 'Tap Add image to add a photo or PDF of your document.',
     addCard: 'Add card',
     addImage: 'Add image',
     galleryLabel: 'Gallery',
@@ -93,12 +93,17 @@ export const strings = {
     back: 'Back (optional)',
     noImage: 'No photo yet',
     tapToAddPhoto: 'Tap to pick a photo',
-    libraryHint: 'Photos come from your photo library, so take the picture with your camera app first.',
+    // `camera`: Take photo is offered (Android).
+    libraryHint: (camera: boolean) =>
+      camera
+        ? 'Use Take photo, or tap the box to pick a photo from your photo library.'
+        : 'Tap the box to pick a photo from your photo library.',
     preparingPhoto: 'Preparing the photo…',
     openingPdf: 'Opening the PDF…',
     blank: 'Empty notes are discarded when you leave.',
     saving: 'Saving…',
     addPhoto: 'Add photo',
+    takePhoto: 'Take photo',
     changePhoto: 'Change photo',
     removeBack: 'Remove back',
     pdfBack: 'Back',
@@ -138,6 +143,7 @@ export const strings = {
     deleteConfirmTitle: 'Delete this card?',
     deleteConfirmBody: 'Its photos are removed from this phone immediately.',
     captureFailed: "Couldn't open that photo. Check Doc Keeper's photo access in Settings.",
+    cameraFailed: "Couldn't take a photo. Try again, or pick one from your photos.",
     pdfFailed: "Couldn't open that PDF.",
     pdfLocked: 'That PDF is password protected. Save an unlocked copy and try again.',
     pdfTooLarge: (mb: number) => `That PDF is over ${mb} MB. Choose a smaller file.`,

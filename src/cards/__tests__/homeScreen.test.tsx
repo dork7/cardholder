@@ -271,6 +271,15 @@ test('with no cards, home shows the empty state without search or filters', asyn
   });
 });
 
+test('the empty state names the Add image button and sends no one to another app', async () => {
+  await withCards([], async () => {
+    await renderHome();
+    const hint = screen.getByText(strings.home.emptyHint);
+    expect(hint.props.children).toContain('Add image');
+    expect(hint.props.children).not.toMatch(/camera app|\+/);
+  });
+});
+
 test('pinned cards appear on the home page, stay put while searching, and open on tap', async () => {
   await withCards(
     [
