@@ -1,0 +1,7 @@
+{
+  "name": "photo-capture",
+  "version": "0.1.0",
+  "description": "Takes a photo with the phone's own camera app through the system image-capture intent, so the app never needs the camera permission (Android).",
+  "license": "UNLICENSED",
+  "private": true
+}

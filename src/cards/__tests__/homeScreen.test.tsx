@@ -71,8 +71,12 @@ const mockServices = {
     set: mockSettingsSet,
   },
 };
+let mockWarnIdShare = true;
+const mockSetWarnIdShare = jest.fn((_on: boolean) => Promise.resolve());
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
+    warnIdShare: mockWarnIdShare,
+    setWarnIdShare: (on: boolean) => mockSetWarnIdShare(on),
     cards: mockCards,
     folders: mockFolders,
     unlocked: mockUnlocked,
@@ -87,6 +91,8 @@ jest.mock('../../app/AppProvider', () => ({
 }));
 
 beforeEach(() => {
+  mockWarnIdShare = true;
+  mockSetWarnIdShare.mockClear();
   mockPush.mockClear();
   mockSettingsSet.mockClear();
   mockRemove.mockClear();
@@ -262,6 +268,15 @@ test('with no cards, home shows the empty state without search or filters', asyn
     expect(screen.getByText(strings.home.emptyTitle)).toBeTruthy();
     expect(screen.queryByTestId('search')).toBeNull();
     expect(screen.queryByRole('radio')).toBeNull();
+  });
+});
+
+test('the empty state names the Add image button and sends no one to another app', async () => {
+  await withCards([], async () => {
+    await renderHome();
+    const hint = screen.getByText(strings.home.emptyHint);
+    expect(hint.props.children).toContain('Add image');
+    expect(hint.props.children).not.toMatch(/camera app|\+/);
   });
 });
 
@@ -551,7 +566,25 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
     expect(alert).toHaveBeenCalledWith(strings.home.shareIdsTitle, strings.home.shareIdsBody, expect.any(Array));
     expect(mockShareCards).not.toHaveBeenCalled();
-    await answer(strings.card.share);
+    await answer(strings.idShare.share);
+    expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  test("Don't ask again shares the selection and turns the ID warning off", async () => {
+    await showGallery();
+    await select('a', 'b');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
+    await answer(strings.idShare.dontAskAgain);
+    expect(mockSetWarnIdShare).toHaveBeenCalledWith(false);
+    expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  test('with the ID warning off, a selection with an ID shares without asking', async () => {
+    mockWarnIdShare = false;
+    await showGallery();
+    await select('a', 'b');
+    await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
+    expect(alert).not.toHaveBeenCalled();
     expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
   });
 });
