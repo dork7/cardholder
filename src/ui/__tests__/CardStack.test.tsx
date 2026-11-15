@@ -110,3 +110,37 @@ describe('flipping', () => {
     expect(screen.getByRole('button', { name: strings.home.showBack })).toBeTruthy();
   });
 });
+
+describe('the blur button on the front card', () => {
+  async function renderWithBlur(list = cards) {
+    const onToggleBlur = jest.fn();
+    await render(<CardStack cards={list} onOpen={jest.fn()} onToggleBlur={onToggleBlur} />);
+    await act(async () => {
+      fireEvent(screen.getByTestId('card-stack-frame'), 'layout', {
+        nativeEvent: { layout: { width: 340, height: 0, x: 0, y: 0 } },
+      });
+    });
+    return onToggleBlur;
+  }
+
+  test('is not there unless the screen can save the choice', async () => {
+    await renderStack();
+    expect(screen.queryByTestId('blur-card')).toBeNull();
+  });
+
+  test('asks to blur the document in front', async () => {
+    const onToggleBlur = await renderWithBlur();
+    const button = screen.getByTestId('blur-card');
+    expect(button.props.accessibilityLabel).toBe(strings.home.blurPreview);
+    fireEvent.press(button);
+    expect(onToggleBlur).toHaveBeenCalledWith(cards[0]);
+  });
+
+  test('offers to clear a document that is blurred, also from the screen reader menu', async () => {
+    const blurred = makeCard({ id: 'z', name: 'Passport', blurPreview: true });
+    const onToggleBlur = await renderWithBlur([blurred]);
+    expect(screen.getByTestId('blur-card').props.accessibilityLabel).toBe(strings.home.clearPreview);
+    fireEvent(screen.getByTestId('card-stack'), 'accessibilityAction', { nativeEvent: { actionName: 'blur' } });
+    expect(onToggleBlur).toHaveBeenCalledWith(blurred);
+  });
+});

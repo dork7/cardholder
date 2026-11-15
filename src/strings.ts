@@ -47,6 +47,8 @@ export const strings = {
     showCard: (i: number, n: number) => `Show card ${i} of ${n}`,
     showBack: 'Show the back',
     showFront: 'Show the front',
+    blurPreview: 'Blur preview',
+    clearPreview: 'Show preview clearly',
     stackHint: 'Swipe left or right to change cards. Double-tap to open.',
     stackHintVertical: 'Swipe up or down to change cards. Double-tap to open.',
     reorderHint: 'Long-press and drag to reorder.',
@@ -470,8 +472,8 @@ export const strings = {
     done: 'Done',
   },
   shareIn: {
-    tooMany: 'Share one photo for the front, or two for the front and back.',
-    failed: "Couldn't open the shared photo. Try sharing it again.",
+    tooMany: 'Share one photo for the front, two for the front and back, or one PDF.',
+    failed: "Couldn't open what was shared. Try sharing it again.",
   },
   reminders: {
     title: (name: string, days: number) =>

@@ -12,6 +12,8 @@
 # apkUrl inside that file points at the DocKeeper-<version>.apk asset on the same release; sha256 and
 # size let the app check a downloaded update before installing it.
 #
+# Afterwards only the newest three releases are kept (scripts/prune-releases.sh).
+#
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   SIGNING_KEY_STORE_BASE64  base64 of the release .jks keystore
 #   SIGNKEY_STORE_PASSWORD    keystore password
@@ -240,3 +242,10 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+
+      # Only the newest three releases are kept. A failure here doesn't undo the release just published.
+      - name: Delete old releases
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/prune-releases.sh "${{ github.repository }}" 3 "${{ inputs.version }}"
