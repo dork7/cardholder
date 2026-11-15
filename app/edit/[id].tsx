@@ -27,7 +27,7 @@ import {
   SaveError,
   SavePlan,
 } from '../../src/cards/editForm';
-import { DEFAULT_REMIND_DAYS, FOLDERS_ENABLED, MAX_TAGS, NAME_MAX_LENGTH, PDF_MAX_BYTES } from '../../src/config';
+import { DEFAULT_REMIND_DAYS, FOLDERS_ENABLED, MAX_TAGS, NAME_MAX_LENGTH, PDF_MAX_BYTES, REMIND_DAY_CHOICES } from '../../src/config';
 import { parseRemindDays } from '../../src/cards/validate';
 import { findFolderNamed } from '../../src/folders/names';
 import { suggestFolder } from '../../src/folders/suggest';
@@ -67,6 +67,10 @@ export default function EditCard() {
 
   const [form, setForm] = useState(() => formFor(existing));
   const draft = form.draft;
+  // Custom shows the number field: chosen by the user, or a saved number that isn't one of the chips.
+  const [customRemind, setCustomRemind] = useState(
+    () => !REMIND_DAY_CHOICES.some((d) => String(d) === form.draft.remindDaysBefore),
+  );
   // Every tag in use and the starters, then any typed here that no saved card has yet.
   const offeredTags = normalizeTags([...tagOptions(cards), ...draft.tags]);
   // How many photos are being read right now, and which read is current for each side: a result for a
@@ -417,6 +421,20 @@ export default function EditCard() {
     { key: 'blurred', label: strings.edit.previewBlurred, selected: draft.blurPreview, onPress: () => update({ blurPreview: true }), testID: 'preview-blurred' },
   ];
 
+  const remindChips: Chip[] = [
+    ...REMIND_DAY_CHOICES.map((days) => ({
+      key: String(days),
+      label: strings.edit.remindChoice(days),
+      selected: !customRemind && draft.remindDaysBefore === String(days),
+      onPress: () => {
+        setCustomRemind(false);
+        update({ remindDaysBefore: String(days) });
+      },
+      testID: `remind-${days}`,
+    })),
+    { key: 'custom', label: strings.edit.remindCustom, selected: customRemind, onPress: () => setCustomRemind(true), testID: 'remind-custom' },
+  ];
+
   const frontUri = draft.front ? dataUri(draft.front.jpegBase64) : existingFront;
   const backUri = draft.back ? dataUri(draft.back.jpegBase64) : draft.removeBack ? null : existingBack;
 
@@ -519,6 +537,9 @@ export default function EditCard() {
                 placeholder={strings.edit.namePlaceholder}
                 placeholderTextColor={theme.muted}
                 maxLength={NAME_MAX_LENGTH}
+                autoCapitalize="words"
+                // Single-line, so Done closes the keyboard.
+                returnKeyType="done"
                 accessibilityLabel={strings.edit.name}
                 style={inputStyle}
               />
@@ -598,17 +619,20 @@ export default function EditCard() {
             {draft.expiresOn !== null && (
               <Animated.View entering={ENTER} exiting={EXIT}>
                 <Field label={strings.edit.remindDays} error={errorText('bad-reminder')}>
-                  <TextInput
-                    testID="remind-days"
-                    value={draft.remindDaysBefore}
-                    onChangeText={(text) => update({ remindDaysBefore: text.replace(/[^0-9]/g, '') })}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                    placeholder={String(DEFAULT_REMIND_DAYS)}
-                    placeholderTextColor={theme.muted}
-                    accessibilityLabel={strings.edit.remindDays}
-                    style={inputStyle}
-                  />
+                  <ChipRow chips={remindChips} accessibilityLabel={strings.edit.remindDays} />
+                  {customRemind && (
+                    <TextInput
+                      testID="remind-days"
+                      value={draft.remindDaysBefore}
+                      onChangeText={(text) => update({ remindDaysBefore: text.replace(/[^0-9]/g, '') })}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                      placeholder={String(DEFAULT_REMIND_DAYS)}
+                      placeholderTextColor={theme.muted}
+                      accessibilityLabel={strings.edit.remindCustomDays}
+                      style={inputStyle}
+                    />
+                  )}
                   <Text style={{ color: theme.muted, fontSize: 14 }}>
                     {strings.edit.remindDaysHint(parseRemindDays(draft.remindDaysBefore) ?? DEFAULT_REMIND_DAYS)}
                   </Text>

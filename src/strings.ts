@@ -120,6 +120,9 @@ export const strings = {
     addExpiry: 'Add expiry date',
     clearExpiry: 'Clear',
     remindDays: 'Remind me (days before)',
+    remindChoice: (days: number) => `${days} days`,
+    remindCustom: 'Custom',
+    remindCustomDays: 'Custom number of days',
     remindDaysHint: (days: number) =>
       `A reminder every day from ${days} ${plural(days, 'day', 'days')} before it expires, until it expires or you change the date.`,
     suggested: 'Suggested from the photo',
