@@ -14,11 +14,12 @@ interface Props {
   onPress: () => void;
   variant?: 'secondary' | 'danger';
   disabled?: boolean;
+  expanded?: boolean; // set on a button that opens a menu: whether the menu is open
   testID?: string;
 }
 
 // An outlined button with only an icon. Same outline rules as Button: 3:1 against the page.
-export function IconButton({ icon, label, caption, hint, onPress, variant = 'secondary', disabled = false, testID }: Props) {
+export function IconButton({ icon, label, caption, hint, onPress, variant = 'secondary', disabled = false, expanded, testID }: Props) {
   const theme = useTheme();
   const color = variant === 'danger' ? theme.danger : theme.text;
   const outline = variant === 'danger' ? theme.danger : theme.rosette;
@@ -29,7 +30,7 @@ export function IconButton({ icon, label, caption, hint, onPress, variant = 'sec
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
-      accessibilityState={disabled ? { disabled } : undefined}
+      accessibilityState={disabled || expanded !== undefined ? { disabled, expanded } : undefined}
       disabled={disabled}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -39,7 +40,7 @@ export function IconButton({ icon, label, caption, hint, onPress, variant = 'sec
     >
       <RetroIcon name={icon} size={24} color={color} />
       {caption && (
-        <Text style={[styles.caption, { color }]} numberOfLines={1}>
+        <Text style={[styles.caption, { color }]} numberOfLines={2}>
           {caption}
         </Text>
       )}
@@ -59,5 +60,6 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingVertical: 6,
   },
-  caption: { fontSize: TYPE.caption, fontWeight: '600' },
+  // Two lines at most: at large text sizes a caption wraps rather than being cut off.
+  caption: { fontSize: TYPE.caption, fontWeight: '600', textAlign: 'center' },
 });

@@ -40,13 +40,13 @@ export async function applySnapshot(store: CardStore, snapshot: BackupSnapshot, 
   const notesAdded = mode === 'replace' ? incomingNotes.length : incomingNotes.filter((note) => !existingNotes.has(note.id)).length;
   const notesSkipped = incomingNotes.length - notesAdded;
   if (mode === 'replace') {
-    await store.insertMany(snapshot.cards, { replace: true, folders: snapshot.folders, notes: incomingNotes });
+    await store.insertMany(snapshot.cards, { replace: true, folders: snapshot.folders, notes: incomingNotes, notesBackedUpAt: snapshot.exportedAt });
     return { added: snapshot.cards.length, skipped: 0, notesAdded, notesSkipped };
   }
   const existing = new Set(await store.ids());
   const fresh = snapshot.cards.filter((entry) => !existing.has(entry.card.id));
   if (fresh.length > 0 || snapshot.folders.length > 0 || notesAdded > 0) {
-    await store.insertMany(fresh, { replace: false, folders: snapshot.folders, notes: incomingNotes });
+    await store.insertMany(fresh, { replace: false, folders: snapshot.folders, notes: incomingNotes, notesBackedUpAt: snapshot.exportedAt });
   }
   return { added: fresh.length, skipped: snapshot.cards.length - fresh.length, notesAdded, notesSkipped };
 }

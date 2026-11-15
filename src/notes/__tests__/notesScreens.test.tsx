@@ -142,3 +142,45 @@ test('failed save prevents leaving and preserves visible text for retry', async 
   expect(mockRepeat).toHaveBeenCalledTimes(1);
   expect((await mockServices.notes.list())[0].body).toBe('Keep this text');
 });
+
+test('unpinning from the editor returns the note to its edit-time place', async () => {
+  await mockServices.notes.save('old', { title: 'Old', body: '' });
+  await mockServices.notes.save('new', { title: 'New', body: '' });
+  await mockServices.notes.setPinned('old', true);
+  mockId = 'old';
+  await render(<NoteScreen />);
+  await screen.findByText(strings.notes.unpin);
+  await act(async () => fireEvent.press(screen.getByTestId('note-pin')));
+  expect(screen.getByText(strings.notes.pin)).toBeTruthy();
+  expect((await mockServices.notes.list()).map((n) => [n.id, n.pinned])).toEqual([['new', false], ['old', false]]);
+});
+
+test('rapid edits during a slow save show Saving, then leaving keeps only the newest text', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const save = mockServices.notes.save;
+  let first = true;
+  mockServices.notes.save = async (id, fields) => {
+    if (first) { first = false; await gate; }
+    return save(id, fields);
+  };
+  await render(<NoteScreen />);
+  await write('', 'One');
+  const callback = appState.mock.calls.find(([name]) => name === 'change')![1];
+  await act(async () => { callback('background'); });
+  await fireEvent.changeText(screen.getByTestId('note-body'), 'Two');
+  await fireEvent.changeText(screen.getByTestId('note-body'), 'Three');
+  expect(screen.getByText(strings.notes.saving)).toBeTruthy();
+  expect(screen.queryByText(strings.notes.saved)).toBeNull();
+  await act(async () => { fireEvent.press(screen.getByTestId('note-done')); release(); });
+  expect(mockRepeat).toHaveBeenCalledTimes(1);
+  expect((await mockServices.notes.list()).map((n) => n.body)).toEqual(['Three']);
+});
+
+test('creating a note at the free document limit never opens the paywall', async () => {
+  await render(<NoteScreen />);
+  await write('Passport number', '');
+  await act(async () => fireEvent.press(screen.getByTestId('note-done')));
+  expect(await mockServices.notes.list()).toHaveLength(1);
+  expect(mockRouter.push).not.toHaveBeenCalledWith('/paywall');
+});

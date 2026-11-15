@@ -260,51 +260,28 @@ test('the details share as a .md file named after the card, then the copy is rem
 });
 
 describe('exporting a card as a PDF', () => {
-  const text = (uri: string) => new TextDecoder().decode(mockDisk.get(uri));
-  const pickedFiles = () => [...mockDisk.keys()].filter((k) => k.startsWith('picked/')).sort();
-
   test('a front-only card still goes as a PDF, not a photo', async () => {
-    await exportCardPdf(store, makeCard({ name: 'Gym' }), 'send');
+    await exportCardPdf(store, makeCard({ name: 'Gym' }));
     expect(shareAsync).toHaveBeenCalledWith('cache/share/Gym.pdf', PDF);
     expect(new TextDecoder().decode(shared?.bytes)).toBe('PDF:cache/share/Gym-front.jpg');
     expect(mockDisk.size).toBe(0);
   });
 
   test('a card with a back is one PDF, front then back', async () => {
-    await exportCardPdf(store, makeCard({ name: 'Gym', hasBack: true, backAspect: 1.586 }), 'send');
+    await exportCardPdf(store, makeCard({ name: 'Gym', hasBack: true, backAspect: 1.586 }));
     expect(new TextDecoder().decode(shared?.bytes)).toBe('PDF:cache/share/Gym-front.jpg+cache/share/Gym-back.jpg');
   });
 
-  test('saves into the picked folder and leaves no copy in the cache', async () => {
-    const name = await exportCardPdf(store, makeCard({ name: 'Gym', hasBack: true, backAspect: 1.586 }), 'files');
-    expect(name).toBe('Gym.pdf');
-    expect(shareAsync).not.toHaveBeenCalled();
-    expect(pickedFiles()).toEqual(['picked/Gym.pdf']);
-    expect(text('picked/Gym.pdf')).toBe('PDF:cache/share/Gym-front.jpg+cache/share/Gym-back.jpg');
-    expect([...mockDisk.keys()].filter((k) => k.startsWith('cache/'))).toEqual([]);
-  });
-
-  test('a PDF card saves its own PDF', async () => {
-    await exportCardPdf(store, makeCard({ name: 'Policy', pdf: { pageCount: 2, coverPage: 0 } }), 'files');
-    expect(text('picked/Policy.pdf')).toBe('%PDF-1.7 policy');
-  });
-
-  test('saving twice keeps both files', async () => {
-    const card = makeCard({ name: 'Gym' });
-    await exportCardPdf(store, card, 'files');
-    expect(await exportCardPdf(store, card, 'files')).toBe('Gym (2).pdf');
-    expect(pickedFiles()).toEqual(['picked/Gym (2).pdf', 'picked/Gym.pdf']);
-  });
-
-  test('cancelling the folder picker saves nothing and is not an error', async () => {
-    mockPicked = null;
-    await expect(exportCardPdf(store, makeCard({ name: 'Gym' }), 'files')).resolves.toBeNull();
+  test('a PDF card shares its own PDF', async () => {
+    await exportCardPdf(store, makeCard({ name: 'Policy', pdf: { pageCount: 2, coverPage: 0 } }));
+    expect(shareAsync).toHaveBeenCalledWith('cache/share/Policy.pdf', PDF);
+    expect(new TextDecoder().decode(shared?.bytes)).toBe('%PDF-1.7 policy');
     expect(mockDisk.size).toBe(0);
   });
 
   test('without the PDF module it says so', async () => {
     mockPdfAvailable = false;
-    await expect(exportCardPdf(store, makeCard({ name: 'Gym' }), 'send')).rejects.toBeInstanceOf(PdfUnavailableError);
+    await expect(exportCardPdf(store, makeCard({ name: 'Gym' }))).rejects.toBeInstanceOf(PdfUnavailableError);
     expect(shareAsync).not.toHaveBeenCalled();
     expect(mockDisk.size).toBe(0);
   });

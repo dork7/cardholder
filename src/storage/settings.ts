@@ -11,7 +11,9 @@ export type SettingKey =
   | 'homeFolderFilter'
   | 'homeManageFolders'
   | 'cardBrightness'
-  | 'stackVertical';
+  | 'stackVertical'
+  | 'warnIdShare'
+  | 'seenTips';
 
 export interface Settings {
   get(key: SettingKey): Promise<string | null>;

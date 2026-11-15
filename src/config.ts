@@ -20,6 +20,8 @@ export const PBKDF2_ITERATIONS = 600_000;
 // expires until the day it does. The user can change it per card.
 export const DEFAULT_REMIND_DAYS = 14;
 export const MAX_REMIND_DAYS = 365;
+// The reminder choices offered as chips; any other number is typed under Custom.
+export const REMIND_DAY_CHOICES = [7, 14, 30] as const;
 export const REMINDER_HOUR = 9;
 // A card this close to expiry is flagged in the app.
 export const EXPIRY_SOON_DAYS = 30;

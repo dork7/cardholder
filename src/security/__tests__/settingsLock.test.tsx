@@ -30,6 +30,8 @@ const mockSetAppLock = jest.fn(async (on: boolean) => {
 const mockSetHomeFolders = jest.fn(() => Promise.resolve());
 const mockSetCardBrightness = jest.fn(() => Promise.resolve());
 const mockSetStackVertical = jest.fn(() => Promise.resolve());
+let mockWarnIdShare = true;
+const mockSetWarnIdShare = jest.fn(() => Promise.resolve());
 const mockServices = { settings: { getNumber: () => Promise.resolve(null) }, store: { listRecentlyDeleted: () => Promise.resolve([]) } };
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
@@ -44,6 +46,8 @@ jest.mock('../../app/AppProvider', () => ({
     setCardBrightness: mockSetCardBrightness,
     stackVertical: false,
     setStackVertical: mockSetStackVertical,
+    warnIdShare: mockWarnIdShare,
+    setWarnIdShare: mockSetWarnIdShare,
   }),
 }));
 
@@ -52,6 +56,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockFoldersEnabled = true;
   mockAppLock = false;
+  mockWarnIdShare = true;
   mockAvailable.mockResolvedValue(true);
   mockAuthenticate.mockResolvedValue('success');
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -127,4 +132,14 @@ test('the home stack can be switched to swipe up and down', async () => {
   expect(toggle.props.value).toBe(false);
   await fireEvent(toggle, 'valueChange', true);
   expect(mockSetStackVertical).toHaveBeenCalledWith(true);
+});
+
+test('the switch shows whether sharing an ID warns first, and turns the warning back on', async () => {
+  mockWarnIdShare = false;
+  await render(<SettingsScreen />);
+  const toggle = screen.getByTestId('warn-id-share-switch');
+  expect(toggle.props.value).toBe(false);
+  expect(screen.getByText(strings.settings.warnIdShare)).toBeTruthy();
+  await fireEvent(toggle, 'valueChange', true);
+  expect(mockSetWarnIdShare).toHaveBeenCalledWith(true);
 });

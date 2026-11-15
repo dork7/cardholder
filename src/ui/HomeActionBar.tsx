@@ -19,8 +19,12 @@ export function HomeActionBar({ gallery, onAddImage, onNotes, onToggleGallery }:
       path: 'M14 4H4v16h16V10M4 16l5-5 5 5 3-3 3 3M18 2v8M14 6h8M8 7h.01' },
     { key: 'open-notes', label: strings.notes.title, onPress: onNotes, primary: false,
       path: 'M14 3H5v18h14V8l-5-5v5h5M8 12h8M8 16h8' },
-    { key: 'gallery-toggle', label: strings.home.galleryLabel, onPress: onToggleGallery, primary: false,
-      path: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
+    // Names and draws the view it switches to: the grid from the stack, the stack from the grid.
+    gallery
+      ? { key: 'gallery-toggle', label: strings.home.stackLabel, onPress: onToggleGallery, primary: false,
+          path: 'M4 9h16v11H4zM6 6h12M8 3h8' }
+      : { key: 'gallery-toggle', label: strings.home.galleryLabel, onPress: onToggleGallery, primary: false,
+          path: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
   ];
   return (
     <View testID="home-action-bar" style={[styles.bar, { backgroundColor: theme.surface, borderColor: theme.border }]}>

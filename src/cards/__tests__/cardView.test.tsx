@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, StyleSheet } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import CardView from '../../../app/card/[id]';
@@ -46,7 +46,10 @@ jest.mock('../../images/pdf', () => ({
 }));
 const mockShareCard = jest.fn((..._a: unknown[]) => Promise.resolve());
 const mockShareMarkdown = jest.fn((..._a: unknown[]) => Promise.resolve());
+const mockExportPdf = jest.fn((..._a: unknown[]) => Promise.resolve());
 jest.mock('../../share/shareCard', () => ({
+  PdfUnavailableError: class extends Error {},
+  exportCardPdf: (...a: unknown[]) => mockExportPdf(...a),
   shareCard: (...a: unknown[]) => mockShareCard(...a),
   shareCardMarkdown: (...a: unknown[]) => mockShareMarkdown(...a),
 }));
@@ -65,11 +68,23 @@ const mockServices = {
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
   },
 };
+let mockWarnIdShare = true;
+const mockSetWarnIdShare = jest.fn((_on: boolean) => Promise.resolve());
 jest.mock('../../app/AppProvider', () => ({
-  useApp: () => ({ services: mockServices, cards: mockCards, folders: [], refresh: () => mockRefresh() }),
+  useApp: () => ({
+    services: mockServices,
+    cards: mockCards,
+    folders: [],
+    refresh: () => mockRefresh(),
+    warnIdShare: mockWarnIdShare,
+    setWarnIdShare: (on: boolean) => mockSetWarnIdShare(on),
+  }),
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockWarnIdShare = true;
+});
 
 const imageUri = (label: string) => screen.getByLabelText(label).props.source?.uri ?? screen.getByLabelText(label).props.source?.[0]?.uri;
 
@@ -109,23 +124,65 @@ describe('actions', () => {
     const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => unknown }[];
     await buttons.find((b) => b.text === label)?.onPress?.();
   };
+  // PDF, Edit and Delete live in the More sheet; picking one closes it.
+  const pressInMore = async (name: string) => {
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.more }));
+    await fireEvent.press(screen.getByRole('menuitem', { name }));
+    expect(screen.queryByTestId('card-more-sheet')).toBeNull();
+  };
 
-  test('delete, share and edit are icon buttons named for screen readers, with Close below them', async () => {
+  test('the action row holds only Show, Share, Pin and More', async () => {
     await render(<CardView />);
-    for (const name of [strings.edit.deleteCard, strings.card.share, strings.card.edit, strings.common.close]) {
-      expect(screen.getByRole('button', { name })).toBeTruthy();
-    }
+    const row = within(screen.getByTestId('card-actions'));
+    expect(row.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual([
+      strings.card.showToStaff,
+      strings.card.share,
+      strings.card.pin,
+      strings.card.more,
+    ]);
+    expect(screen.queryByRole('button', { name: strings.card.edit })).toBeNull();
+    expect(screen.queryByRole('button', { name: strings.edit.deleteCard })).toBeNull();
+    expect(screen.queryByRole('button', { name: strings.card.exportPdf })).toBeNull();
+  });
+
+  test('More is announced as a button that opens a menu', async () => {
+    await render(<CardView />);
+    const more = screen.getByRole('button', { name: strings.card.more });
+    expect(more.props.accessibilityHint).toBe(strings.card.moreHint);
+    expect(more.props.accessibilityState).toMatchObject({ expanded: false });
+  });
+
+  test('More opens a sheet listing PDF, Edit and Delete, each labelled', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.more }));
+    const sheet = within(screen.getByTestId('card-more-sheet'));
+    expect(sheet.getAllByRole('menuitem').map((b) => b.props.accessibilityLabel)).toEqual([
+      strings.card.exportPdf,
+      strings.card.edit,
+      strings.edit.deleteCard,
+    ]);
+    expect(screen.getByRole('button', { name: strings.card.more }).props.accessibilityState).toMatchObject({ expanded: true });
+    await fireEvent.press(sheet.getByRole('button', { name: strings.common.cancel }));
+    expect(screen.queryByTestId('card-more-sheet')).toBeNull();
+  });
+
+  test('Close sits in the header and goes back home', async () => {
+    await render(<CardView />);
+    const close = within(screen.getByTestId('card-header')).getByRole('button', { name: strings.common.close });
+    await fireEvent.press(close);
+    expect(mockBack).toHaveBeenCalled();
+    expect(within(screen.getByTestId('card-actions')).queryByRole('button', { name: strings.common.close })).toBeNull();
   });
 
   test('Edit opens this card in the edit screen', async () => {
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.card.edit }));
+    await pressInMore(strings.card.edit);
     expect(mockPush).toHaveBeenCalledWith('/edit/card1');
   });
 
   test('Delete asks first; confirming removes the card and goes back', async () => {
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    await pressInMore(strings.edit.deleteCard);
     expect(alert).toHaveBeenCalledWith(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, expect.any(Array));
     expect(mockRemove).not.toHaveBeenCalled();
     await pressInAlert(strings.common.delete);
@@ -146,8 +203,65 @@ describe('actions', () => {
     await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
     expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
     expect(mockShareCard).not.toHaveBeenCalled();
-    await pressInAlert(strings.card.share);
+    await pressInAlert(strings.idShare.share);
     expect(mockShareCard).toHaveBeenCalled();
+  });
+
+  test('the ID warning offers Cancel, Share and Don\'t ask again', async () => {
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    expect(alert).toHaveBeenCalledTimes(1);
+    const buttons = alert.mock.calls[0][2] as { text: string }[];
+    expect(buttons.map((b) => b.text)).toEqual([strings.common.cancel, strings.idShare.share, strings.idShare.dontAskAgain]);
+    await pressInAlert(strings.common.cancel);
+    expect(mockShareCard).not.toHaveBeenCalled();
+    expect(mockSetWarnIdShare).not.toHaveBeenCalled();
+  });
+
+  test("Don't ask again shares and turns the warning off", async () => {
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    await pressInAlert(strings.idShare.dontAskAgain);
+    expect(mockSetWarnIdShare).toHaveBeenCalledWith(false);
+    expect(mockShareCard).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('with the warning off, an ID shares without asking', async () => {
+    mockWarnIdShare = false;
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockShareCard).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('PDF export goes straight to the share sheet, with no Send-or-Save dialog', async () => {
+    await render(<CardView />);
+    await pressInMore(strings.card.exportPdf);
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('PDF export of an ID asks once, then goes straight to the share sheet', async () => {
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await pressInMore(strings.card.exportPdf);
+    expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
+    expect(mockExportPdf).not.toHaveBeenCalled();
+    await pressInAlert(strings.idShare.share);
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('with the warning off, PDF export of an ID asks nothing', async () => {
+    mockWarnIdShare = false;
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await pressInMore(strings.card.exportPdf);
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
   });
 
   test('there is no QR send any more', async () => {
@@ -157,7 +271,7 @@ describe('actions', () => {
 
   test('cancelling the delete keeps the card', async () => {
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    await pressInMore(strings.edit.deleteCard);
     await pressInAlert(strings.common.cancel);
     expect(mockRemove).not.toHaveBeenCalled();
     expect(mockBack).not.toHaveBeenCalled();
@@ -295,6 +409,16 @@ describe('details (.md)', () => {
     await fireEvent.press(screen.getByTestId('save-markdown'));
     expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
     expect(mockShareMarkdown).not.toHaveBeenCalled();
+  });
+
+  test('with the warning off, the .md file of an ID shares without asking', async () => {
+    mockWarnIdShare = false;
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('view-details'));
+    await fireEvent.press(screen.getByTestId('save-markdown'));
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockShareMarkdown).toHaveBeenCalled();
   });
 
   test('with Details open, Quick share sends only the .md file, not the pictures', async () => {

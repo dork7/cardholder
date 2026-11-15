@@ -126,31 +126,15 @@ async function writeCardPdf(store: CardStore, card: Card): Promise<File | null> 
 
 const isCancelled = (e: unknown) => /cancel/i.test(`${(e as { code?: string })?.code ?? ''} ${(e as Error)?.message ?? ''}`);
 
-// The card as a PDF, either sent through the share sheet or saved into a folder the user picks
-// (Files on iPhone, the system folder picker on Android). Resolves to the saved file's name, or null
-// when it was sent, the picker was cancelled or there was nothing to export. The decrypted copy in
-// the cache is always removed; only the copy the user chose to save stays.
-export async function exportCardPdf(store: CardStore, card: Card, to: 'send' | 'files'): Promise<string | null> {
+// The card as a PDF through the share sheet, which also offers saving it to Files. The decrypted copy
+// in the cache is always removed. Resolves once the share sheet is closed, or at once when nothing is
+// stored.
+export async function exportCardPdf(store: CardStore, card: Card): Promise<void> {
   clearShareCache();
   shareDir().create({ intermediates: true });
   try {
     const pdf = await writeCardPdf(store, card);
-    if (!pdf) return null;
-    if (to === 'send') {
-      await Sharing.shareAsync(pdf.uri, PDF);
-      return null;
-    }
-    let folder: Directory;
-    try {
-      folder = await Directory.pickDirectoryAsync();
-    } catch (e) {
-      if (isCancelled(e)) return null;
-      throw e;
-    }
-    const name = freeFileName(pdf.name, new Set(folder.list().map((entry) => entry.name)));
-    const saved = folder.createFile(name, PDF.mimeType);
-    await saved.write(await pdf.bytes());
-    return saved.name;
+    if (pdf) await Sharing.shareAsync(pdf.uri, PDF);
   } finally {
     clearShareCache();
   }

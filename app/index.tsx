@@ -9,10 +9,11 @@ import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
 import { addTags, overTagLimit, removeAll, setBlurPreview, shouldUnpin, togglePinned } from '../src/cards/batch';
 import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
-import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
+import { filterCards, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { PdfUnavailableError, shareCards } from '../src/share/shareCard';
+import { confirmIdShare } from '../src/share/idWarning';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { CardGrid } from '../src/ui/CardGrid';
@@ -23,6 +24,7 @@ import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
+import { SORT_LABELS, SortSheet } from '../src/ui/SortSheet';
 import { HomeActionBar } from '../src/ui/HomeActionBar';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
@@ -33,13 +35,25 @@ import { Panel, Screen } from '../src/ui/Surface';
 import { RADIUS, TRACKING, TYPE, useTheme } from '../src/ui/theme';
 import { useTooltip } from '../src/ui/Tooltip';
 import { LiveText } from '../src/ui/LiveText';
+import { GestureTip, GestureTipName, useGestureTips } from '../src/ui/GestureTip';
 
 // Panels settle in from just off their resting place; Reanimated skips this under Reduce Motion.
 const ENTER = 360;
 
 export default function Home() {
-  const { cards, folders, unlocked, openImportOnReady, clearOpenImport, homeFolders, services, refresh, stackVertical } =
-    useApp();
+  const {
+    cards,
+    folders,
+    unlocked,
+    openImportOnReady,
+    clearOpenImport,
+    homeFolders,
+    services,
+    refresh,
+    stackVertical,
+    warnIdShare,
+    setWarnIdShare,
+  } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -93,6 +107,18 @@ export default function Home() {
   const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
   const selecting = gallery === 'gallery' && selected.length > 0;
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  // One-time tips on the stack's swipe and the gallery's long-press, which only screen readers were told about.
+  const tips = useGestureTips(services.settings);
+  const tipBar = (tip: GestureTipName, text: string) =>
+    tips.showing(tip) && (
+      <GestureTip
+        text={text}
+        announce={!tips.announced(tip)}
+        onAnnounced={() => tips.markAnnounced(tip)}
+        onDismiss={() => tips.done(tip)}
+        testID={`${tip}-tip`}
+      />
+    );
   // The blur button on the stack's front card: saved straight away, like the choice on the edit screen.
   const toggleBlur = async (card: Card) => {
     try {
@@ -104,13 +130,16 @@ export default function Home() {
     }
   };
 
-  const toggleSelected = (card: Card) =>
+  // A long-press starts selecting, so the gallery's tip has done its job.
+  const toggleSelected = (card: Card) => {
+    tips.done('gallery');
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(card.id)) next.delete(card.id);
       else next.add(card.id);
       return next;
     });
+  };
 
   // The system back gesture leaves selection first, as in a photo gallery.
   useEffect(() => {
@@ -171,43 +200,31 @@ export default function Home() {
       },
     ]);
 
-  // One PDF of every selected card. An ID is worth a second thought before an unencrypted copy leaves
-  // the app, as on the card's own screen. Selection stays, so the same cards can be sent elsewhere.
+  // One PDF of every selected card. An ID asks first, as on the card's own screen, unless the
+  // warning is turned off. Selection stays, so the same cards can be sent elsewhere.
   const shareSelected = () => {
     const picked = selected;
-    const go = () =>
-      shareCards(services.store, picked).catch((e) => {
-        console.warn('Share failed', e);
-        Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
-      });
-    if (picked.some(isId)) {
-      Alert.alert(strings.home.shareIdsTitle, strings.home.shareIdsBody, [
-        { text: strings.common.cancel, style: 'cancel' },
-        { text: strings.card.share, onPress: () => void go() },
-      ]);
-    } else {
-      void go();
-    }
+    confirmIdShare({
+      hasId: picked.some(isId),
+      warn: warnIdShare,
+      title: strings.home.shareIdsTitle,
+      body: strings.home.shareIdsBody,
+      go: () =>
+        shareCards(services.store, picked).catch((e) => {
+          console.warn('Share failed', e);
+          Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
+        }),
+      stopWarning: () => setWarnIdShare(false),
+    });
   };
 
-  const sortChips = [
-    ...([
-      ['name', strings.home.sortName],
-      ['expiry', strings.home.sortExpiry],
-      ['added', strings.home.sortAdded],
-    ] as [GallerySort, string][]).map(([key, label]) => ({
-      key,
-      label,
-      selected: sort === key,
-      onPress: () => setSort(key),
-      testID: `sort-${key}`,
-    })),
+  const [sorting, setSorting] = useState(false);
+  const sortChip = [
     {
-      key: 'expiring',
-      label: strings.home.expiringSoon,
-      selected: expiringOnly,
-      onPress: () => setExpiringOnly((on) => !on),
-      testID: 'filter-expiring',
+      key: 'sort',
+      label: strings.home.sortChip(SORT_LABELS[sort], expiringOnly),
+      onPress: () => setSorting(true),
+      testID: 'sort-chip',
     },
   ];
 
@@ -251,7 +268,17 @@ export default function Home() {
         ) : (
           <>
             {gallery === 'gallery' && shown.length > 0 && (
-              <ChipRow accessibilityLabel={strings.home.sortLabel} chips={sortChips} />
+              <>
+                <ChipRow chips={sortChip} />
+                <SortSheet
+                  visible={sorting}
+                  sort={sort}
+                  expiringOnly={expiringOnly}
+                  onSort={setSort}
+                  onToggleExpiring={() => setExpiringOnly((on) => !on)}
+                  onClose={() => setSorting(false)}
+                />
+              </>
             )}
             {shown.length === 0 ? (
               <LiveText style={[styles.promise, { color: theme.muted }]}>
@@ -263,12 +290,15 @@ export default function Home() {
                   {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
                 </LiveText>
               ) : (
-                <CardGrid
-                  cards={inGallery}
-                  selected={selectedIds}
-                  onOpen={(card) => router.push(`/card/${card.id}`)}
-                  onToggle={toggleSelected}
-                />
+                <>
+                  {!selecting && tipBar('gallery', strings.home.galleryTip)}
+                  <CardGrid
+                    cards={inGallery}
+                    selected={selectedIds}
+                    onOpen={(card) => router.push(`/card/${card.id}`)}
+                    onToggle={toggleSelected}
+                  />
+                </>
               )
             ) : (
               // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
@@ -278,11 +308,15 @@ export default function Home() {
                 onOpen={(card) => router.push(`/card/${card.id}`)}
                 vertical={stackVertical}
                 onToggleBlur={(card) => void toggleBlur(card)}
+                onMove={() => tips.done('stack')}
               />
             )}
+            {gallery === 'stack' &&
+              shown.length > 1 &&
+              tipBar('stack', stackVertical ? strings.home.stackTipVertical : strings.home.stackTip)}
             {/* Which parts of the folder row show is chosen in settings. */}
             {FOLDERS_ENABLED && folders.length > 0 && folderChips.length > 0 && (
-              <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} />
+              <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} testID="folder-filter-choices" />
             )}
             {present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
           </>
@@ -303,18 +337,21 @@ export default function Home() {
             <IconButton
               icon={shouldUnpin(selected) ? 'unpin' : 'pin'}
               label={shouldUnpin(selected) ? strings.home.unpinSelected : strings.home.pinSelected}
+              caption={shouldUnpin(selected) ? strings.home.selectionCaptions.unpin : strings.home.selectionCaptions.pin}
               onPress={() => void onSelection((cards) => togglePinned(services.store, cards))}
               testID="selection-pin"
             />
             <IconButton
               icon="tag"
               label={strings.home.tagSelected}
+              caption={strings.home.selectionCaptions.tag}
               onPress={() => setChoosingTags(true)}
               testID="selection-tags"
             />
             <IconButton
               icon="refresh"
               label={strings.recreate.button}
+              caption={strings.home.selectionCaptions.recreate}
               hint={strings.recreate.galleryHint}
               onPress={() => void recreateSelected()}
               disabled={rereading !== null}
@@ -323,11 +360,19 @@ export default function Home() {
             <IconButton
               icon="share"
               label={strings.home.shareSelected}
+              caption={strings.home.selectionCaptions.share}
               hint={strings.home.shareSelectedHint}
               onPress={shareSelected}
               testID="selection-share"
             />
-            <IconButton icon="trash" label={strings.home.deleteSelected} onPress={deleteSelected} variant="danger" testID="selection-delete" />
+            <IconButton
+              icon="trash"
+              label={strings.home.deleteSelected}
+              caption={strings.home.selectionCaptions.delete}
+              onPress={deleteSelected}
+              variant="danger"
+              testID="selection-delete"
+            />
           </View>
           <TagSheet
             visible={choosingTags}
