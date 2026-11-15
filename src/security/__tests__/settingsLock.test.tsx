@@ -32,7 +32,7 @@ const mockSetCardBrightness = jest.fn(() => Promise.resolve());
 const mockSetStackVertical = jest.fn(() => Promise.resolve());
 let mockWarnIdShare = true;
 const mockSetWarnIdShare = jest.fn(() => Promise.resolve());
-const mockServices = { settings: { getNumber: () => Promise.resolve(null) } };
+const mockServices = { settings: { getNumber: () => Promise.resolve(null) }, store: { listRecentlyDeleted: () => Promise.resolve([]) } };
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     services: mockServices,

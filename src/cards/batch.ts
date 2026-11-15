@@ -48,8 +48,9 @@ export function togglePinned(store: CardStore, cards: Card[]): Promise<number> {
   );
 }
 
+// Moves them to Recently deleted.
 export function removeAll(store: CardStore, cards: Card[]): Promise<number> {
-  return each(cards, 'Delete', (card) => store.remove(card.id));
+  return each(cards, 'Delete', (card) => store.moveToRecentlyDeleted(card.id));
 }
 
 // A card's tags with `tags` added after them; repeats, ignoring case, keep the spelling already there.

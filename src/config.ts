@@ -25,6 +25,8 @@ export const REMIND_DAY_CHOICES = [7, 14, 30] as const;
 export const REMINDER_HOUR = 9;
 // A card this close to expiry is flagged in the app.
 export const EXPIRY_SOON_DAYS = 30;
+// A deleted document waits this long in Recently deleted before it is erased.
+export const RECENTLY_DELETED_DAYS = 30;
 // iOS keeps at most 64 pending local notifications per app.
 export const MAX_SCHEDULED_REMINDERS = 60;
 

@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { canReadText, readPhotoText } from '../analysis/readPhoto';
 import { readUnreadCards } from '../cards/readBackfill';
@@ -59,6 +60,14 @@ export interface AppContextValue {
 
 const BootContext = createContext<BootContextValue | null>(null);
 const AppContext = createContext<AppContextValue | null>(null);
+
+// Erases what has waited 30 days in Recently deleted. Run on start and on coming back to the
+// foreground: the app does no background work. A failure only means it is tried again next time.
+const purgeRecentlyDeleted = (services: Services): Promise<number> =>
+  services.store.purgeRecentlyDeleted().catch((e) => {
+    console.warn('Erasing old deleted cards failed', e);
+    return 0;
+  });
 
 async function readSnapshot(services: Services): Promise<AppSnapshot> {
   const [cards, folders, unlocked] = await Promise.all([
@@ -131,6 +140,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setPhase({ status: 'orphaned' });
         return;
       }
+      await purgeRecentlyDeleted(result.services);
       await coordinator.load(() => readSnapshot(result.services));
       await restorePreferences(result.services);
       setPhase({ status: 'ready', services: result.services });
@@ -169,6 +179,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (services) await coordinator.load(() => readSnapshot(services));
   }, [coordinator, services]);
   const clearOpenImport = useCallback(() => setOpenImportOnReady(false), []);
+
+  useEffect(() => {
+    if (!services) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void purgeRecentlyDeleted(services);
+    });
+    return () => sub.remove();
+  }, [services]);
 
   // The home screen widget follows the pinned cards and app lock. Only once the cards are open: before
   // that the list is empty, and the widget would lose its cards on every launch.

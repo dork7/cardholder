@@ -24,7 +24,7 @@ const mockSteps: string[] = [];
 let mockNoteCount = 0;
 let mockNotesChangedAt: number | null = null;
 const mockServices = {
-  store: {},
+  store: { listRecentlyDeleted: async () => [] },
   notes: { list: async () => Array.from({ length: mockNoteCount }, () => ({})), lastChangeAt: async () => mockNotesChangedAt },
   noteEditors: { flushAll: async () => void mockSteps.push('flush') },
   settings: {

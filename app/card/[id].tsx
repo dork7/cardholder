@@ -146,7 +146,7 @@ export default function CardView() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await services.store.remove(card.id);
+            await services.store.moveToRecentlyDeleted(card.id);
           } catch (e) {
             console.warn('Delete failed', e);
             Alert.alert(strings.common.error);

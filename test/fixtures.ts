@@ -90,5 +90,9 @@ export async function makeStore() {
     now: () => (clock += 1_000),
     newId: () => `card${++nextId}`,
   });
-  return { db, blobs, store, notes, aead };
+  // Moves the store's clock on, as if that much time passed between calls.
+  const advance = (ms: number) => {
+    clock += ms;
+  };
+  return { db, blobs, store, notes, aead, advance };
 }

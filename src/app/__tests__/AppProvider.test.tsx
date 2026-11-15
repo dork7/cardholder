@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { AppState, AppStateStatus, StyleSheet } from 'react-native';
 import { fields, images } from '../../../test/fixtures';
 import { createMemoryBlobStore } from '../../../test/memoryBlobStore';
 import { memoryDb } from '../../../test/memoryDb';
@@ -141,6 +141,55 @@ test('the recovery screen scrolls and keeps both actions inside the scroll conta
   const inside = within(scroll);
   expect(inside.getByRole('button', { name: strings.boot.importBackup })).toBeTruthy();
   expect(inside.getByRole('button', { name: strings.boot.startFresh })).toBeTruthy();
+});
+
+describe('Recently deleted', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const START = Date.UTC(2026, 10, 15);
+
+  // Boots, then moves one new document, and another 2 days later, to Recently deleted.
+  async function bootWithDeleted(clock: { now: number }) {
+    await renderApp();
+    await screen.findByText('cards:0');
+    const { store } = captured[captured.length - 1].services;
+    const old = await store.create(fields({ name: 'Old' }), images('old'));
+    await store.moveToRecentlyDeleted(old.id);
+    clock.now += 2 * DAY;
+    const recent = await store.create(fields({ name: 'Recent' }), images('recent'));
+    await store.moveToRecentlyDeleted(recent.id);
+    return { old, store };
+  }
+
+  test('documents deleted 30 days ago are erased, photos included, when the app starts', async () => {
+    const clock = { now: START };
+    jest.spyOn(Date, 'now').mockImplementation(() => clock.now);
+    const { old } = await bootWithDeleted(clock);
+    await screen.unmount();
+
+    clock.now = START + 30 * DAY;
+    await renderApp();
+    await screen.findByText('cards:0');
+    const { store } = captured[captured.length - 1].services;
+    expect((await store.listRecentlyDeleted()).map((c) => c.name)).toEqual(['Recent']);
+    expect((await mockBlobs.list()).filter((name) => name.startsWith(`${old.id}.`))).toEqual([]);
+  });
+
+  test('documents deleted 30 days ago are erased when the app comes back to the foreground', async () => {
+    const clock = { now: START };
+    jest.spyOn(Date, 'now').mockImplementation(() => clock.now);
+    const listeners: ((state: AppStateStatus) => void)[] = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((type, listener) => {
+      if (type === 'change') listeners.push(listener as (state: AppStateStatus) => void);
+      return { remove: () => {} } as ReturnType<typeof AppState.addEventListener>;
+    });
+    const { store } = await bootWithDeleted(clock);
+
+    clock.now = START + 32 * DAY;
+    await act(async () => {
+      for (const listener of listeners) listener('active');
+    });
+    await waitFor(async () => expect(await store.listRecentlyDeleted()).toEqual([]));
+  });
 });
 
 function flatten(style: unknown): { flexGrow?: number } {
