@@ -19,6 +19,7 @@ import { displayName } from '../../src/cards/display';
 import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/expiry';
 import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
 import { exportCardPdf, PdfUnavailableError, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
+import { confirmIdShare } from '../../src/share/idWarning';
 import { cardMarkdown } from '../../src/cards/cardMarkdown';
 import { addTags, overTagLimit, removeTag } from '../../src/cards/batch';
 import { hasTag, isId, tagOptions } from '../../src/cards/tags';
@@ -34,7 +35,7 @@ import { LiveText } from '../../src/ui/LiveText';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cards, folders, services, refresh, cardBrightness } = useApp();
+  const { cards, folders, services, refresh, cardBrightness, warnIdShare, setWarnIdShare } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -75,21 +76,20 @@ export default function CardView() {
     );
   }
 
-  // An ID is the one card worth a second thought before an unencrypted copy leaves the app.
-  const confirmIfId = (action: string, go: () => void) => {
-    if (isId(card)) {
-      Alert.alert(strings.card.shareIdTitle, strings.card.shareIdBody, [
-        { text: strings.common.cancel, style: 'cancel' },
-        { text: action, onPress: go },
-      ]);
-    } else {
-      go();
-    }
-  };
+  // An ID asks once before an unencrypted copy leaves the app, unless the warning is turned off.
+  const confirmIfId = (go: () => unknown) =>
+    confirmIdShare({
+      hasId: isId(card),
+      warn: warnIdShare,
+      title: strings.card.shareIdTitle,
+      body: strings.card.shareIdBody,
+      go,
+      stopWarning: () => setWarnIdShare(false),
+    });
 
   const markdown = cardMarkdown(card, folders);
   const saveMarkdown = () =>
-    confirmIfId(strings.card.saveMarkdown, () =>
+    confirmIfId(() =>
       shareCardMarkdown(card, markdown).catch((e) => {
         console.warn('Saving the .md file failed', e);
         Alert.alert(strings.common.error);
@@ -119,31 +119,22 @@ export default function CardView() {
   const share = () =>
     view === 'details'
       ? saveMarkdown()
-      : confirmIfId(strings.card.share, () =>
+      : confirmIfId(() =>
           shareCard(services.store, card).catch((e) => {
             console.warn('Share failed', e);
             Alert.alert(strings.common.error);
           }),
         );
 
-  // Save to Files or send: either way the whole card as one PDF, even a front-only photo card.
+  // The whole card as one PDF, even a front-only photo card, straight to the share sheet, which
+  // also offers saving it to Files.
   const exportPdf = () =>
-    confirmIfId(strings.card.exportPdf, () => {
-      const run = (to: 'send' | 'files') =>
-        exportCardPdf(services.store, card, to)
-          .then((saved) => {
-            if (saved) Alert.alert(strings.card.exportPdfTitle, strings.card.exportPdfSaved(saved));
-          })
-          .catch((e) => {
-            console.warn('PDF export failed', e);
-            Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.card.exportPdfNeedsUpdate : undefined);
-          });
-      Alert.alert(strings.card.exportPdfTitle, strings.card.exportPdfBody, [
-        { text: strings.common.cancel, style: 'cancel' },
-        { text: strings.card.exportPdfSend, onPress: () => void run('send') },
-        { text: strings.card.exportPdfSave, onPress: () => void run('files') },
-      ]);
-    });
+    confirmIfId(() =>
+      exportCardPdf(services.store, card).catch((e) => {
+        console.warn('PDF export failed', e);
+        Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.card.exportPdfNeedsUpdate : undefined);
+      }),
+    );
 
   const confirmDelete = () =>
     Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [

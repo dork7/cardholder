@@ -26,8 +26,21 @@ import { LiveText } from '../src/ui/LiveText';
 import { ActionIconName, RetroIcon, RetroIconName } from '../src/ui/RetroIcon';
 
 export default function SettingsScreen() {
-  const { services, cards, unlocked, appLock, setAppLock, homeFolders, setHomeFolders, cardBrightness, setCardBrightness, stackVertical, setStackVertical } =
-    useApp();
+  const {
+    services,
+    cards,
+    unlocked,
+    appLock,
+    setAppLock,
+    homeFolders,
+    setHomeFolders,
+    cardBrightness,
+    setCardBrightness,
+    stackVertical,
+    setStackVertical,
+    warnIdShare,
+    setWarnIdShare,
+  } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const [lastExportAt, setLastExportAt] = useState<number | null>(null);
@@ -84,6 +97,13 @@ export default function SettingsScreen() {
             onChange={(on) => void toggleLock(on)}
             disabled={changingLock}
             testID="app-lock-switch"
+          />
+          <SwitchRow
+            label={strings.settings.warnIdShare}
+            hint={strings.settings.warnIdShareHint}
+            value={warnIdShare}
+            onChange={(on) => void setWarnIdShare(on).catch(() => {})}
+            testID="warn-id-share-switch"
           />
         </Section>
         <Section icon="present" title={strings.settings.cardView}>
