@@ -74,6 +74,11 @@ export const strings = {
     sortName: 'Name',
     sortExpiry: 'Expiry',
     sortAdded: 'Newest',
+    sortOrder: 'Order',
+    filterLabel: 'Filter',
+    sortDone: 'Done',
+    // The gallery's one Sort chip names the order, and the filter when it's on.
+    sortChip: (order: string, expiring = false) => `Sort: ${order}${expiring ? ' · Expiring soon' : ''}`,
     expiringSoon: 'Expiring soon',
     noneExpiring: (days: number) => `Nothing expires in the next ${days} days.`,
     moveUp: 'Move up',

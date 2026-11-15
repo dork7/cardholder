@@ -165,6 +165,20 @@ test('choosing a folder narrows the stack to its cards', async () => {
   expect(mockPush).toHaveBeenCalledWith('/folders');
 });
 
+test('folder choices are radios in a group; Manage is a button outside it', async () => {
+  mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
+  await renderHome();
+  // A radiogroup View isn't itself focusable (that would hide its radios), so it's found by test ID.
+  const groupView = screen.getByTestId('folder-filter-choices');
+  expect(groupView.props.accessibilityRole).toBe('radiogroup');
+  expect(groupView.props.accessibilityLabel).toBe(strings.folders.title);
+  const group = within(groupView);
+  expect(group.getByRole('radio', { name: strings.folders.all }).props.accessibilityState).toEqual({ checked: true });
+  expect(group.getByRole('radio', { name: 'Health' }).props.accessibilityState).toEqual({ checked: false });
+  expect(group.queryByRole('button', { name: strings.folders.manage })).toBeNull();
+  expect(screen.getByRole('button', { name: strings.folders.manage })).toBeTruthy();
+});
+
 test('with folders hidden there is no folder row', async () => {
   mockFoldersEnabled = false;
   mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
@@ -397,6 +411,37 @@ describe('gallery view', () => {
     for (const id of ids.slice(1)) await act(async () => fireEvent.press(screen.getByTestId(`grid-${id}`)));
   };
 
+  // Opens the Sort sheet, presses one of its options, then closes it with Done.
+  const chooseSort = async (testID: string) => {
+    await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
+    await act(async () => fireEvent.press(within(screen.getByTestId('sort-sheet')).getByTestId(testID)));
+    await act(async () => fireEvent.press(screen.getByTestId('sort-sheet-done')));
+  };
+
+  test('one Sort chip replaces the row of sort chips', async () => {
+    await showGallery();
+    expect(screen.getByRole('button', { name: strings.home.sortChip(strings.home.sortName) })).toBeTruthy();
+    expect(screen.queryByTestId('sort-expiry')).toBeNull();
+    expect(screen.queryByTestId('filter-expiring')).toBeNull();
+  });
+
+  test('the Sort sheet offers the order as radios and Expiring soon as a checkbox', async () => {
+    await showGallery();
+    await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
+    const sheet = within(screen.getByTestId('sort-sheet'));
+    expect(sheet.getByRole('radio', { name: strings.home.sortName }).props.accessibilityState).toEqual({ checked: true });
+    expect(sheet.getByRole('radio', { name: strings.home.sortExpiry }).props.accessibilityState).toEqual({ checked: false });
+    expect(sheet.getByRole('radio', { name: strings.home.sortAdded })).toBeTruthy();
+    expect(sheet.getByRole('checkbox', { name: strings.home.expiringSoon }).props.accessibilityState).toEqual({ checked: false });
+    await act(async () => fireEvent.press(sheet.getByRole('checkbox', { name: strings.home.expiringSoon })));
+    expect(sheet.getByRole('checkbox', { name: strings.home.expiringSoon }).props.accessibilityState).toEqual({ checked: true });
+    await act(async () => fireEvent.press(screen.getByTestId('sort-sheet-done')));
+    expect(screen.queryByTestId('sort-sheet')).toBeNull();
+    expect(screen.getByTestId('sort-chip')).toHaveTextContent(
+      strings.home.sortChip(strings.home.sortName, true),
+    );
+  });
+
   test('sorts by name, expiry or newest, and remembers the choice', async () => {
     await withCards(
       [
@@ -407,10 +452,12 @@ describe('gallery view', () => {
       async () => {
         await showGallery();
         expect(gridOrder()).toEqual(['a', 'b', 'c']);
-        await act(async () => fireEvent.press(screen.getByTestId('sort-expiry')));
+        expect(screen.getByTestId('sort-chip')).toHaveTextContent(strings.home.sortChip(strings.home.sortName));
+        await chooseSort('sort-expiry');
         expect(gridOrder()).toEqual(['b', 'a', 'c']);
         expect(mockSettingsSet).toHaveBeenLastCalledWith('gallerySort', 'expiry');
-        await act(async () => fireEvent.press(screen.getByTestId('sort-added')));
+        expect(screen.getByTestId('sort-chip')).toHaveTextContent(strings.home.sortChip(strings.home.sortExpiry));
+        await chooseSort('sort-added');
         expect(gridOrder()).toEqual(['b', 'c', 'a']);
       },
     );
@@ -431,9 +478,9 @@ describe('gallery view', () => {
       ],
       async () => {
         await showGallery();
-        await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+        await chooseSort('filter-expiring');
         expect(gridOrder()).toEqual(['gone', 'soon']);
-        await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+        await chooseSort('filter-expiring');
         expect(gridOrder()).toHaveLength(4);
       },
     );
@@ -441,7 +488,7 @@ describe('gallery view', () => {
 
   test('says so when nothing is expiring soon', async () => {
     await showGallery();
-    await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+    await chooseSort('filter-expiring');
     expect(screen.getByText(strings.home.noneExpiring(30))).toBeTruthy();
   });
 
