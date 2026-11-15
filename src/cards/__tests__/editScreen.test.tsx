@@ -856,6 +856,65 @@ test('blur preview can be selected and saved with a document', async () => {
   expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ blurPreview: true }), expect.anything());
 });
 
+describe('reminder days', () => {
+  const checked = (id: string) => screen.getByTestId(id).props.accessibilityState?.checked;
+  async function openCard(remindDaysBefore: number) {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard({ expiresOn: '2030-11-09', remindDaysBefore })];
+    await render(<EditCard />);
+  }
+  const savedDays = () => mockUpdate.mock.calls[0][1].remindDaysBefore;
+
+  test('choosing 7, 14 or 30 days sets the reminder', async () => {
+    await openCard(14);
+    expect(checked('remind-14')).toBe(true);
+    await fireEvent.press(screen.getByTestId('remind-30'));
+    expect(checked('remind-30')).toBe(true);
+    expect(checked('remind-14')).toBe(false);
+    await save();
+    expect(savedDays()).toBe(30);
+  });
+
+  test('the number field shows only under Custom, and saves the number typed there', async () => {
+    await openCard(14);
+    expect(screen.queryByTestId('remind-days')).toBeNull();
+    await fireEvent.press(screen.getByTestId('remind-custom'));
+    expect(checked('remind-custom')).toBe(true);
+    expect(checked('remind-14')).toBe(false);
+    await fireEvent.changeText(screen.getByTestId('remind-days'), '45');
+    await save();
+    expect(savedDays()).toBe(45);
+  });
+
+  test('a document saved with another number opens on Custom with that number', async () => {
+    await openCard(60);
+    expect(checked('remind-custom')).toBe(true);
+    expect(screen.getByTestId('remind-days').props.value).toBe('60');
+  });
+
+  test('clearing the custom field means the default, and Custom stays chosen', async () => {
+    await openCard(60);
+    await fireEvent.changeText(screen.getByTestId('remind-days'), '');
+    expect(checked('remind-custom')).toBe(true);
+    expect(screen.getByText(strings.edit.remindDaysHint(14))).toBeTruthy();
+    await save();
+    expect(savedDays()).toBe(14);
+  });
+
+  test('a new document starts on 14 days', async () => {
+    await fillNewCard();
+    await fireEvent.press(screen.getByRole('button', { name: strings.edit.addExpiry }));
+    expect(checked('remind-14')).toBe(true);
+  });
+});
+
+test('the name field capitalises words and closes the keyboard on Done', async () => {
+  await render(<EditCard />);
+  const name = screen.getByTestId('card-name');
+  expect(name.props.autoCapitalize).toBe('words');
+  expect(name.props.returnKeyType).toBe('done');
+});
+
 describe('opened with something shared from another app', () => {
   test('two shared photos are cropped in turn into the front and the back, then deleted', async () => {
     setPendingShared({ kind: 'photos', paths: ['file:///cache/shared/1-0.jpg', 'file:///cache/shared/1-1.jpg'] });
