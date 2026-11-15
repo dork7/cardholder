@@ -46,7 +46,10 @@ jest.mock('../../images/pdf', () => ({
 }));
 const mockShareCard = jest.fn((..._a: unknown[]) => Promise.resolve());
 const mockShareMarkdown = jest.fn((..._a: unknown[]) => Promise.resolve());
+const mockExportPdf = jest.fn((..._a: unknown[]) => Promise.resolve());
 jest.mock('../../share/shareCard', () => ({
+  PdfUnavailableError: class extends Error {},
+  exportCardPdf: (...a: unknown[]) => mockExportPdf(...a),
   shareCard: (...a: unknown[]) => mockShareCard(...a),
   shareCardMarkdown: (...a: unknown[]) => mockShareMarkdown(...a),
 }));
@@ -65,11 +68,23 @@ const mockServices = {
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
   },
 };
+let mockWarnIdShare = true;
+const mockSetWarnIdShare = jest.fn((_on: boolean) => Promise.resolve());
 jest.mock('../../app/AppProvider', () => ({
-  useApp: () => ({ services: mockServices, cards: mockCards, folders: [], refresh: () => mockRefresh() }),
+  useApp: () => ({
+    services: mockServices,
+    cards: mockCards,
+    folders: [],
+    refresh: () => mockRefresh(),
+    warnIdShare: mockWarnIdShare,
+    setWarnIdShare: (on: boolean) => mockSetWarnIdShare(on),
+  }),
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockWarnIdShare = true;
+});
 
 const imageUri = (label: string) => screen.getByLabelText(label).props.source?.uri ?? screen.getByLabelText(label).props.source?.[0]?.uri;
 
@@ -146,8 +161,65 @@ describe('actions', () => {
     await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
     expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
     expect(mockShareCard).not.toHaveBeenCalled();
-    await pressInAlert(strings.card.share);
+    await pressInAlert(strings.idShare.share);
     expect(mockShareCard).toHaveBeenCalled();
+  });
+
+  test('the ID warning offers Cancel, Share and Don\'t ask again', async () => {
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    expect(alert).toHaveBeenCalledTimes(1);
+    const buttons = alert.mock.calls[0][2] as { text: string }[];
+    expect(buttons.map((b) => b.text)).toEqual([strings.common.cancel, strings.idShare.share, strings.idShare.dontAskAgain]);
+    await pressInAlert(strings.common.cancel);
+    expect(mockShareCard).not.toHaveBeenCalled();
+    expect(mockSetWarnIdShare).not.toHaveBeenCalled();
+  });
+
+  test("Don't ask again shares and turns the warning off", async () => {
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    await pressInAlert(strings.idShare.dontAskAgain);
+    expect(mockSetWarnIdShare).toHaveBeenCalledWith(false);
+    expect(mockShareCard).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('with the warning off, an ID shares without asking', async () => {
+    mockWarnIdShare = false;
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockShareCard).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('PDF export goes straight to the share sheet, with no Send-or-Save dialog', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.exportPdf }));
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('PDF export of an ID asks once, then goes straight to the share sheet', async () => {
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.exportPdf }));
+    expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
+    expect(mockExportPdf).not.toHaveBeenCalled();
+    await pressInAlert(strings.idShare.share);
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('with the warning off, PDF export of an ID asks nothing', async () => {
+    mockWarnIdShare = false;
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.exportPdf }));
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
   });
 
   test('there is no QR send any more', async () => {
@@ -295,6 +367,16 @@ describe('details (.md)', () => {
     await fireEvent.press(screen.getByTestId('save-markdown'));
     expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
     expect(mockShareMarkdown).not.toHaveBeenCalled();
+  });
+
+  test('with the warning off, the .md file of an ID shares without asking', async () => {
+    mockWarnIdShare = false;
+    mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('view-details'));
+    await fireEvent.press(screen.getByTestId('save-markdown'));
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockShareMarkdown).toHaveBeenCalled();
   });
 
   test('with Details open, Quick share sends only the .md file, not the pictures', async () => {

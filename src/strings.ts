@@ -232,6 +232,11 @@ export const strings = {
     removeBody: (tag: string) => `Remove "${tag}" from this card? The card itself is kept.`,
     remove: 'Remove',
   },
+  // The buttons of the warning before an unencrypted copy of an ID leaves the app.
+  idShare: {
+    share: 'Share',
+    dontAskAgain: "Don't ask again",
+  },
   card: {
     unnamed: 'Document', // a card with no name and no tags
     viewCard: 'Card',
@@ -249,12 +254,7 @@ export const strings = {
     back: 'Back',
     flip: 'Flip',
     exportPdf: 'Export as PDF',
-    exportPdfHint: 'The whole card as one PDF file, front then back, to save in Files or send to someone.',
-    exportPdfTitle: 'Export as PDF',
-    exportPdfBody: 'Save the card as a PDF file on this phone, or send it to someone.',
-    exportPdfSave: 'Save to Files',
-    exportPdfSend: 'Send',
-    exportPdfSaved: (name: string) => `Saved as ${name}.`,
+    exportPdfHint: 'The whole card as one PDF file, front then back, through the share sheet: send it, or save it to Files.',
     exportPdfNeedsUpdate: 'Exporting as PDF needs a newer version of Doc Keeper.',
     share: 'Quick share',
     shareHint: 'AirDrop on iPhone, Quick Share on Android, over Bluetooth and Wi-Fi, or any other app.',
@@ -293,6 +293,8 @@ export const strings = {
     appLock: 'App lock',
     appLockHint: "Ask for Face ID, fingerprint or your phone's passcode when Doc Keeper opens.",
     noDeviceLock: 'Set a passcode, Face ID or fingerprint on this phone first, then turn this on.',
+    warnIdShare: 'Warn before sharing an ID',
+    warnIdShareHint: 'Ask first when an ID is about to leave the app as an unencrypted copy.',
     cardView: 'Showing a card',
     fullBrightness: 'Full brightness',
     fullBrightnessHint: 'Turn the screen all the way up while a card is open, so it is easy to read and scan.',
