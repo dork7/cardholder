@@ -9,7 +9,7 @@ import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
 import { addTags, overTagLimit, removeAll, setBlurPreview, shouldUnpin, togglePinned } from '../src/cards/batch';
 import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
-import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
+import { filterCards, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { PdfUnavailableError, shareCards } from '../src/share/shareCard';
@@ -24,6 +24,7 @@ import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
+import { SORT_LABELS, SortSheet } from '../src/ui/SortSheet';
 import { HomeActionBar } from '../src/ui/HomeActionBar';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
@@ -217,24 +218,13 @@ export default function Home() {
     });
   };
 
-  const sortChips = [
-    ...([
-      ['name', strings.home.sortName],
-      ['expiry', strings.home.sortExpiry],
-      ['added', strings.home.sortAdded],
-    ] as [GallerySort, string][]).map(([key, label]) => ({
-      key,
-      label,
-      selected: sort === key,
-      onPress: () => setSort(key),
-      testID: `sort-${key}`,
-    })),
+  const [sorting, setSorting] = useState(false);
+  const sortChip = [
     {
-      key: 'expiring',
-      label: strings.home.expiringSoon,
-      selected: expiringOnly,
-      onPress: () => setExpiringOnly((on) => !on),
-      testID: 'filter-expiring',
+      key: 'sort',
+      label: strings.home.sortChip(SORT_LABELS[sort], expiringOnly),
+      onPress: () => setSorting(true),
+      testID: 'sort-chip',
     },
   ];
 
@@ -278,7 +268,17 @@ export default function Home() {
         ) : (
           <>
             {gallery === 'gallery' && shown.length > 0 && (
-              <ChipRow accessibilityLabel={strings.home.sortLabel} chips={sortChips} />
+              <>
+                <ChipRow chips={sortChip} />
+                <SortSheet
+                  visible={sorting}
+                  sort={sort}
+                  expiringOnly={expiringOnly}
+                  onSort={setSort}
+                  onToggleExpiring={() => setExpiringOnly((on) => !on)}
+                  onClose={() => setSorting(false)}
+                />
+              </>
             )}
             {shown.length === 0 ? (
               <LiveText style={[styles.promise, { color: theme.muted }]}>
@@ -316,7 +316,7 @@ export default function Home() {
               tipBar('stack', stackVertical ? strings.home.stackTipVertical : strings.home.stackTip)}
             {/* Which parts of the folder row show is chosen in settings. */}
             {FOLDERS_ENABLED && folders.length > 0 && folderChips.length > 0 && (
-              <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} />
+              <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} testID="folder-filter-choices" />
             )}
             {present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
           </>
