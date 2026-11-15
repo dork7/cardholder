@@ -34,6 +34,7 @@ import { Panel, Screen } from '../src/ui/Surface';
 import { RADIUS, TRACKING, TYPE, useTheme } from '../src/ui/theme';
 import { useTooltip } from '../src/ui/Tooltip';
 import { LiveText } from '../src/ui/LiveText';
+import { GestureTip, GestureTipName, useGestureTips } from '../src/ui/GestureTip';
 
 // Panels settle in from just off their resting place; Reanimated skips this under Reduce Motion.
 const ENTER = 360;
@@ -105,6 +106,18 @@ export default function Home() {
   const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
   const selecting = gallery === 'gallery' && selected.length > 0;
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  // One-time tips on the stack's swipe and the gallery's long-press, which only screen readers were told about.
+  const tips = useGestureTips(services.settings);
+  const tipBar = (tip: GestureTipName, text: string) =>
+    tips.showing(tip) && (
+      <GestureTip
+        text={text}
+        announce={!tips.announced(tip)}
+        onAnnounced={() => tips.markAnnounced(tip)}
+        onDismiss={() => tips.done(tip)}
+        testID={`${tip}-tip`}
+      />
+    );
   // The blur button on the stack's front card: saved straight away, like the choice on the edit screen.
   const toggleBlur = async (card: Card) => {
     try {
@@ -116,13 +129,16 @@ export default function Home() {
     }
   };
 
-  const toggleSelected = (card: Card) =>
+  // A long-press starts selecting, so the gallery's tip has done its job.
+  const toggleSelected = (card: Card) => {
+    tips.done('gallery');
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(card.id)) next.delete(card.id);
       else next.add(card.id);
       return next;
     });
+  };
 
   // The system back gesture leaves selection first, as in a photo gallery.
   useEffect(() => {
@@ -274,12 +290,15 @@ export default function Home() {
                   {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
                 </LiveText>
               ) : (
-                <CardGrid
-                  cards={inGallery}
-                  selected={selectedIds}
-                  onOpen={(card) => router.push(`/card/${card.id}`)}
-                  onToggle={toggleSelected}
-                />
+                <>
+                  {!selecting && tipBar('gallery', strings.home.galleryTip)}
+                  <CardGrid
+                    cards={inGallery}
+                    selected={selectedIds}
+                    onOpen={(card) => router.push(`/card/${card.id}`)}
+                    onToggle={toggleSelected}
+                  />
+                </>
               )
             ) : (
               // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
@@ -289,8 +308,12 @@ export default function Home() {
                 onOpen={(card) => router.push(`/card/${card.id}`)}
                 vertical={stackVertical}
                 onToggleBlur={(card) => void toggleBlur(card)}
+                onMove={() => tips.done('stack')}
               />
             )}
+            {gallery === 'stack' &&
+              shown.length > 1 &&
+              tipBar('stack', stackVertical ? strings.home.stackTipVertical : strings.home.stackTip)}
             {/* Which parts of the folder row show is chosen in settings. */}
             {FOLDERS_ENABLED && folders.length > 0 && folderChips.length > 0 && (
               <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} />
