@@ -13,6 +13,7 @@ import { filterCards, GallerySort, isExpiringSoon, isGallerySort, sortForGallery
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { PdfUnavailableError, shareCards } from '../src/share/shareCard';
+import { confirmIdShare } from '../src/share/idWarning';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { CardGrid } from '../src/ui/CardGrid';
@@ -38,8 +39,19 @@ import { LiveText } from '../src/ui/LiveText';
 const ENTER = 360;
 
 export default function Home() {
-  const { cards, folders, unlocked, openImportOnReady, clearOpenImport, homeFolders, services, refresh, stackVertical } =
-    useApp();
+  const {
+    cards,
+    folders,
+    unlocked,
+    openImportOnReady,
+    clearOpenImport,
+    homeFolders,
+    services,
+    refresh,
+    stackVertical,
+    warnIdShare,
+    setWarnIdShare,
+  } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -171,23 +183,22 @@ export default function Home() {
       },
     ]);
 
-  // One PDF of every selected card. An ID is worth a second thought before an unencrypted copy leaves
-  // the app, as on the card's own screen. Selection stays, so the same cards can be sent elsewhere.
+  // One PDF of every selected card. An ID asks first, as on the card's own screen, unless the
+  // warning is turned off. Selection stays, so the same cards can be sent elsewhere.
   const shareSelected = () => {
     const picked = selected;
-    const go = () =>
-      shareCards(services.store, picked).catch((e) => {
-        console.warn('Share failed', e);
-        Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
-      });
-    if (picked.some(isId)) {
-      Alert.alert(strings.home.shareIdsTitle, strings.home.shareIdsBody, [
-        { text: strings.common.cancel, style: 'cancel' },
-        { text: strings.card.share, onPress: () => void go() },
-      ]);
-    } else {
-      void go();
-    }
+    confirmIdShare({
+      hasId: picked.some(isId),
+      warn: warnIdShare,
+      title: strings.home.shareIdsTitle,
+      body: strings.home.shareIdsBody,
+      go: () =>
+        shareCards(services.store, picked).catch((e) => {
+          console.warn('Share failed', e);
+          Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.home.shareNeedsUpdate : undefined);
+        }),
+      stopWarning: () => setWarnIdShare(false),
+    });
   };
 
   const sortChips = [
@@ -303,18 +314,21 @@ export default function Home() {
             <IconButton
               icon={shouldUnpin(selected) ? 'unpin' : 'pin'}
               label={shouldUnpin(selected) ? strings.home.unpinSelected : strings.home.pinSelected}
+              caption={shouldUnpin(selected) ? strings.home.selectionCaptions.unpin : strings.home.selectionCaptions.pin}
               onPress={() => void onSelection((cards) => togglePinned(services.store, cards))}
               testID="selection-pin"
             />
             <IconButton
               icon="tag"
               label={strings.home.tagSelected}
+              caption={strings.home.selectionCaptions.tag}
               onPress={() => setChoosingTags(true)}
               testID="selection-tags"
             />
             <IconButton
               icon="refresh"
               label={strings.recreate.button}
+              caption={strings.home.selectionCaptions.recreate}
               hint={strings.recreate.galleryHint}
               onPress={() => void recreateSelected()}
               disabled={rereading !== null}
@@ -323,11 +337,19 @@ export default function Home() {
             <IconButton
               icon="share"
               label={strings.home.shareSelected}
+              caption={strings.home.selectionCaptions.share}
               hint={strings.home.shareSelectedHint}
               onPress={shareSelected}
               testID="selection-share"
             />
-            <IconButton icon="trash" label={strings.home.deleteSelected} onPress={deleteSelected} variant="danger" testID="selection-delete" />
+            <IconButton
+              icon="trash"
+              label={strings.home.deleteSelected}
+              caption={strings.home.selectionCaptions.delete}
+              onPress={deleteSelected}
+              variant="danger"
+              testID="selection-delete"
+            />
           </View>
           <TagSheet
             visible={choosingTags}

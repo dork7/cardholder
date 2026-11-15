@@ -10,6 +10,7 @@ import { loadAppLock, saveAppLock } from '../security/appLock';
 import { syncShortcuts } from '../shortcuts/quickActions';
 import { AppearancePref, applyAppearance, loadAppearance, saveAppearance } from '../ui/appearance';
 import { loadCardBrightness, saveCardBrightness } from '../ui/cardBrightness';
+import { loadWarnIdShare, saveWarnIdShare } from '../share/idWarning';
 import { loadStackVertical, saveStackVertical } from '../ui/stackDirection';
 import { syncWidget } from '../widget/homeWidget';
 import { createFileBlobStore } from '../storage/fileBlobStore';
@@ -51,6 +52,9 @@ export interface AppContextValue {
   // Whether the home stack swipes up and down instead of sideways.
   stackVertical: boolean;
   setStackVertical(on: boolean): Promise<void>;
+  // Whether sharing an ID asks first (see share/idWarning.ts).
+  warnIdShare: boolean;
+  setWarnIdShare(on: boolean): Promise<void>;
 }
 
 const BootContext = createContext<BootContextValue | null>(null);
@@ -76,6 +80,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [homeFolders, setHomeFoldersState] = useState<HomeFolderOptions>(DEFAULT_HOME_FOLDERS);
   const [cardBrightness, setCardBrightnessState] = useState(true);
   const [stackVertical, setStackVerticalState] = useState(false);
+  const [warnIdShare, setWarnIdShareState] = useState(true);
   const depsRef = useRef<BootDeps | null>(null);
   const bootingRef = useRef(false);
   const phaseRef = useRef(phase);
@@ -110,6 +115,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setHomeFoldersState(await loadHomeFolders(services.settings).catch(() => DEFAULT_HOME_FOLDERS));
     setCardBrightnessState(await loadCardBrightness(services.settings).catch(() => true));
     setStackVerticalState(await loadStackVertical(services.settings).catch(() => false));
+    // A failed read keeps the warning on: it only ever errs towards asking.
+    setWarnIdShareState(await loadWarnIdShare(services.settings).catch(() => true));
   }, []);
 
   const runBoot = useCallback(async () => {
@@ -228,6 +235,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [services],
   );
 
+  const setWarnIdShare = useCallback(
+    async (on: boolean) => {
+      setWarnIdShareState(on);
+      if (services) await saveWarnIdShare(services.settings, on);
+    },
+    [services],
+  );
+
   const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
 
   const appValue = useMemo<AppContextValue | null>(
@@ -251,6 +266,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setCardBrightness,
             stackVertical,
             setStackVertical,
+            warnIdShare,
+            setWarnIdShare,
           }
         : null,
     [
@@ -271,6 +288,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCardBrightness,
       stackVertical,
       setStackVertical,
+      warnIdShare,
+      setWarnIdShare,
     ],
   );
 
