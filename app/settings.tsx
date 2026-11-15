@@ -33,12 +33,17 @@ export default function SettingsScreen() {
   const [lastExportAt, setLastExportAt] = useState<number | null>(null);
 
   const [notesChangedAt, setNotesChangedAt] = useState<number | null>(null);
+  const [deletedCount, setDeletedCount] = useState(0);
 
   // Re-read on focus, so coming back from an export shows the new date.
   useFocusEffect(
     useCallback(() => {
       services.settings.getNumber('lastExportAt').then(setLastExportAt).catch(() => {});
       services.notes?.lastChangeAt().then(setNotesChangedAt).catch(() => {});
+      services.store
+        .listRecentlyDeleted()
+        .then((deleted) => setDeletedCount(deleted.length))
+        .catch(() => {});
     }, [services]),
   );
 
@@ -108,6 +113,15 @@ export default function SettingsScreen() {
             label={strings.tagsScreen.manage}
             onPress={() => router.push('/tags')}
             testID="manage-tags"
+          />
+        </Section>
+        <Section title={strings.recentlyDeleted.title}>
+          <Text style={[styles.caption, { color: theme.muted }]}>{strings.recentlyDeleted.intro}</Text>
+          <Button
+            variant="secondary"
+            label={strings.recentlyDeleted.entry(deletedCount)}
+            onPress={() => router.push('/recently-deleted')}
+            testID="recently-deleted"
           />
         </Section>
         <Section icon="backup" title={strings.settings.backup}>

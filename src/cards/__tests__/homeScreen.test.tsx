@@ -59,7 +59,7 @@ const mockServices = {
   store: {
     loadImage: (id: string, side: string) => Promise.resolve(`${id}-${side}`),
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
-    remove: (id: string) => mockRemove(id),
+    moveToRecentlyDeleted: (id: string) => mockRemove(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
     update: (id: string, fields: { tags?: string[] }) => mockUpdate(id, fields),
     count: () => Promise.resolve(mockCards.length),

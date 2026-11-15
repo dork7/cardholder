@@ -30,7 +30,7 @@ const mockSetAppLock = jest.fn(async (on: boolean) => {
 const mockSetHomeFolders = jest.fn(() => Promise.resolve());
 const mockSetCardBrightness = jest.fn(() => Promise.resolve());
 const mockSetStackVertical = jest.fn(() => Promise.resolve());
-const mockServices = { settings: { getNumber: () => Promise.resolve(null) } };
+const mockServices = { settings: { getNumber: () => Promise.resolve(null) }, store: { listRecentlyDeleted: () => Promise.resolve([]) } };
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     services: mockServices,

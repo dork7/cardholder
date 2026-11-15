@@ -46,7 +46,7 @@ const mockServices = {
   store: {
     create: (...a: unknown[]) => mockCreate(...a),
     update: (...a: unknown[]) => mockUpdate(...a),
-    remove: (...a: unknown[]) => mockRemove(...a),
+    moveToRecentlyDeleted: (...a: unknown[]) => mockRemove(...a),
     createFolder: (...a: unknown[]) => mockCreateFolder(...a),
     listFolders: () => mockListFolders(),
     loadImage: () => Promise.resolve(null),

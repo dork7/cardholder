@@ -44,6 +44,9 @@ const MIGRATIONS = [
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    );`,
+  // Recently deleted: when a document was deleted, or null while it is current. Plaintext, like the
+  // pin and the dates, so a purge can find what is due without opening every payload (ADR 0003).
+  `ALTER TABLE cards ADD COLUMN deleted_at INTEGER;`,
 ];
 
 export async function migrate(db: SqlDb): Promise<void> {

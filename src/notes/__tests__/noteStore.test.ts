@@ -74,7 +74,7 @@ test('upgrading preserves documents without resurrecting their historical notes'
   const old = JSON.parse(utf8.decode(aead.open(row!.payload)));
   old.notes = 'Former document note';
   await db.runAsync('UPDATE cards SET payload = ? WHERE id = ?', [aead.seal(utf8.encode(JSON.stringify(old))), card.id]);
-  await db.execAsync('DROP TABLE notes; PRAGMA user_version = 4;');
+  await db.execAsync('DROP TABLE notes; ALTER TABLE cards DROP COLUMN deleted_at; PRAGMA user_version = 4;');
   await migrate(db);
   expect(await notes.list()).toEqual([]);
   expect(await store.get(card.id)).toEqual(card);
