@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, AlertButton } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import { Folder } from '../types';
@@ -49,6 +49,8 @@ let mockHomeFolders = { filter: true, manage: true };
 let mockLastExportAt: string | null = null;
 const mockSettingsSet = jest.fn(() => Promise.resolve());
 let mockHomeView: string | null = null;
+let mockSeenTips: string | null = null;
+let mockStackVertical = false;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
 const mockUpdate = jest.fn((_id: string, _fields: { tags?: string[] }) => Promise.resolve());
@@ -67,7 +69,7 @@ const mockServices = {
   },
   settings: {
     getNumber: (key: string) => Promise.resolve(key === 'lastExportAt' && mockLastExportAt ? Number(mockLastExportAt) : null),
-    get: (key: string) => Promise.resolve(key === 'homeView' ? mockHomeView : null),
+    get: (key: string) => Promise.resolve(key === 'homeView' ? mockHomeView : key === 'seenTips' ? mockSeenTips : null),
     set: mockSettingsSet,
   },
 };
@@ -83,6 +85,7 @@ jest.mock('../../app/AppProvider', () => ({
     setAppearance: mockSetAppearance,
     homeFolders: mockHomeFolders,
     refresh: mockRefresh,
+    stackVertical: mockStackVertical,
   }),
 }));
 
@@ -95,6 +98,9 @@ beforeEach(() => {
   mockUpdate.mockClear();
   mockRefresh.mockClear();
   mockHomeView = null;
+  // Most tests are about other things, so the gesture tips count as seen unless a test says otherwise.
+  mockSeenTips = 'stack,gallery';
+  mockStackVertical = false;
   mockUnlocked = false;
   mockFolders = [];
   mockHomeFolders = { filter: true, manage: true };
@@ -523,5 +529,100 @@ test('a purchased unlock allows adding past ten documents', async () => {
     await renderHome();
     await fireEvent.press(screen.getByTestId('add-card'));
     expect(mockPush).toHaveBeenLastCalledWith('/edit/new');
+  });
+});
+
+describe('gesture tips', () => {
+  test('the first stack shows a tip on how to browse it', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    expect(await screen.findByText(strings.home.stackTip)).toBeTruthy();
+  });
+
+  test('dismissing the stack tip hides it for good', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    await act(async () => fireEvent.press(await screen.findByRole('button', { name: strings.home.dismissTip })));
+    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
+    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)stack(,|$)/));
+  });
+
+  test('swiping the stack hides its tip for good', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    await screen.findByText(strings.home.stackTip);
+    fireEvent(screen.getByTestId('card-stack'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    await waitFor(() => expect(screen.queryByText(strings.home.stackTip)).toBeNull());
+    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)stack(,|$)/));
+  });
+
+  test('a stack tip seen before a restart stays hidden', async () => {
+    mockSeenTips = 'stack.read,stack';
+    await renderHome();
+    await act(async () => {});
+    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
+  });
+
+  test('with vertical swipe on, the tip says to swipe up', async () => {
+    mockSeenTips = null;
+    mockStackVertical = true;
+    await renderHome();
+    expect(await screen.findByText(strings.home.stackTipVertical)).toBeTruthy();
+    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
+  });
+
+  test('the tip is read out to screen readers only the first time it shows', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    const first = await screen.findByText(strings.home.stackTip);
+    expect(first.props.accessibilityLiveRegion).toBe('polite');
+    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', 'stack.read');
+  });
+
+  test('a tip already read out once stays quiet on the next visit', async () => {
+    mockSeenTips = 'stack.read';
+    await renderHome();
+    const again = await screen.findByText(strings.home.stackTip);
+    expect(again.props.accessibilityLiveRegion).toBe('none');
+  });
+
+  describe('in the gallery', () => {
+    const showGallery = async () => {
+      await renderHome();
+      await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+    };
+
+    test('the first gallery shows a tip on selecting', async () => {
+      mockSeenTips = 'stack';
+      await showGallery();
+      expect(await screen.findByText(strings.home.galleryTip)).toBeTruthy();
+      // Each view has its own tip.
+      expect(screen.queryByText(strings.home.stackTip)).toBeNull();
+    });
+
+    test('dismissing the gallery tip hides it for good', async () => {
+      mockSeenTips = 'stack';
+      await showGallery();
+      await act(async () => fireEvent.press(await screen.findByRole('button', { name: strings.home.dismissTip })));
+      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
+      expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)gallery(,|$)/));
+    });
+
+    test('selecting with a long-press hides the gallery tip for good', async () => {
+      mockSeenTips = 'stack';
+      await showGallery();
+      await screen.findByText(strings.home.galleryTip);
+      await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
+      await act(async () => fireEvent.press(screen.getByTestId('selection-cancel')));
+      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
+      expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)gallery(,|$)/));
+    });
+
+    test('a gallery tip seen before a restart stays hidden', async () => {
+      mockSeenTips = 'stack,gallery.read,gallery';
+      await showGallery();
+      await act(async () => {});
+      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
+    });
   });
 });

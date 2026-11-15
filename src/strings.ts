@@ -52,6 +52,11 @@ export const strings = {
     stackHint: 'Swipe left or right to change cards. Double-tap to open.',
     stackHintVertical: 'Swipe up or down to change cards. Double-tap to open.',
     reorderHint: 'Long-press and drag to reorder.',
+    // One-time tips on the gestures, shown until dismissed or the gesture is used.
+    stackTip: 'Swipe to browse · tap to open',
+    stackTipVertical: 'Swipe up to browse · tap to open',
+    galleryTip: 'Long-press to select',
+    dismissTip: 'Dismiss tip',
     galleryView: 'Gallery view',
     galleryViewHint: 'Shows every card in a grid instead of the stack.',
     selectHint: 'Long-press to select several cards.',
