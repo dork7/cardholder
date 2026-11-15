@@ -79,3 +79,32 @@ test('upgrading preserves documents without resurrecting their historical notes'
   expect(await notes.list()).toEqual([]);
   expect(await store.get(card.id)).toEqual(card);
 });
+
+test('notes edited at the same moment keep a stable order by id, and pins survive reopening', async () => {
+  const { db, aead } = await makeStore();
+  const notes = createNoteStore({ db, aead, now: () => 5_000 });
+  await notes.save('c', { title: 'C', body: '' });
+  await notes.save('a', { title: 'A', body: '' });
+  await notes.save('b', { title: 'B', body: '' });
+  expect((await notes.list()).map((n) => n.id)).toEqual(['a', 'b', 'c']);
+  await notes.setPinned('c', true);
+  const reopened = createNoteStore({ db, aead });
+  expect((await reopened.list()).map((n) => [n.id, n.pinned])).toEqual([
+    ['c', true],
+    ['a', false],
+    ['b', false],
+  ]);
+});
+
+test('deleting a note is permanent across reopening and leaves documents and images alone', async () => {
+  const { db, aead, notes, store, blobs } = await makeStore();
+  await store.create(fields(), images('doc'));
+  await notes.save('a', { title: 'Keep out', body: 'Private' });
+  const before = blobs.raw.size;
+  await notes.remove('a');
+  const reopened = createNoteStore({ db, aead });
+  expect(await reopened.get('a')).toBeNull();
+  expect(await reopened.list()).toEqual([]);
+  expect(await store.count()).toBe(1);
+  expect(blobs.raw.size).toBe(before);
+});
