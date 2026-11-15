@@ -29,7 +29,9 @@ export const strings = {
     emptyHint: 'Tap Add image to add a photo or PDF of your document.',
     addCard: 'Add card',
     addImage: 'Add image',
+    // The view toggle's caption names the view it switches to.
     galleryLabel: 'Gallery',
+    stackLabel: 'Stack',
     pinned: 'Pinned',
     allCards: 'All cards',
     results: 'Results',
@@ -64,6 +66,8 @@ export const strings = {
     pinSelected: 'Pin to home',
     unpinSelected: 'Unpin from home',
     tagSelected: 'Add tags',
+    // Short words under the selection bar's icons, as on the document screen; the names above are the accessibility labels.
+    selectionCaptions: { pin: 'Pin', unpin: 'Unpin', tag: 'Tag', recreate: 'Read again', share: 'Share', delete: 'Delete' },
     tagTo: (n: number) => `Tag ${n} ${plural(n, 'card', 'cards')}`,
     shareSelected: 'Quick share',
     shareSelectedHint: 'Sends the selected cards as one PDF.',
