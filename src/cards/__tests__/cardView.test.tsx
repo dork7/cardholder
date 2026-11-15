@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, StyleSheet } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import CardView from '../../../app/card/[id]';
@@ -124,23 +124,65 @@ describe('actions', () => {
     const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => unknown }[];
     await buttons.find((b) => b.text === label)?.onPress?.();
   };
+  // PDF, Edit and Delete live in the More sheet; picking one closes it.
+  const pressInMore = async (name: string) => {
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.more }));
+    await fireEvent.press(screen.getByRole('menuitem', { name }));
+    expect(screen.queryByTestId('card-more-sheet')).toBeNull();
+  };
 
-  test('delete, share and edit are icon buttons named for screen readers, with Close below them', async () => {
+  test('the action row holds only Show, Share, Pin and More', async () => {
     await render(<CardView />);
-    for (const name of [strings.edit.deleteCard, strings.card.share, strings.card.edit, strings.common.close]) {
-      expect(screen.getByRole('button', { name })).toBeTruthy();
-    }
+    const row = within(screen.getByTestId('card-actions'));
+    expect(row.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual([
+      strings.card.showToStaff,
+      strings.card.share,
+      strings.card.pin,
+      strings.card.more,
+    ]);
+    expect(screen.queryByRole('button', { name: strings.card.edit })).toBeNull();
+    expect(screen.queryByRole('button', { name: strings.edit.deleteCard })).toBeNull();
+    expect(screen.queryByRole('button', { name: strings.card.exportPdf })).toBeNull();
+  });
+
+  test('More is announced as a button that opens a menu', async () => {
+    await render(<CardView />);
+    const more = screen.getByRole('button', { name: strings.card.more });
+    expect(more.props.accessibilityHint).toBe(strings.card.moreHint);
+    expect(more.props.accessibilityState).toMatchObject({ expanded: false });
+  });
+
+  test('More opens a sheet listing PDF, Edit and Delete, each labelled', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.more }));
+    const sheet = within(screen.getByTestId('card-more-sheet'));
+    expect(sheet.getAllByRole('menuitem').map((b) => b.props.accessibilityLabel)).toEqual([
+      strings.card.exportPdf,
+      strings.card.edit,
+      strings.edit.deleteCard,
+    ]);
+    expect(screen.getByRole('button', { name: strings.card.more }).props.accessibilityState).toMatchObject({ expanded: true });
+    await fireEvent.press(sheet.getByRole('button', { name: strings.common.cancel }));
+    expect(screen.queryByTestId('card-more-sheet')).toBeNull();
+  });
+
+  test('Close sits in the header and goes back home', async () => {
+    await render(<CardView />);
+    const close = within(screen.getByTestId('card-header')).getByRole('button', { name: strings.common.close });
+    await fireEvent.press(close);
+    expect(mockBack).toHaveBeenCalled();
+    expect(within(screen.getByTestId('card-actions')).queryByRole('button', { name: strings.common.close })).toBeNull();
   });
 
   test('Edit opens this card in the edit screen', async () => {
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.card.edit }));
+    await pressInMore(strings.card.edit);
     expect(mockPush).toHaveBeenCalledWith('/edit/card1');
   });
 
   test('Delete asks first; confirming removes the card and goes back', async () => {
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    await pressInMore(strings.edit.deleteCard);
     expect(alert).toHaveBeenCalledWith(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, expect.any(Array));
     expect(mockRemove).not.toHaveBeenCalled();
     await pressInAlert(strings.common.delete);
@@ -197,7 +239,7 @@ describe('actions', () => {
 
   test('PDF export goes straight to the share sheet, with no Send-or-Save dialog', async () => {
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.card.exportPdf }));
+    await pressInMore(strings.card.exportPdf);
     expect(alert).not.toHaveBeenCalled();
     expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
   });
@@ -205,7 +247,7 @@ describe('actions', () => {
   test('PDF export of an ID asks once, then goes straight to the share sheet', async () => {
     mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.card.exportPdf }));
+    await pressInMore(strings.card.exportPdf);
     expect(alert).toHaveBeenCalledWith(strings.card.shareIdTitle, strings.card.shareIdBody, expect.any(Array));
     expect(mockExportPdf).not.toHaveBeenCalled();
     await pressInAlert(strings.idShare.share);
@@ -217,7 +259,7 @@ describe('actions', () => {
     mockWarnIdShare = false;
     mockCards = [makeCard({ id: 'card1', tags: ['ID'] })];
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.card.exportPdf }));
+    await pressInMore(strings.card.exportPdf);
     expect(alert).not.toHaveBeenCalled();
     expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
   });
@@ -229,7 +271,7 @@ describe('actions', () => {
 
   test('cancelling the delete keeps the card', async () => {
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    await pressInMore(strings.edit.deleteCard);
     await pressInAlert(strings.common.cancel);
     expect(mockRemove).not.toHaveBeenCalled();
     expect(mockBack).not.toHaveBeenCalled();

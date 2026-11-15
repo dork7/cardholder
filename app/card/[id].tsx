@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, BackHandler, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, BackHandler, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
@@ -9,9 +9,10 @@ import { useMaxBrightness } from '../../src/hooks/useMaxBrightness';
 import { ZoomableImage } from '../../src/ui/ZoomableImage';
 import { Button } from '../../src/ui/Button';
 import { IconButton } from '../../src/ui/IconButton';
+import { ActionSheet } from '../../src/ui/ActionSheet';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
-import { TRACKING, TYPE, useTheme } from '../../src/ui/theme';
+import { RADIUS, TRACKING, TYPE, useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { PdfPager } from '../../src/ui/PdfPager';
@@ -48,6 +49,7 @@ export default function CardView() {
   // The photos, or the card's details and scanned text as the Markdown file it can be saved as.
   const [view, setView] = useState<'card' | 'details'>('card');
   const [tagging, setTagging] = useState(false);
+  const [more, setMore] = useState(false);
   const [recreating, setRecreating] = useState(false);
 
   useMaxBrightness(cardBrightness);
@@ -238,11 +240,10 @@ export default function CardView() {
       <Button label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
   ) : (
-    /* Every action in the thumb zone: the card's actions as captioned icons in a row, the one for
-       the counter first and Delete last, and Close, the one you need most, full width at the
-       bottom. Delete asks first. */
+    /* The actions in the thumb zone as captioned icons in a row: the one for the counter first,
+       then the two used often, and More for the rarer PDF, Edit and Delete. Close is in the header. */
     <Panel style={styles.footer}>
-      <View style={styles.actions}>
+      <View style={styles.actions} testID="card-actions">
         <IconButton
           icon="present"
           label={strings.card.showToStaff}
@@ -260,14 +261,6 @@ export default function CardView() {
           testID="share-card"
         />
         <IconButton
-          icon="pdf"
-          label={strings.card.exportPdf}
-          caption={strings.card.captions.pdf}
-          hint={strings.card.exportPdfHint}
-          onPress={exportPdf}
-          testID="export-pdf"
-        />
-        <IconButton
           icon={card.pinned ? 'unpin' : 'pin'}
           label={card.pinned ? strings.card.unpin : strings.card.pin}
           caption={card.pinned ? strings.card.captions.unpin : strings.card.captions.pin}
@@ -275,22 +268,15 @@ export default function CardView() {
           testID="pin-card"
         />
         <IconButton
-          icon="edit"
-          label={strings.card.edit}
-          caption={strings.card.captions.edit}
-          onPress={() => router.push(`/edit/${card.id}`)}
-          testID="edit-card"
-        />
-        <IconButton
-          icon="trash"
-          variant="danger"
-          label={strings.edit.deleteCard}
-          caption={strings.card.captions.delete}
-          onPress={confirmDelete}
-          testID="delete-card"
+          icon="more"
+          label={strings.card.more}
+          caption={strings.card.captions.more}
+          hint={strings.card.moreHint}
+          expanded={more}
+          onPress={() => setMore(true)}
+          testID="more-card"
         />
       </View>
-      <Button label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
   );
 
@@ -308,10 +294,25 @@ export default function CardView() {
       {/* Sideways, the photos get the height; the name and details come back upright. */}
       {!landscape && (
         <View style={[styles.inset, styles.top]}>
-          <Panel style={styles.header}>
-            <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
-              {displayName(card)}
-            </Text>
+          <Panel style={styles.header} testID="card-header">
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, styles.flex, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
+                {displayName(card)}
+              </Text>
+              {/* Back does the same; this is for leaving without reaching for the gesture. Gone while shown to staff. */}
+              {!staff && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={strings.common.close}
+                  onPress={() => router.back()}
+                  hitSlop={4}
+                  testID="close-card"
+                  style={({ pressed }) => [styles.close, { borderColor: theme.rosette, opacity: pressed ? 0.7 : 1 }]}
+                >
+                  <Text style={[styles.closeText, { color: theme.text }]}>{strings.common.close}</Text>
+                </Pressable>
+              )}
+            </View>
             <View style={styles.expiryRow}>
               {needsExpiryAlert(card, now) && <ExpiryAlert size={18} pop testID="card-expiry-alert" />}
               <Text style={[styles.meta, { color: expiryColor }]} testID="card-expiry">
@@ -394,6 +395,17 @@ export default function CardView() {
       )}
 
       <View style={styles.inset}>{footer}</View>
+      <ActionSheet
+        visible={more && !staff}
+        title={strings.card.moreTitle}
+        onClose={() => setMore(false)}
+        testID="card-more-sheet"
+        actions={[
+          { key: 'pdf', icon: 'pdf', label: strings.card.exportPdf, hint: strings.card.exportPdfHint, onPress: exportPdf, testID: 'export-pdf' },
+          { key: 'edit', icon: 'edit', label: strings.card.edit, onPress: () => router.push(`/edit/${card.id}`), testID: 'edit-card' },
+          { key: 'delete', icon: 'trash', variant: 'danger', label: strings.edit.deleteCard, onPress: confirmDelete, testID: 'delete-card' },
+        ]}
+      />
       <TagSheet
         visible={tagging}
         title={strings.tags.titleOne}
@@ -426,7 +438,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   // Shown as the file it saves as: monospaced, so the Markdown reads as written.
   markdown: { fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }), fontSize: 13, lineHeight: 19 },
-  // Six captioned icon buttons: a 6 pt gap keeps each about 50 pt wide on a 375 pt phone.
-  actions: { flexDirection: 'row', gap: 6 },
+  // Four captioned icon buttons, about 80 pt wide each on a 375 pt phone.
+  actions: { flexDirection: 'row', gap: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  close: { minHeight: 44, minWidth: 44, paddingHorizontal: 12, borderRadius: RADIUS.sm, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  closeText: { fontSize: TYPE.secondary, fontWeight: '700' },
   hint: { fontSize: TYPE.secondary, textAlign: 'center' },
 });

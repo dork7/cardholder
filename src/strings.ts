@@ -266,7 +266,10 @@ export const strings = {
     zoomOut: 'Zoom out',
     zoomHint: 'Pinch, or double-tap to zoom in and out.',
     // Short captions under the action icons; the full names are the accessibility labels.
-    captions: { show: 'Show', share: 'Share', pdf: 'PDF', pin: 'Pin', unpin: 'Unpin', edit: 'Edit', delete: 'Delete' },
+    captions: { show: 'Show', share: 'Share', pdf: 'PDF', pin: 'Pin', unpin: 'Unpin', edit: 'Edit', delete: 'Delete', more: 'More' },
+    more: 'More actions',
+    moreHint: 'Opens a menu with Export as PDF, Edit and Delete.',
+    moreTitle: 'More',
     saveMarkdownHint: 'Shares the details as a Markdown file you can save to Files or send to any app.',
     front: 'Front',
     back: 'Back',
