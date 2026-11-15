@@ -9,7 +9,7 @@ test('every icon is a 12 x 12 grid of outline, amber, paper or empty cells', () 
 });
 
 test('action icons use one colour only, so a filled button can recolour them', () => {
-  for (const name of ['trash', 'share', 'edit', 'pin', 'unpin', 'present', 'tag', 'pdf', 'refresh'] as const) {
+  for (const name of ['trash', 'share', 'edit', 'pin', 'unpin', 'present', 'tag', 'pdf', 'refresh', 'more'] as const) {
     expect({ name, amber: ICON_GRIDS[name].some((row) => row.includes('a')) }).toEqual({ name, amber: false });
   }
 });
