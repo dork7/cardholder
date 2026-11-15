@@ -303,18 +303,21 @@ export default function Home() {
             <IconButton
               icon={shouldUnpin(selected) ? 'unpin' : 'pin'}
               label={shouldUnpin(selected) ? strings.home.unpinSelected : strings.home.pinSelected}
+              caption={shouldUnpin(selected) ? strings.home.selectionCaptions.unpin : strings.home.selectionCaptions.pin}
               onPress={() => void onSelection((cards) => togglePinned(services.store, cards))}
               testID="selection-pin"
             />
             <IconButton
               icon="tag"
               label={strings.home.tagSelected}
+              caption={strings.home.selectionCaptions.tag}
               onPress={() => setChoosingTags(true)}
               testID="selection-tags"
             />
             <IconButton
               icon="refresh"
               label={strings.recreate.button}
+              caption={strings.home.selectionCaptions.recreate}
               hint={strings.recreate.galleryHint}
               onPress={() => void recreateSelected()}
               disabled={rereading !== null}
@@ -323,11 +326,19 @@ export default function Home() {
             <IconButton
               icon="share"
               label={strings.home.shareSelected}
+              caption={strings.home.selectionCaptions.share}
               hint={strings.home.shareSelectedHint}
               onPress={shareSelected}
               testID="selection-share"
             />
-            <IconButton icon="trash" label={strings.home.deleteSelected} onPress={deleteSelected} variant="danger" testID="selection-delete" />
+            <IconButton
+              icon="trash"
+              label={strings.home.deleteSelected}
+              caption={strings.home.selectionCaptions.delete}
+              onPress={deleteSelected}
+              variant="danger"
+              testID="selection-delete"
+            />
           </View>
           <TagSheet
             visible={choosingTags}

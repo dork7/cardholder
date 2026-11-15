@@ -319,6 +319,21 @@ describe('gallery view', () => {
     expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'stack');
   });
 
+  test('the view toggle names the view it switches to; a screen reader hears one Gallery view switch', async () => {
+    await renderHome();
+    const toggle = () => screen.getByTestId('gallery-toggle');
+    expect(within(toggle()).getByText('Gallery')).toBeTruthy();
+    expect(toggle().props.accessibilityRole).toBe('switch');
+    expect(toggle().props.accessibilityLabel).toBe('Gallery view');
+    expect(toggle().props.accessibilityState).toEqual({ checked: false });
+
+    await act(async () => fireEvent.press(toggle()));
+    expect(within(toggle()).getByText('Stack')).toBeTruthy();
+    expect(within(toggle()).queryByText('Gallery')).toBeNull();
+    expect(toggle().props.accessibilityLabel).toBe('Gallery view');
+    expect(toggle().props.accessibilityState).toEqual({ checked: true });
+  });
+
   test('opens in the gallery when that was the last choice', async () => {
     mockHomeView = 'gallery';
     await render(<Home />);
@@ -443,6 +458,30 @@ describe('gallery view', () => {
     await showGallery();
     await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
     expect(screen.getByText(strings.home.noneExpiring(30))).toBeTruthy();
+  });
+
+  test('every selection-bar action has a word under its icon, and keeps its full name for screen readers', async () => {
+    await showGallery();
+    await select('a');
+    const captions: [string, string, string][] = [
+      ['selection-pin', 'Pin', strings.home.pinSelected],
+      ['selection-tags', 'Tag', strings.home.tagSelected],
+      ['selection-recreate', 'Read again', strings.recreate.button],
+      ['selection-share', 'Share', strings.home.shareSelected],
+      ['selection-delete', 'Delete', strings.home.deleteSelected],
+    ];
+    for (const [id, caption, label] of captions) {
+      expect(within(screen.getByTestId(id)).getByText(caption)).toBeTruthy();
+      expect(screen.getByTestId(id).props.accessibilityLabel).toBe(label);
+    }
+  });
+
+  test('the pin caption reads Unpin when every selected card is pinned', async () => {
+    await withCards([makeCard({ id: 'p', name: 'Pinned', pinned: true })], async () => {
+      await showGallery();
+      await select('p');
+      expect(within(screen.getByTestId('selection-pin')).getByText('Unpin')).toBeTruthy();
+    });
   });
 
   test('pins the selected cards; when all are pinned, the same button unpins them', async () => {
