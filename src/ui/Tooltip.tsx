@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { HostInstance, Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Text } from './Text';
-import { SHADOW, TYPE, useTheme } from './theme';
+import { RADIUS, SHADOW, TYPE, useTheme } from './theme';
 
 // How long a tooltip stays up after the long press.
 export const TOOLTIP_MS = 1500;
@@ -68,6 +68,6 @@ function Bubble({ label, anchor, onDismiss }: { label: string; anchor: Rect; onD
 }
 
 const styles = StyleSheet.create({
-  bubble: { position: 'absolute', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4 },
-  label: { fontSize: TYPE.secondary, fontWeight: '700' },
+  bubble: { position: 'absolute', paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.sm },
+  label: { fontSize: TYPE.secondary, fontWeight: '600' },
 });

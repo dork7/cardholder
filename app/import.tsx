@@ -77,13 +77,13 @@ export default function ImportScreen() {
     if (step.kind !== 'choose' || busy) return;
     setBusy(true);
     try {
-      const result = await applySnapshot(services.store, step.snapshot, mode);
+      const result = await applySnapshot(services.store, step.snapshot, mode, services.notes);
       // A restored phone already has a backup: the file we just imported.
       if ((await services.settings.getNumber('lastExportAt')) === null) {
         await recordExport(services.settings, step.snapshot.exportedAt);
       }
       await refresh();
-      Alert.alert(strings.import.done(result.added, result.skipped));
+      Alert.alert(strings.import.done(result.added, result.skipped, result.notesAdded, result.notesSkipped));
       router.dismissAll();
     } catch (e) {
       console.warn('Import failed', e);
@@ -145,7 +145,7 @@ export default function ImportScreen() {
             <>
               <Panel style={styles.group}>
                 <Text style={[styles.body, { color: theme.text }]} testID="import-summary">
-                  {strings.import.summary(step.snapshot.cards.length, formatDate(step.snapshot.exportedAt))}
+                  {strings.import.summary(step.snapshot.cards.length, formatDate(step.snapshot.exportedAt), step.snapshot.notes?.length ?? 0)}
                 </Text>
               </Panel>
               {busy ? (

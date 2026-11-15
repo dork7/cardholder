@@ -41,7 +41,7 @@ export function expiryLabel(card: Pick<Card, 'expiresOn'>, now: Date): string {
       return strings.card.expiresIn(status.days);
     case 'later':
       return strings.card.expiresOn(
-        fromIsoDate(card.expiresOn as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+        fromIsoDate(card.expiresOn as string).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
       );
   }
 }

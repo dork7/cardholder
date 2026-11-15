@@ -38,5 +38,6 @@ export function formatAgo(then: number, now: number): string {
 }
 
 export function formatDate(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  // The phone's own locale, so a date reads the way the user writes dates.
+  return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }

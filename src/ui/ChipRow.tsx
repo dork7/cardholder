@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Text } from './Text';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TYPE, useTheme } from './theme';
 
 export interface Chip {
   key: string;
@@ -10,7 +10,7 @@ export interface Chip {
   testID?: string;
 }
 
-// A scrolling row of pill chips, styled like TagChips. Choices are radios; an action chip is an
+// A scrolling row of square chips, styled like TagChips. Choices are radios; an action chip is an
 // outlined button at the end of the row.
 export function ChipRow({ chips, accessibilityLabel }: { chips: Chip[]; accessibilityLabel?: string }) {
   const theme = useTheme();
@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
   scroller: { flexGrow: 0 },
   row: { gap: 8, paddingVertical: 4 },
   // 44 pt: the smallest comfortable touch target.
-  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 9999 },
+  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: RADIUS.sm },
   text: { fontSize: TYPE.secondary },
 });

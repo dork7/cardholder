@@ -7,7 +7,7 @@ import { Button } from '../src/ui/Button';
 import { FolderNameInput } from '../src/ui/FolderNameInput';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
-import { TYPE, useTheme } from '../src/ui/theme';
+import { TRACKING, TYPE, useTheme } from '../src/ui/theme';
 
 // Create, rename and delete folders. Cards go into a folder from their edit screen.
 export default function FoldersScreen() {
@@ -113,7 +113,7 @@ export default function FoldersScreen() {
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   section: { padding: 16, gap: 12 },
-  title: { fontSize: TYPE.section, fontWeight: '700' },
+  title: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight },
   body: { fontSize: TYPE.body },
   empty: { textAlign: 'center', paddingHorizontal: 16 },
   caption: { fontSize: TYPE.secondary },

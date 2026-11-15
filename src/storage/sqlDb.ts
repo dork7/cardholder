@@ -37,6 +37,13 @@ const MIGRATIONS = [
   // Asking questions of a language model is gone, and with it the lookup file it read: a sealed
   // summary of every document, which nothing reads any more.
   `DELETE FROM settings WHERE key = 'lookup';`,
+  `CREATE TABLE notes (
+     id TEXT PRIMARY KEY NOT NULL,
+     pinned INTEGER NOT NULL,
+     payload BLOB NOT NULL,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   );`,
 ];
 
 export async function migrate(db: SqlDb): Promise<void> {

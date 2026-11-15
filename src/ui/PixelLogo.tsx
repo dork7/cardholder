@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import Svg, { Rect } from 'react-native-svg';
 import { Theme } from './theme';
 
-// The app's mark, 8-bit style: a document with a folded corner, lines of text and an amber seal,
+// The app's mark, 8-bit style: a document with a folded corner, lines of text and a taupe seal,
 // with a hard pixel shadow. Each character is one pixel; '.' is empty.
 export const LOGO_PIXELS = [
   '..ooooooooo.....',
@@ -29,7 +29,7 @@ const colours = (theme: Theme): Record<Pixel, string> => ({
   o: theme.text, // outline
   p: theme.bannerBg, // paper
   l: theme.muted, // text lines
-  a: theme.accent, // seal
+  a: theme.ornament, // seal
   s: theme.rosette, // shadow
 });
 

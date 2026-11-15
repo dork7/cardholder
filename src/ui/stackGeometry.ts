@@ -11,9 +11,9 @@ export const COMMIT_PX = 72; // drag distance that commits a swipe
 export const COMMIT_V = 500; // flick velocity (pt/s) that commits a swipe
 export const TAP_SLOP = 6; // movement below this is a tap, not a drag
 export const ID1_RATIO = 1.586; // ISO/IEC 7810 ID-1
-// Corner radius as a fraction of card width: rounder than a real ID-1 card (0.037), so the corners
-// read clearly at phone size.
-export const CARD_RADIUS = 0.06;
+// Corner radius as a fraction of card width: the real ID-1 corner (3.18 mm on 85.6 mm). The photo
+// is the card, so it keeps the card's own shape, not an exaggerated one.
+export const CARD_RADIUS = 0.037;
 const SCALE_STEP = 0.045; // each layer back is slightly smaller
 const EXIT_TILT = -8; // degrees a leaving card has turned by the time it is gone
 

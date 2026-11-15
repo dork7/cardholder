@@ -6,7 +6,7 @@ import { useCardImage } from '../hooks/useCardImage';
 import { strings } from '../strings';
 import { ExpiryAlert } from './ExpiryAlert';
 import { Text } from './Text';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TRACKING, TYPE, useTheme } from './theme';
 import { CardPicture } from './CardPicture';
 
 interface Props {
@@ -74,13 +74,14 @@ function PinnedTile({ card, now, onPress }: { card: Card; now: Date; onPress: ()
 
 const styles = StyleSheet.create({
   section: { gap: 8 },
-  heading: { fontSize: TYPE.caption, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', paddingLeft: 4 },
+  // Label caps: the small tracked label that names a section, set flush with the column.
+  heading: { fontSize: TYPE.caption, fontWeight: '600', letterSpacing: TRACKING.caps, textTransform: 'uppercase' },
   // A horizontal ScrollView otherwise grows to fill a column.
   scroller: { flexGrow: 0 },
   row: { gap: 8 },
-  tile: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, padding: 6, paddingRight: 16, borderRadius: 9999, maxWidth: 240 },
-  // ID-1 proportions, rounded to match the pill it sits in.
-  thumb: { width: 64, height: 40, borderRadius: 20, overflow: 'hidden' },
+  tile: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, padding: 6, paddingRight: 16, borderRadius: RADIUS.sm, maxWidth: 240 },
+  // ID-1 proportions with the real card's corner (3.7% of 64 pt).
+  thumb: { width: 64, height: 40, borderRadius: 2.4, overflow: 'hidden' },
   alert: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
   label: { flexShrink: 1 },
   name: { fontSize: TYPE.secondary, fontWeight: '700' },

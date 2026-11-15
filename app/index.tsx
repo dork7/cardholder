@@ -23,14 +23,14 @@ import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
-import { Fab } from '../src/ui/Fab';
+import { HomeActionBar } from '../src/ui/HomeActionBar';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { PixelLogo } from '../src/ui/PixelLogo';
 import { RetroIcon } from '../src/ui/RetroIcon';
 import { PinnedStrip } from '../src/ui/PinnedStrip';
 import { Panel, Screen } from '../src/ui/Surface';
-import { TYPE, useTheme } from '../src/ui/theme';
+import { RADIUS, TRACKING, TYPE, useTheme } from '../src/ui/theme';
 import { useTooltip } from '../src/ui/Tooltip';
 import { LiveText } from '../src/ui/LiveText';
 
@@ -212,19 +212,12 @@ export default function Home() {
 
   // A plain View: the screen fits without scrolling, so nothing competes with the stack for swipes.
   return (
-    <Screen style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}>
+    <Screen style={{ paddingTop: insets.top + 8, paddingBottom: 0 }}>
       <Animated.View entering={FadeInDown.duration(ENTER)} style={[styles.inset, styles.top]}>
-        <Panel style={styles.header} radius={24}>
+        <Panel style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
             {strings.home.title}
           </Text>
-          <GalleryToggle
-            on={gallery === 'gallery'}
-            onChange={(on) => {
-              clearSelection();
-              setGallery(on ? 'gallery' : 'stack');
-            }}
-          />
           <AppearanceToggle />
           <SettingsButton onPress={() => router.push('/settings')} />
         </Panel>
@@ -233,7 +226,7 @@ export default function Home() {
         <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
       </Animated.View>
 
-      {/* The stack and filter sit centred; the add button floats in the thumb zone below them. */}
+      {/* The stack and filters use the space above the floating action bar. */}
       <View style={[styles.inset, styles.body]}>
         {cards.length === 0 ? (
           <View style={styles.empty} testID="empty-state">
@@ -285,7 +278,7 @@ export default function Home() {
       </View>
 
       {selecting ? (
-        <View style={[styles.selectionBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.bg }]} testID="selection-bar">
+        <View style={[styles.selectionBar, { paddingBottom: 0, backgroundColor: theme.bg }]} testID="selection-bar">
           <View style={styles.selectionRow}>
             <LiveText style={[styles.selectionCount, { color: theme.text }]}>
               {rereading ? strings.recreate.workingMany(rereading.done, rereading.of) : strings.home.selected(selected.length)}
@@ -333,7 +326,17 @@ export default function Home() {
           />
         </View>
       ) : (
-        <Fab label={strings.home.addCard} onPress={addCard} testID="add-card" />
+        <View style={[styles.dock, { paddingBottom: insets.bottom + 16 }]}>
+          <HomeActionBar
+            gallery={gallery === 'gallery'}
+            onAddImage={addCard}
+            onNotes={() => router.push('/notes')}
+            onToggleGallery={() => {
+              clearSelection();
+              setGallery(gallery === 'gallery' ? 'stack' : 'gallery');
+            }}
+          />
+        </View>
       )}
     </Screen>
   );
@@ -402,33 +405,6 @@ function SettingsButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-// Switches the home screen between the card stack and the gallery grid. Lit while the gallery shows.
-function GalleryToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
-  const theme = useTheme();
-  const color = on ? theme.onAccent : theme.text;
-  const { ref, onLongPress, tooltip } = useTooltip(strings.home.galleryView);
-  return (
-    <Pressable
-      ref={ref}
-      onPress={() => onChange(!on)}
-      onLongPress={onLongPress}
-      hitSlop={8}
-      accessibilityRole="switch"
-      accessibilityLabel={strings.home.galleryView}
-      accessibilityHint={strings.home.galleryViewHint}
-      accessibilityState={{ checked: on }}
-      testID="gallery-toggle"
-      style={({ pressed }) => [
-        styles.round,
-        { borderColor: on ? theme.accent : theme.border, backgroundColor: on ? theme.accent : 'transparent', opacity: pressed ? 0.6 : 1 },
-      ]}
-    >
-      <RetroIcon name="documents" size={24} color={on ? color : undefined} backgroundColor={on ? theme.accent : undefined} />
-      {tooltip}
-    </Pressable>
-  );
-}
-
 // A choice kept in settings, so the home screen opens the way it was left: the view, the gallery's order.
 function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort', isValid: (v: unknown) => v is T, fallback: T) {
   const { services } = useApp();
@@ -456,6 +432,7 @@ function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort', isVal
 }
 
 const styles = StyleSheet.create({
+  dock: { paddingHorizontal: 16, paddingTop: 8 },
   selectionBar: { position: 'absolute', left: 0, right: 0, bottom: 0, gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   selectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   selectionCount: { flex: 1, fontSize: TYPE.secondary, fontWeight: '700' },
@@ -463,11 +440,11 @@ const styles = StyleSheet.create({
   inset: { paddingHorizontal: 16 },
   top: { gap: 12 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20, paddingRight: 10, paddingVertical: 8 },
-  title: { flex: 1, fontSize: TYPE.title, fontWeight: '700' },
+  title: { flex: 1, fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight },
   round: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.sm,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
@@ -479,13 +456,13 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingLeft: 16,
     paddingRight: 8,
-    borderRadius: 9999,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
   },
   searchInput: { flex: 1, minHeight: 48, fontSize: TYPE.body, fontFamily: FONT.regular },
   clear: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, justifyContent: 'center', paddingVertical: 24, gap: 24 },
   empty: { alignItems: 'center', gap: 12 },
-  emptyTitle: { fontSize: TYPE.title, fontWeight: '700', textAlign: 'center' },
+  emptyTitle: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight, textAlign: 'center' },
   promise: { fontSize: TYPE.body, textAlign: 'center' },
 });

@@ -38,7 +38,7 @@ import {
 } from './stackGeometry';
 import { Panel } from './Surface';
 import { Text } from './Text';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TYPE, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 import { CardPicture } from './CardPicture';
 
@@ -467,7 +467,7 @@ function StackCard({ card, index, n, inFront, geo, motion }: StackCardProps) {
   );
 }
 
-// Two arrows chasing each other round: "turn this over". Drawn in white on a dark disc so it reads on
+// Two arrows chasing each other round: "turn this over". Drawn in white on a dark square so it reads on
 // any card photo. Paths from Lucide's refresh-cw (ISC).
 function FlipIcon() {
   return (
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   flipButton: {
     width: FLIP_BUTTON,
     height: FLIP_BUTTON,
-    borderRadius: FLIP_BUTTON / 2,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
@@ -499,6 +499,7 @@ const styles = StyleSheet.create({
   info: { marginTop: 20, paddingHorizontal: 20, paddingVertical: 14 },
   caption: { gap: 2 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  // Square marks, like a page counter.
+  dot: { width: 6, height: 6, borderRadius: RADIUS.none },
   dotActive: { transform: [{ scale: 1.35 }] },
 });

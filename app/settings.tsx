@@ -21,7 +21,7 @@ import {
 import { Button } from '../src/ui/Button';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
-import { TYPE, useTheme } from '../src/ui/theme';
+import { TRACKING, TYPE, useTheme } from '../src/ui/theme';
 import { LiveText } from '../src/ui/LiveText';
 import { ActionIconName, RetroIcon, RetroIconName } from '../src/ui/RetroIcon';
 
@@ -32,10 +32,13 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const [lastExportAt, setLastExportAt] = useState<number | null>(null);
 
+  const [notesChangedAt, setNotesChangedAt] = useState<number | null>(null);
+
   // Re-read on focus, so coming back from an export shows the new date.
   useFocusEffect(
     useCallback(() => {
       services.settings.getNumber('lastExportAt').then(setLastExportAt).catch(() => {});
+      services.notes?.lastChangeAt().then(setNotesChangedAt).catch(() => {});
     }, [services]),
   );
 
@@ -113,6 +116,9 @@ export default function SettingsScreen() {
               ? strings.settings.neverBackedUp
               : strings.settings.lastBackup(formatAgo(lastExportAt, Date.now()))}
           </Text>
+          {lastExportAt !== null && notesChangedAt !== null && notesChangedAt > lastExportAt && (
+            <Text style={[styles.caption, { color: theme.muted }]}>{strings.notes.changesSinceBackup}</Text>
+          )}
           <Button icon="backup" label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
           <Button icon="import" variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
         </Section>
@@ -271,6 +277,8 @@ function SwitchRow(props: {
         onValueChange={props.onChange}
         disabled={props.disabled}
         trackColor={{ true: theme.accent, false: theme.rosette }}
+        // Set the thumb too, or Android paints its own teal one: paper on light, ink on dark.
+        thumbColor={props.value ? theme.onAccent : theme.bg}
         accessibilityLabel={props.label}
         accessibilityHint={props.hint}
         testID={props.testID}
@@ -283,7 +291,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   section: { padding: 16, gap: 12 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  title: { fontSize: TYPE.section, fontWeight: '700' },
+  title: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight },
   body: { fontSize: TYPE.body },
   caption: { fontSize: TYPE.secondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },

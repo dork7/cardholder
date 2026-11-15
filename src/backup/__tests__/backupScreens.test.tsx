@@ -19,8 +19,12 @@ jest.mock('expo-router', () => {
 
 const mockSettings = new Map<string, string>();
 const mockRefresh = jest.fn(() => Promise.resolve());
+let mockNoteCount = 0;
+let mockNotesChangedAt: number | null = null;
 const mockServices = {
   store: {},
+  notes: { list: async () => Array.from({ length: mockNoteCount }, () => ({})), lastChangeAt: async () => mockNotesChangedAt },
+  noteEditors: { flushAll: async () => {} },
   settings: {
     getNumber: async (key: string) => (mockSettings.has(key) ? Number(mockSettings.get(key)) : null),
     set: async (key: string, value: string) => void mockSettings.set(key, value),
@@ -73,10 +77,18 @@ const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 beforeEach(() => {
   jest.clearAllMocks();
   mockSettings.clear();
+  mockNoteCount = 0;
+  mockNotesChangedAt = null;
   mockDeleted.length = 0;
 });
 
 describe('export', () => {
+  test('shows how many notes are included in the encrypted backup', async () => {
+    mockNoteCount = 2;
+    await render(<ExportScreen />);
+    expect(await screen.findByText(strings.notes.backupSummary(2))).toBeTruthy();
+  });
+
   const fill = async (passphrase: string, confirmation: string) => {
     await fireEvent.changeText(screen.getByTestId('export-passphrase'), passphrase);
     await fireEvent.changeText(screen.getByTestId('export-confirm'), confirmation);
@@ -169,11 +181,21 @@ describe('import', () => {
     expect(mockDecode).toHaveBeenCalledWith(new Uint8Array([9]), 'right one');
     expect(screen.getByTestId('import-summary')).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.import.merge })));
-    expect(mockApply).toHaveBeenCalledWith(mockServices.store, snapshot, 'merge');
+    expect(mockApply).toHaveBeenCalledWith(mockServices.store, snapshot, 'merge', mockServices.notes);
     expect(mockSettings.get('lastExportAt')).toBe(String(snapshot.exportedAt));
     expect(mockRefresh).toHaveBeenCalled();
     expect(alert).toHaveBeenCalledWith(strings.import.done(1, 1));
     expect(mockRouter.dismissAll).toHaveBeenCalled();
+  });
+
+  test('summary includes notes, and merge reports added/skipped notes', async () => {
+    const snapshot = { ...backupSnapshot(), notes: [{ id: 'n', title: '', body: 'Mine', pinned: true, createdAt: 1, updatedAt: 2 }] };
+    mockDecode.mockResolvedValue(snapshot);
+    mockApply.mockResolvedValue({ added: 0, skipped: 2, notesAdded: 1, notesSkipped: 0 });
+    await pickAndUnlock('right one');
+    expect(screen.getByTestId('import-summary')).toHaveTextContent(/and 1 note/);
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.import.merge })));
+    expect(alert).toHaveBeenCalledWith(strings.import.done(0, 2, 1, 0));
   });
 
   test('replace asks first', async () => {
@@ -186,6 +208,13 @@ describe('import', () => {
 });
 
 describe('settings', () => {
+  test('shows when notes have changed since the last backup', async () => {
+    mockSettings.set('lastExportAt', '1000');
+    mockNotesChangedAt = 2000;
+    await render(<SettingsScreen />);
+    expect(await screen.findByText(strings.notes.changesSinceBackup)).toBeTruthy();
+  });
+
   test('says when there has never been a backup', async () => {
     await render(<SettingsScreen />);
     expect(await screen.findByText(strings.settings.neverBackedUp)).toBeTruthy();

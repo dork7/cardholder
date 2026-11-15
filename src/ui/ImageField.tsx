@@ -5,7 +5,7 @@ import { Text } from './Text';
 import { strings } from '../strings';
 import { Button } from './Button';
 import { Field } from './Field';
-import { useTheme } from './theme';
+import { RADIUS, useTheme } from './theme';
 
 interface Props {
   label: string;
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1.586,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderRadius: 8,
+    borderRadius: RADIUS.none,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   cross: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',

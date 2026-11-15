@@ -6,7 +6,7 @@ import { TAG_MAX_LENGTH } from '../config';
 import { strings } from '../strings';
 import { Button } from './Button';
 import { FONT, Text } from './Text';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TRACKING, TYPE, useTheme } from './theme';
 
 interface Props {
   visible: boolean;
@@ -127,14 +127,14 @@ export function TagSheet({ visible, title, existing, onApply, onClose }: Props) 
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, gap: 12, maxHeight: '80%' },
-  title: { fontSize: TYPE.section, fontWeight: '700', paddingHorizontal: 4 },
-  field: { flexDirection: 'row', alignItems: 'center', minHeight: 48, borderRadius: 9999, borderWidth: 1, paddingLeft: 16, paddingRight: 6 },
+  sheet: { borderTopLeftRadius: RADIUS.none, borderTopRightRadius: RADIUS.none, padding: 16, gap: 12, maxHeight: '80%' },
+  title: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight, paddingHorizontal: 4 },
+  field: { flexDirection: 'row', alignItems: 'center', minHeight: 48, borderRadius: RADIUS.sm, borderWidth: 1, paddingLeft: 16, paddingRight: 6 },
   input: { flex: 1, minHeight: 48, fontSize: TYPE.body, fontFamily: FONT.regular },
-  addNew: { minHeight: 36, paddingHorizontal: 14, borderRadius: 9999, justifyContent: 'center' },
+  addNew: { minHeight: 44, paddingHorizontal: 14, borderRadius: RADIUS.sm, justifyContent: 'center' },
   addNewText: { fontSize: TYPE.secondary, fontWeight: '700' },
   list: { flexGrow: 0 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 36, borderRadius: 9999, paddingHorizontal: 14, justifyContent: 'center', maxWidth: '100%' },
+  chip: { minHeight: 44, borderRadius: RADIUS.sm, paddingHorizontal: 14, justifyContent: 'center', maxWidth: '100%' },
   chipText: { fontSize: TYPE.secondary, fontWeight: '700' },
 });

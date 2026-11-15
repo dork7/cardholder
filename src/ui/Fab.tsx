@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { SHADOW, useTheme } from './theme';
+import { RADIUS, SHADOW, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 
 export interface FabProps {
@@ -10,7 +10,7 @@ export interface FabProps {
   testID?: string;
 }
 
-// Floating "+" button pinned to the bottom-right corner, clear of the home indicator.
+// Floating square "+" button pinned to the bottom-right corner, clear of the home indicator.
 export function Fab({ label, onPress, testID }: FabProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -30,7 +30,7 @@ export function Fab({ label, onPress, testID }: FabProps) {
       ]}
     >
       <Svg width={24} height={24} viewBox="0 0 24 24">
-        <Path d="M12 4v16M4 12h16" stroke={theme.onAccent} strokeWidth={2.5} strokeLinecap="round" />
+        <Path d="M12 4v16M4 12h16" stroke={theme.onAccent} strokeWidth={2.5} strokeLinecap="square" />
       </Svg>
       {tooltip}
     </Pressable>
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     end: 24,
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOW.heavy,

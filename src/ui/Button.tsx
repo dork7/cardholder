@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { Text } from './Text';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TYPE, useTheme } from './theme';
 import { RetroIcon, RetroIconName } from './RetroIcon';
 
 export interface ButtonProps {
@@ -18,7 +18,7 @@ export interface ButtonProps {
 export function Button({ icon, label, onPress, onLongPress, variant = 'primary', disabled = false, testID, accessibilityLabel, accessibilityHint }: ButtonProps) {
   const theme = useTheme();
   const primary = variant === 'primary';
-  // Green is for the primary action only; a secondary button is white text in a grey outline.
+  // The filled ink is for the primary action only; a secondary button is white text in a grey outline.
   const labelColor = primary ? theme.onAccent : variant === 'danger' ? theme.danger : theme.text;
   // The outline is what shows where a transparent button is, so it needs 3:1 against the page
   // (hairline `border` is far too faint for that): mid grey for secondary, red for danger.
@@ -56,11 +56,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 9999,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Uppercase with wide tracking: the buttons' label voice, distinct from content text.
-  label: { flexShrink: 1, fontSize: TYPE.secondary, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', textAlign: 'center' },
+  // Sentence case at body size, semibold: weight, not capitals, sets a label apart from content.
+  label: { flexShrink: 1, fontSize: TYPE.body, fontWeight: '600', textAlign: 'center' },
 });

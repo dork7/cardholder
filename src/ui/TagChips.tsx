@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { sameTag } from '../cards/tags';
 import { strings } from '../strings';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TYPE, useTheme } from './theme';
 
 interface Props {
   tags: readonly string[]; // the chips, in order
@@ -83,6 +83,6 @@ const styles = StyleSheet.create({
   row: { gap: 8, paddingVertical: 4 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap' },
   // 44 pt: the smallest comfortable touch target.
-  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 9999 },
+  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: RADIUS.sm },
   text: { fontSize: TYPE.secondary },
 });

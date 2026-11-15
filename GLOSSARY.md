@@ -34,6 +34,13 @@ _Avoid_: category, folder, type, label
 The words read from a document's photos or PDF, kept with it so it can be searched.
 _Avoid_: OCR, scan text
 
+## Keeping notes
+
+**Note**:
+Standalone text the user writes and keeps, with an optional title; separate from a document and
+from the Document text read from its photos or PDF.
+_Avoid_: document note, document text
+
 ## Problems
 
 **Crash report**:

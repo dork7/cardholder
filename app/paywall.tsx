@@ -9,7 +9,7 @@ import { Button } from '../src/ui/Button';
 import { LiveText } from '../src/ui/LiveText';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
-import { TYPE, useTheme } from '../src/ui/theme';
+import { TRACKING, TYPE, useTheme } from '../src/ui/theme';
 
 const messages: Record<PurchaseMessage, string> = {
   none: strings.settings.restoreNone,
@@ -77,6 +77,6 @@ export default function PaywallScreen() {
 const styles = StyleSheet.create({
   content: { padding: 16 },
   panel: { padding: 20, gap: 16 },
-  title: { fontSize: TYPE.section, fontWeight: '700' },
+  title: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight },
   body: { fontSize: TYPE.body },
 });

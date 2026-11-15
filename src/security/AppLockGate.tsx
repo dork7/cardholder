@@ -6,7 +6,7 @@ import { strings } from '../strings';
 import { Button } from '../ui/Button';
 import { PixelLogo } from '../ui/PixelLogo';
 import { Text } from '../ui/Text';
-import { TYPE, useTheme } from '../ui/theme';
+import { TRACKING, TYPE, useTheme } from '../ui/theme';
 import { lockOnReturn } from './appLock';
 import { authenticate } from './deviceAuth';
 
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   cover: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', paddingHorizontal: 16 },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  title: { fontSize: TYPE.title, fontWeight: '700', textAlign: 'center' },
+  title: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight, textAlign: 'center' },
   body: { fontSize: TYPE.body, textAlign: 'center' },
   action: { paddingHorizontal: 16 },
 });

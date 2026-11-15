@@ -272,7 +272,8 @@ describe('adding from a PDF', () => {
     expect(mockAnalyze).toHaveBeenCalledWith(frontImage('page0').jpegBase64);
     expect(mockAnalyze).toHaveBeenCalledWith(image('back1').jpegBase64);
     expect(screen.getByTestId('back-remove')).toBeTruthy();
-    expect(screen.getByTestId('pdf-page-0').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole('radio', { name: strings.edit.pageLabel(1) })).toBeChecked();
+    expect(screen.getByRole('radio', { name: strings.edit.pageLabel(3) })).not.toBeChecked();
     await save();
     expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page0'), back: image('back1'), pdf: pdfDoc(0) });
   });
@@ -312,7 +313,8 @@ describe('adding from a PDF', () => {
     await fireEvent.press(screen.getByTestId('front-pdf'));
     await fireEvent.press(screen.getByTestId('pdf-page-2'));
     expect(mockRenderCover).toHaveBeenLastCalledWith(pdfDoc(2));
-    expect(screen.getByTestId('pdf-page-2').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole('radio', { name: strings.edit.pageLabel(3) })).toBeChecked();
+    expect(screen.getByRole('radio', { name: strings.edit.pageLabel(1) })).not.toBeChecked();
     await save();
     expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page2'), back: image('back1'), pdf: pdfDoc(2) });
   });

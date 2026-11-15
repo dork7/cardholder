@@ -1,3 +1,4 @@
+import { NoteStore } from '../notes/noteStore';
 import { CardStore } from '../cards/cardStore';
 import { BackupCard, BackupSnapshot } from './backupFile';
 
@@ -6,9 +7,11 @@ export type ImportMode = 'merge' | 'replace';
 export interface ImportResult {
   added: number;
   skipped: number;
+  notesAdded: number;
+  notesSkipped: number;
 }
 
-export async function buildSnapshot(store: CardStore, now: number): Promise<BackupSnapshot> {
+export async function buildSnapshot(store: CardStore, now: number, notes?: NoteStore): Promise<BackupSnapshot> {
   const cards: BackupCard[] = [];
   for (const card of await store.list()) {
     const front = await store.loadImage(card.id, 'front');
@@ -26,19 +29,24 @@ export async function buildSnapshot(store: CardStore, now: number): Promise<Back
       },
     });
   }
-  return { formatVersion: 1, exportedAt: now, cards, folders: await store.listFolders() };
+  return { formatVersion: 1, exportedAt: now, cards, folders: await store.listFolders(), notes: notes ? await notes.list() : [] };
 }
 
 // The snapshot must come from decodeBackup, which has already validated every card.
-export async function applySnapshot(store: CardStore, snapshot: BackupSnapshot, mode: ImportMode): Promise<ImportResult> {
+export async function applySnapshot(store: CardStore, snapshot: BackupSnapshot, mode: ImportMode, notes?: NoteStore): Promise<ImportResult> {
+  const incomingNotes = snapshot.notes ?? [];
+  if (incomingNotes.length && !notes) throw new Error('Note store required to restore notes');
+  const existingNotes = new Set(notes ? (await notes.list()).map((note) => note.id) : []);
+  const notesAdded = mode === 'replace' ? incomingNotes.length : incomingNotes.filter((note) => !existingNotes.has(note.id)).length;
+  const notesSkipped = incomingNotes.length - notesAdded;
   if (mode === 'replace') {
-    await store.insertMany(snapshot.cards, { replace: true, folders: snapshot.folders });
-    return { added: snapshot.cards.length, skipped: 0 };
+    await store.insertMany(snapshot.cards, { replace: true, folders: snapshot.folders, notes: incomingNotes });
+    return { added: snapshot.cards.length, skipped: 0, notesAdded, notesSkipped };
   }
   const existing = new Set(await store.ids());
   const fresh = snapshot.cards.filter((entry) => !existing.has(entry.card.id));
-  if (fresh.length > 0 || snapshot.folders.length > 0) {
-    await store.insertMany(fresh, { replace: false, folders: snapshot.folders });
+  if (fresh.length > 0 || snapshot.folders.length > 0 || notesAdded > 0) {
+    await store.insertMany(fresh, { replace: false, folders: snapshot.folders, notes: incomingNotes });
   }
-  return { added: fresh.length, skipped: snapshot.cards.length - fresh.length };
+  return { added: fresh.length, skipped: snapshot.cards.length - fresh.length, notesAdded, notesSkipped };
 }

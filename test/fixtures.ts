@@ -1,3 +1,4 @@
+import { createNoteStore } from '../src/notes/noteStore';
 import { BackupSnapshot } from '../src/backup/backupFile';
 import { createAead, generateKey } from '../src/crypto/aead';
 import { base64, utf8 } from '../src/crypto/bytes';
@@ -70,6 +71,7 @@ export function backupSnapshot(): BackupSnapshot {
       importEntry('card2', { name: 'Gym', pinned: false, position: 0 }, true),
     ],
     folders: [],
+    notes: [],
   };
 }
 
@@ -79,12 +81,14 @@ export async function makeStore() {
   const blobs = createMemoryBlobStore();
   let clock = 1_000_000;
   let nextId = 0;
+  const aead = createAead(generateKey());
+  const notes = createNoteStore({ db, aead, now: () => (clock += 1_000), newId: () => `note${++nextId}` });
   const store = createCardStore({
     db,
     blobs,
-    aead: createAead(generateKey()),
+    aead,
     now: () => (clock += 1_000),
     newId: () => `card${++nextId}`,
   });
-  return { db, blobs, store };
+  return { db, blobs, store, notes, aead };
 }

@@ -11,7 +11,7 @@ import { Button } from '../../src/ui/Button';
 import { IconButton } from '../../src/ui/IconButton';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
-import { TYPE, useTheme } from '../../src/ui/theme';
+import { TRACKING, TYPE, useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { PdfPager } from '../../src/ui/PdfPager';
@@ -226,7 +226,7 @@ export default function CardView() {
   };
 
   const footer = staff ? (
-    <Panel style={styles.footer} radius={28}>
+    <Panel style={styles.footer}>
       {holdHint && (
         <LiveText style={[styles.hint, { color: theme.muted }]}>
           {strings.card.staffHoldReminder}
@@ -243,14 +243,14 @@ export default function CardView() {
     </Panel>
   ) : landscape ? (
     // Sideways there's room for the photos or the actions, not both: only Close stays.
-    <Panel style={styles.footer} radius={28}>
+    <Panel style={styles.footer}>
       <Button label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
   ) : (
     /* Every action in the thumb zone: the card's actions as captioned icons in a row, the one for
        the counter first and Delete last, and Close, the one you need most, full width at the
        bottom. Delete asks first. */
-    <Panel style={styles.footer} radius={28}>
+    <Panel style={styles.footer}>
       <View style={styles.actions}>
         <IconButton
           icon="present"
@@ -317,7 +317,7 @@ export default function CardView() {
       {/* Sideways, the photos get the height; the name and details come back upright. */}
       {!landscape && (
         <View style={[styles.inset, styles.top]}>
-          <Panel style={styles.header} radius={24}>
+          <Panel style={styles.header}>
             <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
               {displayName(card)}
             </Text>
@@ -358,7 +358,7 @@ export default function CardView() {
           In landscape the front and back sit side by side, for staff who need to see both. */}
       {view === 'details' && !landscape && !staff ? (
         <Animated.View key="details" entering={FadeIn.duration(180).easing(EASE_OUT)} style={[styles.inset, styles.sides]}>
-          <Panel style={styles.details} radius={24}>
+          <Panel style={styles.details}>
             <ScrollView contentContainerStyle={styles.detailsText}>
               <Text selectable style={[styles.markdown, { color: theme.text }]} testID="card-markdown">
                 {markdown}
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   padded: { padding: 16, gap: 12 },
   inset: { paddingHorizontal: 16 },
   header: { paddingHorizontal: 20, paddingVertical: 12, gap: 6 },
-  title: { fontSize: TYPE.section, fontWeight: '700' },
+  title: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight },
   meta: { fontSize: TYPE.secondary, fontWeight: '600' },
   expiryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   // The card's tags as small pills under its expiry, wrapping onto more lines when there are many.

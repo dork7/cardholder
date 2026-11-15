@@ -39,7 +39,7 @@ export function PdfPagePicker({ pdfBase64, pageCount, coverPage, onChange }: Pro
               key={index}
               onPress={() => onChange(index)}
               accessibilityRole="radio"
-              accessibilityState={{ selected }}
+              accessibilityState={{ checked: selected }}
               accessibilityLabel={strings.edit.pageLabel(index + 1)}
               testID={`pdf-page-${index}`}
               style={({ pressed }) => [styles.item, { opacity: pressed ? 0.7 : 1 }]}

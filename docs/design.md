@@ -19,7 +19,6 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 | Back image | optional |
 | Tags | The groups a card is in: optional, up to 8 per card, each up to 24 characters; repeats ignoring case are dropped. There are no separate categories — a card saved (or backed up) with one has it as its first tag; the old "Other" becomes no tag. ID, Insurance and Membership are offered to start with; any other is typed. On the edit screen the tags in use and the starters are chips, any number can be on, and **+ New** types another (a name matching an existing tag, ignoring case, picks it); reading the photo suggests one (the document's type, e.g. Residency, else ID / Insurance / Membership). On the card's screen they are pills under the name: **+ Tag** there, or **Add tags** on a gallery selection, opens a sheet to pick any number and type new ones, then adds them all at once (if any card would go over 8, nothing changes and the sheet says so). Holding a tag pill for 2 seconds fills it red and then asks before removing that tag from that card. **Settings → Tags** lists every tag in use with its card count; deleting one takes it off those cards, after asking. A card with no name goes by its first tag ("Document" without one). A card tagged ID asks before it is shared. Tags are not searched. |
 | Card number | optional, typed (e.g. to read out over the phone) |
-| Notes | optional |
 | Expiry date | optional, a calendar date |
 
 - Images come from the **photo library only** — no in-app camera in v1, so the app never asks for camera permission. Two ways in:
@@ -32,6 +31,24 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 - Delete asks for confirmation, removes the encrypted image files immediately, and frees a slot toward the free limit.
 - Expiry reminders: **a local notification every day at 09:00**, from a per-card number of days before the expiry date (**14 by default**, 1–365, set under the expiry date on the edit screen) through the expiry day itself. They stop once the card expires, or move when its date is changed (renewed). Notification permission is requested **only the first time the user saves a card with an expiry date**, never at launch.
 
+## Notes
+
+Standalone notes live in **Notes**, reached from the home screen. Each has an optional title and a
+plain-text body; either can stand alone. Text saves automatically on the device, encrypted with the
+existing vault. Leaving the editor flushes pending changes; a failed save keeps the editor open with
+its text and a retry action. Blank notes are discarded on exit, allowing content to be replaced while
+editing without losing the note's identity.
+
+Pinned notes appear first; each group is ordered by its most recent content edit. Pinning does not
+change that timestamp. Search matches titles and bodies ignoring case. Permanent deletion asks for
+confirmation. Notes use the existing app lock and have no product count limit or effect on document
+slots. They have no attachments, formatting, sharing, tags, folders or reminders.
+
+The passphrase-encrypted backup includes notes and their pin status and timestamps. Merge skips
+existing note IDs; replace replaces all notes, including clearing them when restoring an older backup
+without notes. The replace confirmation explains this. Historical per-document notes are not restored.
+The complete feature specification and delivery tickets are in GitHub issue #2.
+
 ## Speed at the counter (≤ 2 taps from an unlocked home screen)
 
 **Home screen** (the app opens straight to it):
@@ -40,7 +57,7 @@ A public iOS + Android app (Expo) that stores **image-based** cards — ID, insu
 2. Search field and tag filter (All, then every tag some card has; a card shows under each of its tags). Search matches the name and the text read off the card's photos (kept sealed with the card, carried in backups; numbers match whatever spaces or dashes are typed). Cards saved before the text was kept are read once, in the background, after the app opens; so is any card saved before one of its photos had been read, so no side is left unsearchable and no old photo's text outlives it.
 3. All other cards, alphabetical.
 
-A **gallery view** button in the header swaps the card stack for a two-column grid of every card (picture, name and tags); the choice is remembered. Chips above the grid sort it by name, expiry (soonest first, no date last) or newest, the sort is remembered, and **Expiring soon** narrows it to cards that are expired or due within the reminder window. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel, **Pin** (Unpin when every selected card is pinned), **Add tags**, **Quick share** and **Delete**. Quick share sends the selected cards as one PDF in the order shown (each photo card's sides, every page of a PDF card), asking first when an ID is among them. Delete asks once for all of them. Only cards still shown by the search and filters are acted on.
+A floating bottom bar groups **Add image**, **Notes**, and **Gallery**, above the home indicator with space reserved so it does not cover content. Add image opens the existing document creation flow, Notes opens the standalone notes section, and Gallery swaps the card stack for a two-column grid of every card (picture, name and tags); the choice is remembered. Chips above the grid sort it by name, expiry (soonest first, no date last) or newest, the sort is remembered, and **Expiring soon** narrows it to cards that are expired or due within the reminder window. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel, **Pin** (Unpin when every selected card is pinned), **Add tags**, **Quick share** and **Delete**. Quick share sends the selected cards as one PDF in the order shown (each photo card's sides, every page of a PDF card), asking first when an ID is among them. Delete asks once for all of them. Only cards still shown by the search and filters are acted on.
 
 Tap a card → **counter view**:
 
@@ -92,30 +109,31 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
 ## Visual design
 
-Revised 2026-10-23: the visual language is **Spotify-inspired** (full rules in the project skill `.claude/skills/spotify-design`). Near-black surfaces recede so the card photos are the only colour; one functional amber marks primary actions and active states (Doc Keeper's own accent in place of Spotify's green). Tokens live in `src/ui/theme.ts`.
+Revised 2026-11-15: the visual language is **Swiss style** (full rules in the project skill `.claude/skills/swiss-design`), replacing the Spotify-inspired look of 2026-10-23. White paper and off-black ink, square corners, hairline rules and a strict type scale; the card photos are the only strong colour. Actions are ink rather than a hue; taupe tints the pixel icons and nothing else. Tokens live in `src/ui/theme.ts`.
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| Page | `#FFFFFF` | `#121212` | background |
-| Surface | `#F4F4F4` | `#181818` | panels, card tiles |
-| Raised | `#EEEEEE` | `#1F1F1F` | banners, sheets, unselected chips |
-| Text / muted | `#121212` / `#5E5E5E` | `#FDFDFD` / `#B3B3B3` | primary and secondary text (4.5:1) |
-| Amber | `#8A5A00` | `#F5B83D` | filled primary buttons, active chips, the add button — never decoration. Light uses a deeper amber with white labels: `#F5B83D` doesn't reach 3:1 on white |
-| Outline grey | `#7C7C7C` | `#7C7C7C` | secondary button outlines, field underlines (3:1) |
+| Page | `#FFFFFF` | `#111111` | background |
+| Surface | `#F7F6F3` | `#1A1A1A` | panels, title and action bars |
+| Raised | `#F5F1E8` (beige) | `#242424` | sheets, chips, tag pills, tooltips |
+| Text / muted | `#111111` / `#5C5C5C` | `#F5F5F5` / `#A8A8A8` | primary and secondary text (4.5:1) |
+| Ink accent | `#111111`, white label | `#F5F1E8`, ink label | filled primary buttons, chosen chips, the add button, switch tracks |
+| Taupe | `#B38B6D` | `#B38B6D` | the tint inside pixel icons and the logo seal — decoration only, never an action or a state |
+| Outline grey | `#808080` | `#808080` | secondary button outlines (3:1) |
 | Selection blue | `#1F6FD0` | `#539DF5` | selection, focus, the card being dragged — nothing else |
 | Negative red | `#C2283A` | `#F3727F` | destructive actions, "can't be recovered" |
 | Counter black | `#000000` | `#000000` | counter view only |
 
-Depth is shown by shade (`#121212` → `#181818` → `#1F1F1F`), and floating elements (the add button) carry a heavy shadow (50% black, 24 blur, 8 down) so it reads on near-black. Hairlines are 10% white/black. Card thumbnails get a 12% black veil in dark mode so white plastic doesn't glare; the counter view is never dimmed. A toggle in the home title bar cycles System → Light → Dark; System follows the phone, and the choice is saved in settings and applied app-wide (native alerts and pickers included) before the first screen draws. Contrast tests check text and secondary text at 4.5:1 on every opaque surface in both palettes.
+Depth is shown by shade and a hairline rule (12% black/white), not by shadow; only what floats (the add button, tooltips) carries a sharp, light shadow (16% black, 4 blur, 2 down). Ink is never pure black. Card thumbnails get a 12% black veil in dark mode so white plastic doesn't glare; the counter view is never dimmed. A toggle in the home title bar cycles System → Light → Dark; System follows the phone, and the choice is saved in settings and applied app-wide (native alerts and pickers included) before the first screen draws. Contrast tests check text and secondary text at 4.5:1 on every opaque surface in both palettes.
 
-- **Type:** Public Sans (OFL, bundled; Spotify's own faces are proprietary) for all text; 400 body, 700 emphasis, 600 sparingly. Compact scale 12 / 14 / **16 body** / 18 / 24, 32 for display. Button labels are uppercase, 14 bold, tracked 1.4. Card numbers use tabular figures.
-- **Shape:** pill everything you press — buttons, chips and icon buttons are full pills, the add and appearance buttons are circles. Panels radius 8 (title and action bars keep their larger rounded ends). Card photos are the card — no box or border — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Text fields a bottom hairline only.
-- **Icons:** one pixel-art set (`src/ui/RetroIcon.tsx`), each drawn on a 12 × 12 grid of 2 px cells so edges stay whole at any density; section and field icons use outline + amber + paper, action buttons the one outline colour. No line icons or icon fonts.
+- **Type:** Public Sans (OFL, bundled; a neutral grotesque) for all text; 400 body, 600 labels, 700 headings. Scale 12 / 14 / **16 body** / 18 / 24, 32 for display. Headings are tracked tight (−0.4); small section labels are uppercase 12 semibold, tracked 1.2. Button labels are sentence case, 16 semibold. Card numbers use tabular figures.
+- **Shape:** square. Panels, bars and sheets have no radius; anything pressed or typed into (buttons, icon buttons, chips, tag pills, search and tag fields, the add button, the toggles) takes a 2 pt corner. No pills or circles; the stack's dots and the grid's checkboxes are squares. Card photos are the card — no box or border — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Text fields a bottom rule only.
+- **Icons:** one pixel-art set (`src/ui/RetroIcon.tsx`), each drawn on a 12 × 12 grid of 2 px cells so edges stay whole at any density; section and field icons use outline + taupe + paper, action buttons the one outline colour. No line icons or icon fonts.
 - **One bold element:** a guilloche rosette (SVG), shown only on the empty state and the app-switcher cover.
 - **Two motions:** a 3D card flip (on the home stack's front card, via the flip button shown on two-sided cards: a spring turn with a slight lift and shading, interruptible mid-turn), and the home screen's wallet-style card stack (cards behind fan out to the right; swipe left sends the front card to the back, swipe right brings the previous one back, tapping a peeking card brings it straight to the front). A Settings switch, **Swipe cards up and down** (off by default), fans the stack out below the front card instead, with swipe up for the next card and swipe down for the previous one. On release the stack finishes on a spring that starts at the finger's speed, so a flick keeps its momentum. Both motions are instant when Reduce Motion is on. Small fades also smooth fields appearing on the edit screen, and the expiry alert sign pops in once.
 - **Surfaces** (glass removed 2026-10-21): every screen sits on the plain page colour (`bg`), with solid panels (`surface`, a hairline `border`) for the chrome: home's title bar, card caption and Add card bar; the card view's header and Share / Edit / Close bar; the edit form's three groups and its Close / Save bar; the boot panel. No blur, translucency or backdrop blobs. Card photos stay unframed on the page.
 - Content left-aligned; only the empty state centres its single call to action.
-- Avoid: green as decoration or a background, square buttons, extra brand colours, relaxed line heights, monospace faces.
+- Avoid: pills and circles, gradients and glows, coloured buttons other than destructive ones, extra hues, uppercase button labels.
 
 ## Stack
 

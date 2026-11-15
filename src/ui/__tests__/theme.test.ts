@@ -33,6 +33,13 @@ describe.each(Object.entries(palettes))('%s palette', (_, t) => {
   });
 });
 
+test('ink is off-black, never pure black', () => {
+  for (const t of Object.values(palettes)) {
+    expect(t.text).not.toBe('#000000');
+    expect(t.accent).not.toBe('#000000');
+  }
+});
+
 test('dark mode uses off-white text and lifts surfaces with lighter greys', () => {
   const { dark } = palettes;
   expect(dark.text).not.toBe('#FFFFFF');

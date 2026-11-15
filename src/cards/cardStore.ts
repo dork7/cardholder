@@ -1,3 +1,4 @@
+import { importNotes, Note } from '../notes/noteStore';
 import { Aead } from '../crypto/aead';
 import { base64, toHex, utf8 } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
@@ -42,7 +43,7 @@ export interface CardStore {
   setPinned(id: string, pinned: boolean): Promise<void>;
   reorderPinned(orderedIds: string[]): Promise<void>;
   // Folders given here are written with the cards; ones already on the phone keep their name.
-  insertMany(entries: ImportEntry[], options: { replace: boolean; folders?: Folder[] }): Promise<void>;
+  insertMany(entries: ImportEntry[], options: { replace: boolean; folders?: Folder[]; notes?: Note[] }): Promise<void>;
   listFolders(): Promise<Folder[]>;
   createFolder(name: string): Promise<Folder>;
   renameFolder(id: string, name: string): Promise<Folder>;
@@ -298,7 +299,7 @@ export function createCardStore({
       });
     },
 
-    async insertMany(entries, { replace, folders = [] }) {
+    async insertMany(entries, { replace, folders = [], notes }) {
       const existingBefore = new Set(await ids());
       const previousIds = replace ? [...existingBefore] : [];
       const newBlobIds: string[] = [];
@@ -324,6 +325,7 @@ export function createCardStore({
             const exists = await db.getFirstAsync('SELECT id FROM folders WHERE id = ?', [folder.id]);
             if (!exists) await db.runAsync(INSERT_FOLDER_SQL, [folder.id, sealFolder(folder), folder.createdAt]);
           }
+          if (notes !== undefined) await importNotes(db, aead, notes, replace);
           for (const { card } of entries) {
             const stored: Card = { ...card, position: positions.get(card.id) ?? 0 };
             await db.runAsync(INSERT_SQL, [

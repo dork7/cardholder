@@ -2,7 +2,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { strings } from '../strings';
 import { Text } from './Text';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TYPE, useTheme } from './theme';
 
 // How long a tag must be held before it asks to be removed: long enough that scrolling past, or a
 // tap, never gets there.
@@ -38,8 +38,8 @@ export function TagPill({ tag, onRemove, testID }: Props) {
       // Screen readers can remove it from the actions menu instead of holding; it still asks first.
       accessibilityActions={[{ name: 'remove', label: strings.tags.removeAction }]}
       onAccessibilityAction={(e) => e.nativeEvent.actionName === 'remove' && onRemove(tag)}
-      // The pill is small; the extra reach stays inside the 6 pt gaps between pills.
-      hitSlop={{ top: 3, bottom: 3, left: 3, right: 3 }}
+      // The pill is about 25 pt tall: reach above and below brings it to 44; sideways stays inside the 6 pt gaps.
+      hitSlop={{ top: 10, bottom: 10, left: 3, right: 3 }}
       testID={testID}
       style={[styles.pill, { backgroundColor: theme.bannerBg }]}
     >
@@ -70,7 +70,7 @@ export function AddTagPill({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  pill: { borderRadius: 9999, paddingHorizontal: 12, paddingVertical: 5, maxWidth: '100%', overflow: 'hidden', justifyContent: 'center' },
+  pill: { borderRadius: RADIUS.sm, paddingHorizontal: 12, paddingVertical: 5, maxWidth: '100%', overflow: 'hidden', justifyContent: 'center' },
   add: { borderWidth: 1, paddingVertical: 4 },
   fill: { position: 'absolute', top: 0, bottom: 0, left: 0, opacity: 0.45 },
   text: { fontSize: TYPE.caption, fontWeight: '700' },

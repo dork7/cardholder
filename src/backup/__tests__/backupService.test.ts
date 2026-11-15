@@ -16,7 +16,7 @@ test('export from one phone, replace-import on another', async () => {
   expect(snapshot.exportedAt).toBe(42);
 
   const phoneB = await makeStore();
-  expect(await applySnapshot(phoneB.store, snapshot, 'replace')).toEqual({ added: 2, skipped: 0 });
+  expect(await applySnapshot(phoneB.store, snapshot, 'replace')).toEqual({ added: 2, skipped: 0, notesAdded: 0, notesSkipped: 0 });
   expect(await phoneB.store.list()).toEqual(await phoneA.store.list());
   expect(text(await phoneB.store.loadImage('card1', 'back'))).toBe('JPEG:id-back');
   expect(text(await phoneB.store.loadImage('card2', 'thumb'))).toBe('THUMB:gym');
@@ -26,7 +26,7 @@ test('merge keeps cards already on the phone and adds the rest', async () => {
   const { store } = await makeStore();
   await store.create(fields({ name: 'Mine' }), images('mine')); // id card1, same as the backup's first card
   const result = await applySnapshot(store, backupSnapshot(), 'merge');
-  expect(result).toEqual({ added: 1, skipped: 1 });
+  expect(result).toEqual({ added: 1, skipped: 1, notesAdded: 0, notesSkipped: 0 });
   expect((await store.get('card1'))!.name).toBe('Mine');
   expect((await store.get('card2'))!.name).toBe('Gym');
 });
@@ -34,7 +34,7 @@ test('merge keeps cards already on the phone and adds the rest', async () => {
 test('merge of a backup with nothing new is a no-op', async () => {
   const { store } = await makeStore();
   await applySnapshot(store, backupSnapshot(), 'merge');
-  expect(await applySnapshot(store, backupSnapshot(), 'merge')).toEqual({ added: 0, skipped: 2 });
+  expect(await applySnapshot(store, backupSnapshot(), 'merge')).toEqual({ added: 0, skipped: 2, notesAdded: 0, notesSkipped: 0 });
   expect(await store.count()).toBe(2);
 });
 
@@ -43,7 +43,7 @@ test('replace drops cards that are not in the backup', async () => {
   await store.create(fields({ name: 'A' }), images('a'));
   await store.create(fields({ name: 'B' }), images('b'));
   await store.create(fields({ name: 'C' }), images('c'));
-  expect(await applySnapshot(store, backupSnapshot(), 'replace')).toEqual({ added: 2, skipped: 0 });
+  expect(await applySnapshot(store, backupSnapshot(), 'replace')).toEqual({ added: 2, skipped: 0, notesAdded: 0, notesSkipped: 0 });
   expect((await store.list()).map((c) => c.name)).toEqual(['Emirates ID', 'Gym']);
 });
 
@@ -86,7 +86,7 @@ test('merge adds the backup\'s folders even when every card is already on the ph
   const { store } = await makeStore();
   await applySnapshot(store, backupSnapshot(), 'merge');
   const snapshot = { ...backupSnapshot(), folders: [{ id: 'f1', name: 'Family', createdAt: 1 }] };
-  expect(await applySnapshot(store, snapshot, 'merge')).toEqual({ added: 0, skipped: 2 });
+  expect(await applySnapshot(store, snapshot, 'merge')).toEqual({ added: 0, skipped: 2, notesAdded: 0, notesSkipped: 0 });
   expect((await store.listFolders()).map((f) => f.name)).toEqual(['Family']);
 });
 

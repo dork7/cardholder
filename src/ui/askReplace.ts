@@ -10,7 +10,7 @@ export function askReplace(name: string): Promise<'replace' | 'keep' | 'cancel'>
       [
         { text: strings.common.cancel, style: 'cancel', onPress: () => resolve('cancel') },
         { text: strings.edit.keepBoth, onPress: () => resolve('keep') },
-        { text: strings.edit.replace, onPress: () => resolve('replace') },
+        { text: strings.edit.replace, style: 'destructive', onPress: () => resolve('replace') },
       ],
       { cancelable: true, onDismiss: () => resolve('cancel') },
     ),

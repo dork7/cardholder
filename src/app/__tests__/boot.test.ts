@@ -27,10 +27,12 @@ test('bootFresh gives a working empty store that boots ready next time', async (
   if (first.status !== 'ready') throw new Error('expected ready');
   await first.services.store.create(fields(), images('a'));
 
+  await first.services.notes.save('note', { title: '', body: 'Old private note' });
   const vault = createMemoryVault();
   const services = await bootFresh({ db, blobs, vault });
   expect(await services.store.count()).toBe(0);
   expect(blobs.raw.size).toBe(0);
+  expect(await services.notes.list()).toEqual([]);
   await services.store.create(fields({ name: 'New' }), images('b'));
 
   const again = await boot({ db, blobs, vault });

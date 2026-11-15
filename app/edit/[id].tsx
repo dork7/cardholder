@@ -596,7 +596,7 @@ export default function EditCard() {
         {/* Pinned below the scroll so both actions are always in thumb reach and ride above the keyboard;
             Close on the left, the primary action last on the right. */}
         <View style={[styles.inset, { paddingBottom: 8 + insets.bottom }]}>
-          <Panel style={styles.bar} radius={28}>
+          <Panel style={styles.bar}>
             <View style={styles.action}>
               <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} testID="close-edit" />
             </View>
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   group: { padding: 16, gap: 20 },
   busyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   danger: { marginTop: 28 },
-  offer: { gap: 8, padding: 16, borderRadius: 16 },
+  offer: { gap: 8, padding: 16 },
   inset: { paddingHorizontal: 16, paddingTop: 8 },
   bar: { flexDirection: 'row', gap: 12, padding: 8 },
   action: { flex: 1 },

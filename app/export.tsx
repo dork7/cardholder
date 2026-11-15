@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ComponentRef, useRef, useState } from 'react';
+import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { encodeBackup } from '../src/backup/backupFile';
@@ -25,6 +25,10 @@ export default function ExportScreen() {
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [noteCount, setNoteCount] = useState<number | null>(null);
+  useEffect(() => {
+    services.notes.list().then((notes) => setNoteCount(notes.length)).catch(() => {});
+  }, [services]);
   const running = useRef(false); // synchronous guard against a double tap starting two exports
   const confirmRef = useRef<ComponentRef<typeof TextInput>>(null);
 
@@ -41,8 +45,9 @@ export default function ExportScreen() {
     setError(null);
     setBusy(true);
     try {
+      await services.noteEditors.flushAll();
       const now = Date.now();
-      const bytes = await encodeBackup(await buildSnapshot(services.store, now), passphrase);
+      const bytes = await encodeBackup(await buildSnapshot(services.store, now, services.notes), passphrase);
       if (how === 'send') {
         await shareBackupFile(bytes, new Date(now));
         Alert.alert(strings.export.sent);
@@ -69,6 +74,7 @@ export default function ExportScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Panel style={styles.group}>
             <Text style={[styles.body, { color: theme.text }]}>{strings.export.intro}</Text>
+            {noteCount !== null && <Text style={[styles.body, { color: theme.text }]}>{strings.notes.backupSummary(noteCount)}</Text>}
             <Text style={[styles.body, styles.warning, { color: theme.danger }]}>{strings.export.warning}</Text>
           </Panel>
           <Panel style={styles.group}>

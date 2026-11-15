@@ -7,7 +7,7 @@ import { useCardImage } from '../hooks/useCardImage';
 import { strings } from '../strings';
 import { ExpiryAlert } from './ExpiryAlert';
 import { Text } from './Text';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TYPE, useTheme } from './theme';
 import { CardPicture } from './CardPicture';
 
 interface Props {
@@ -114,8 +114,8 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
                   d="M5 12.5l4.5 4.5L19 7.5"
                   stroke={theme.onAccent}
                   strokeWidth={3}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                  strokeLinecap="square"
+                  strokeLinejoin="miter"
                 />
               </Svg>
             )}
@@ -132,8 +132,8 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
   );
 }
 
-// The picture sits inside the tile's 3 pt selection border, so its corners are that much tighter.
-const PICTURE_INNER_RADIUS = 13;
+// The real card's corner at tile size; the 3 pt selection border around it is square.
+const PICTURE_INNER_RADIUS = 6;
 
 const styles = StyleSheet.create({
   list: { flex: 1, alignSelf: 'stretch' },
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   // ID-1 proportions, like the cards in the stack.
   picture: {
     aspectRatio: 1.585,
-    borderRadius: 16,
+    borderRadius: RADIUS.none,
     borderWidth: 3,
     overflow: 'hidden',
     marginBottom: 4,
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     right: 6,
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: RADIUS.sm,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

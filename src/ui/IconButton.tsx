@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { ActionIconName, RetroIcon } from './RetroIcon';
 import { Text } from './Text';
-import { TYPE, useTheme } from './theme';
+import { RADIUS, TYPE, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 
 export type IconName = ActionIconName;
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   base: {
     flex: 1,
     minHeight: 56,
-    borderRadius: 9999,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

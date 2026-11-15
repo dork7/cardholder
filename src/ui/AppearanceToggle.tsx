@@ -3,7 +3,7 @@ import { RetroIcon } from './RetroIcon';
 import { useApp } from '../app/AppProvider';
 import { strings } from '../strings';
 import { nextAppearance } from './appearance';
-import { useTheme } from './theme';
+import { RADIUS, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 
 // Cycles System → Light → Dark. The icon shows the current choice, not the one a tap leads to.
@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
   button: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.sm,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',

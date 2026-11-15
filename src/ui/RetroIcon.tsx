@@ -6,10 +6,10 @@ export type RetroIconName = 'backup' | 'documents' | 'lock' | 'appearance' | 'bl
 // Action icons for IconButton: one colour, drawn with outline cells only.
 export type ActionIconName = 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'tag' | 'pdf' | 'refresh';
 type Name = RetroIconName | ActionIconName | 'appearance-light' | 'appearance-dark';
-type Tone = 'outline' | 'amber' | 'paper';
+type Tone = 'outline' | 'tint' | 'paper';
 
 // Every icon is a 12 x 12 grid of cells, each 2 px in the 24 px box, so the pixels stay whole at
-// every screen density. o = outline (text colour), a = amber accent, p = paper (the background
+// every screen density. o = outline (text colour), a = taupe tint (decorative), p = paper (the background
 // showing through, drawn so it stays visible on a filled button), . = nothing. Same letters as
 // the logo in PixelLogo.tsx.
 export const ICON_GRIDS: Record<Name, string[]> = {
@@ -73,7 +73,7 @@ export const ICON_GRIDS: Record<Name, string[]> = {
     '.oaaaaaaaao.',
     '.oooooooooo.',
   ],
-  // Appearance: a disc that is half amber, half paper (follow the system).
+  // Appearance: a disc that is half tint, half paper (follow the system).
   appearance: [
     '....oooo....',
     '..ooaappoo..',
@@ -301,7 +301,7 @@ export const ICON_GRIDS: Record<Name, string[]> = {
 };
 
 const CELL = 2;
-const TONES: Record<string, Tone> = { o: 'outline', a: 'amber', p: 'paper' };
+const TONES: Record<string, Tone> = { o: 'outline', a: 'tint', p: 'paper' };
 
 // One path per tone: a 2 x 2 square for each cell of that letter.
 function layers(grid: string[]): Partial<Record<Tone, string>> {
@@ -330,7 +330,7 @@ export function RetroIcon({ name, size = 24, color, backgroundColor, appearance 
   const theme = useTheme();
   const fills: Record<Tone, string> = {
     outline: color ?? theme.text,
-    amber: color ?? theme.accent,
+    tint: color ?? theme.ornament,
     paper: backgroundColor ?? theme.bg,
   };
   const key: Name = name === 'appearance' && appearance && appearance !== 'system' ? `appearance-${appearance}` : name;

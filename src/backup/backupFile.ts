@@ -1,3 +1,4 @@
+import { isBlankNote, Note } from '../notes/noteStore';
 import { ImportEntry } from '../cards/cardStore';
 import { Card, CardImage, Folder, looksVertical, PdfDocument } from '../cards/types';
 import { validateCardFields } from '../cards/validate';
@@ -12,6 +13,7 @@ export interface BackupSnapshot {
   formatVersion: 1;
   exportedAt: number;
   cards: BackupCard[];
+  notes?: Note[]; // absent in older backups; decoded as an empty collection
   folders: Folder[]; // absent from backups made before folders; read as none
 }
 
@@ -161,10 +163,24 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
   return { card, images: { front: { ...front, thumbJpegBase64: thumb }, back, ...(pdf && { pdf }) } };
 }
 
+function parseNote(value: unknown, seen: Set<string>): Note {
+  if (!isObject(value) || typeof value.id !== 'string' || !ID_PATTERN.test(value.id) ||
+      typeof value.title !== 'string' || typeof value.body !== 'string' ||
+      typeof value.pinned !== 'boolean' || !isNumber(value.createdAt) || !isNumber(value.updatedAt)) invalid();
+  const note: Note = { id: value.id, title: value.title, body: value.body, pinned: value.pinned,
+    createdAt: value.createdAt, updatedAt: value.updatedAt };
+  if (isBlankNote(note) || seen.has(note.id.toLowerCase())) invalid();
+  seen.add(note.id.toLowerCase());
+  return note;
+}
+
 export function parseSnapshot(value: unknown): BackupSnapshot {
   if (!isObject(value) || value.formatVersion !== 1 || !isNumber(value.exportedAt) || !Array.isArray(value.cards)) {
     invalid();
   }
+  if (value.notes !== undefined && !Array.isArray(value.notes)) invalid();
+  const seenNotes = new Set<string>();
+  const notes = (value.notes ?? []).map((note) => parseNote(note, seenNotes));
   if (value.folders !== undefined && !Array.isArray(value.folders)) invalid();
   const seenFolders = new Set<string>();
   const folders = (value.folders ?? []).map((f) => parseFolder(f, seenFolders));
@@ -176,5 +192,5 @@ export function parseSnapshot(value: unknown): BackupSnapshot {
     if (parsed.card.folderId !== null && !folderIds.has(parsed.card.folderId)) parsed.card.folderId = null;
     return parsed;
   });
-  return { formatVersion: 1, exportedAt: value.exportedAt, cards, folders };
+  return { formatVersion: 1, exportedAt: value.exportedAt, cards, folders, notes };
 }
