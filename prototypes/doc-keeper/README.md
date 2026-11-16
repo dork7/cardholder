@@ -25,7 +25,13 @@ Open **http://127.0.0.1:4178/prototypes/doc-keeper/**. Requires Python 3. You ca
 
 “Apple isomorphic” is interpreted as Apple-inspired materials and familiar native interaction patterns, adapted as a visual study for the existing Android app. The Swiss direction follows the current app’s identity; the other directions deliberately explore alternatives to its visual restrictions.
 
-Switch directions with the floating arrow controls, the left navigation, or the keyboard’s left/right arrows. Keyboard shortcuts leave text inputs and dialogs alone. The current screen and direction stay in the URL (`?variant=apple&screen=document`). At phone widths, both screen and direction navigation scroll horizontally above the preview.
+Switch directions with the floating arrow controls, the left navigation, or the keyboard’s left/right arrows. Keyboard shortcuts leave text inputs and dialogs alone. The current screen and direction stay in the URL (`?variant=apple&screen=document`). Sheets also keep their opening screen in `from` (for example, `?variant=swiss&screen=edit&from=document`). At phone widths, both screen and direction navigation scroll horizontally above the preview.
+
+## Bottom-sheet study
+
+Add/edit/shared document, note editing, tags, backup export/import, Unlimited, Privacy and Problems open as bottom sheets over their launching screen. Close them with the close control, Cancel where available, the backdrop or Escape. Long forms scroll inside the sheet while their action stays at the bottom. The inspector can open each sheet directly; it uses a representative launching screen for that link.
+
+The main library, notes, folders, settings, document/PDF viewers, counter presentation, lock, loading, crash and recovery remain full-screen. These screens need room for reading, presenting or resolving an interruption. In the production app, the document editor and backup flows should be tested with the keyboard and small devices before adopting the sheet pattern; their length may justify full-screen routes.
 
 ## Screen coverage
 
