@@ -26,6 +26,7 @@ import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
 import { SORT_LABELS, SortSheet } from '../src/ui/SortSheet';
 import { HomeActionBar } from '../src/ui/HomeActionBar';
+import { UndoBar } from '../src/ui/UndoBar';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { PixelLogo } from '../src/ui/PixelLogo';
@@ -50,6 +51,7 @@ export default function Home() {
     homeFolders,
     services,
     refresh,
+    undo,
     stackVertical,
     warnIdShare,
     setWarnIdShare,
@@ -384,6 +386,7 @@ export default function Home() {
         </View>
       ) : (
         <View style={[styles.dock, { paddingBottom: insets.bottom + 16 }]}>
+          <UndoBar undo={undo} />
           <HomeActionBar
             gallery={gallery === 'gallery'}
             onAddImage={addCard}

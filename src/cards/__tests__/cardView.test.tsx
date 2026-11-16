@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { Alert, StyleSheet } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import CardView from '../../../app/card/[id]';
+import { Removal } from '../../app/undo';
 import { strings } from '../../strings';
 
 const mockPush = jest.fn();
@@ -56,6 +57,8 @@ jest.mock('../../share/shareCard', () => ({
 jest.mock('../../analysis/readPhoto', () => ({ canReadText: true, readPhotoText: async (jpeg: string) => `TEXT ${jpeg}` }));
 // Stable like the real provider's memoised value; a fresh object per render would reload images forever.
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
+const mockRestore = jest.fn((_id: string) => Promise.resolve());
+const mockOffer = jest.fn((_removal: Removal) => {});
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
 const mockUpdate = jest.fn((_id: string, _fields: { tags: string[] }) => Promise.resolve());
 const mockServices = {
@@ -63,6 +66,7 @@ const mockServices = {
     loadImage: (id: string, side: string) => mockLoadImage(id, side),
     loadPdf: (id: string) => Promise.resolve(`${id}-pdf`),
     moveToRecentlyDeleted: (id: string) => mockRemove(id),
+    restore: (id: string) => mockRestore(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
     update: (id: string, fields: { tags: string[] }) => mockUpdate(id, fields),
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
@@ -76,6 +80,7 @@ jest.mock('../../app/AppProvider', () => ({
     cards: mockCards,
     folders: [],
     refresh: () => mockRefresh(),
+    undo: { offer: (removal: Removal) => mockOffer(removal) },
     warnIdShare: mockWarnIdShare,
     setWarnIdShare: (on: boolean) => mockSetWarnIdShare(on),
   }),
@@ -180,15 +185,33 @@ describe('actions', () => {
     expect(mockPush).toHaveBeenCalledWith('/edit/card1');
   });
 
-  test('Delete asks first; confirming removes the card and goes back', async () => {
+  test('Delete removes the card at once, with no dialog, goes back and offers Undo', async () => {
     await render(<CardView />);
     await pressInMore(strings.edit.deleteCard);
-    expect(alert).toHaveBeenCalledWith(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, expect.any(Array));
-    expect(mockRemove).not.toHaveBeenCalled();
-    await pressInAlert(strings.common.delete);
+    expect(alert).not.toHaveBeenCalled();
     expect(mockRemove).toHaveBeenCalledWith('card1');
     expect(mockRefresh).toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();
+    expect(mockOffer).toHaveBeenCalledWith(expect.objectContaining({ message: 'Deleted Gym' }));
+  });
+
+  test('Undo brings the deleted card back from Recently deleted', async () => {
+    await render(<CardView />);
+    await pressInMore(strings.edit.deleteCard);
+    mockRefresh.mockClear();
+    await mockOffer.mock.calls[0][0].undo();
+    expect(mockRestore).toHaveBeenCalledWith('card1');
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  test('a delete that fails says so, stays on the card and offers no Undo', async () => {
+    mockRemove.mockRejectedValueOnce(new Error('disk'));
+    jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
+    await render(<CardView />);
+    await pressInMore(strings.edit.deleteCard);
+    expect(alert).toHaveBeenCalledWith(strings.common.error);
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockOffer).not.toHaveBeenCalled();
   });
 
   test('Quick share hands the whole card to the share sheet; an ID asks first', async () => {
@@ -269,13 +292,6 @@ describe('actions', () => {
     expect(screen.queryByTestId('send-card')).toBeNull();
   });
 
-  test('cancelling the delete keeps the card', async () => {
-    await render(<CardView />);
-    await pressInMore(strings.edit.deleteCard);
-    await pressInAlert(strings.common.cancel);
-    expect(mockRemove).not.toHaveBeenCalled();
-    expect(mockBack).not.toHaveBeenCalled();
-  });
 });
 
 test('Pin puts the card on the home page; a pinned card offers Unpin', async () => {

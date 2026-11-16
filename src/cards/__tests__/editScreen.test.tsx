@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { frontImage, image, makeCard } from '../../../test/fixtures';
 import EditCard from '../../../app/edit/[id]';
 import { Folder } from '../types';
+import { Removal } from '../../app/undo';
 import { strings } from '../../strings';
 import { setPendingShared, takePendingShared } from '../../share/sharedIn';
 
@@ -42,11 +43,14 @@ jest.mock('expo-router', () => ({
   },
 }));
 // Stable like the real provider's memoised value; a fresh object per render would reload the PDF forever.
+const mockRestore = jest.fn((..._a: unknown[]) => Promise.resolve());
+const mockOffer = jest.fn((_removal: Removal) => {});
 const mockServices = {
   store: {
     create: (...a: unknown[]) => mockCreate(...a),
     update: (...a: unknown[]) => mockUpdate(...a),
     moveToRecentlyDeleted: (...a: unknown[]) => mockRemove(...a),
+    restore: (...a: unknown[]) => mockRestore(...a),
     createFolder: (...a: unknown[]) => mockCreateFolder(...a),
     listFolders: () => mockListFolders(),
     loadImage: () => Promise.resolve(null),
@@ -60,6 +64,7 @@ jest.mock('../../app/AppProvider', () => ({
     folders: mockFolders,
     unlocked: false,
     refresh: () => mockRefresh(),
+    undo: { offer: (removal: Removal) => mockOffer(removal) },
   }),
 }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
@@ -215,8 +220,6 @@ describe('leaving with unsaved changes', () => {
     await render(<EditCard />);
     await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym pass');
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    const confirm = alert.mock.calls.find(([title]) => title === strings.edit.deleteConfirmTitle)?.[2];
-    await act(async () => confirm[1].onPress());
     expect(mockDisablePrevention).toHaveBeenCalled();
     expect(mockDismissAll).toHaveBeenCalledTimes(1);
   });
@@ -500,14 +503,20 @@ describe("the card's tags", () => {
 describe('deleting', () => {
   async function confirmDelete() {
     mockParams = { id: 'card1' };
-    mockCards = [makeCard()];
+    mockCards = [makeCard({ name: 'Gym' })];
     await render(<EditCard />);
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => Promise<void> }[];
-    const destructive = buttons.find((b) => b.text === strings.common.delete)!;
-    alert.mockClear();
-    await act(async () => destructive.onPress!());
   }
+
+  test('Delete removes the card at once, with no dialog, returns home and offers Undo', async () => {
+    await confirmDelete();
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockRemove).toHaveBeenCalledWith('card1');
+    expect(mockDismissAll).toHaveBeenCalledTimes(1);
+    expect(mockOffer).toHaveBeenCalledWith(expect.objectContaining({ message: 'Deleted Gym' }));
+    await mockOffer.mock.calls[0][0].undo();
+    expect(mockRestore).toHaveBeenCalledWith('card1');
+  });
 
   test('a failed removal shows the generic error and stays on the screen', async () => {
     mockRemove.mockRejectedValue(new Error('io error'));
@@ -515,6 +524,7 @@ describe('deleting', () => {
     expect(alert).toHaveBeenCalledWith(strings.common.error);
     expect(mockRefresh).not.toHaveBeenCalled();
     expect(mockDismissAll).not.toHaveBeenCalled();
+    expect(mockOffer).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
   });
 

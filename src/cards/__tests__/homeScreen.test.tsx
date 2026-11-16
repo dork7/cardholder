@@ -90,8 +90,10 @@ jest.mock('../../app/AppProvider', () => ({
     homeFolders: mockHomeFolders,
     refresh: mockRefresh,
     stackVertical: mockStackVertical,
+    undo: mockUndo,
   }),
 }));
+const mockUndo: import('../../app/undo').Undo = jest.requireActual('../../app/undo').createUndo();
 
 beforeEach(() => {
   mockWarnIdShare = true;
@@ -743,5 +745,49 @@ describe('gesture tips', () => {
       await act(async () => {});
       expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
     });
+  });
+});
+
+describe('Undo bar', () => {
+  afterEach(() => act(() => mockUndo.end()));
+
+  test('nothing removed, no Undo bar', async () => {
+    await render(<Home />);
+    expect(screen.queryByTestId('undo-bar')).toBeNull();
+  });
+
+  test('says what was deleted, is announced, and its labelled Undo button puts it back', async () => {
+    const putBack = jest.fn(() => Promise.resolve());
+    await render(<Home />);
+    await act(() => mockUndo.offer({ message: 'Deleted Gym', undo: putBack }));
+    const message = within(screen.getByTestId('undo-bar')).getByText('Deleted Gym');
+    expect(message.props.accessibilityLiveRegion).toBe('polite');
+    await fireEvent.press(screen.getByRole('button', { name: strings.undo.undo }));
+    expect(putBack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('undo-bar')).toBeNull();
+  });
+
+  test('goes away by itself after 5 seconds', async () => {
+    jest.useFakeTimers();
+    try {
+      await render(<Home />);
+      await act(() => mockUndo.offer({ message: 'Deleted Gym', undo: () => Promise.resolve() }));
+      expect(screen.getByTestId('undo-bar')).toBeTruthy();
+      await act(() => jest.advanceTimersByTime(5000));
+      expect(screen.queryByTestId('undo-bar')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('an Undo that fails says so', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await render(<Home />);
+    await act(() => mockUndo.offer({ message: 'Deleted Gym', undo: () => Promise.reject(new Error('disk')) }));
+    await fireEvent.press(screen.getByRole('button', { name: strings.undo.undo }));
+    expect(alert).toHaveBeenCalledWith(strings.common.error);
+    alert.mockRestore();
+    warn.mockRestore();
   });
 });
