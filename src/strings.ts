@@ -51,7 +51,7 @@ export const strings = {
     },
     // Batch actions know how many cards failed, not why.
     deleteMany: (n: number) => ({
-      title: `Couldn't delete ${n} ${plural(n, 'card', 'cards')}`,
+      title: `Couldn't delete ${n} ${plural(n, 'document', 'documents')}`,
       body: 'Select them and try deleting again.',
     }),
     pinMany: (n: number) => ({
@@ -122,8 +122,6 @@ export const strings = {
     selectAction: 'Select', // the screen-reader action that starts selecting, as a long-press does
     selected: (n: number) => `${n} selected`,
     deleteSelected: 'Delete',
-    deleteSelectedTitle: (n: number) => `Delete ${n} ${plural(n, 'card', 'cards')}?`,
-    deleteSelectedBody: (n: number) => `${plural(n, 'It is', 'They are')} kept in Recently deleted for 30 days, then erased.`,
     selectionFailed: (n: number) => `${n} ${plural(n, "card couldn't", "cards couldn't")} be changed. Try again.`,
     pinSelected: 'Pin to home',
     unpinSelected: 'Unpin from home',
@@ -453,6 +451,7 @@ export const strings = {
   },
   undo: {
     deleted: (name: string) => `Deleted ${name}`,
+    deletedMany: (n: number) => `Deleted ${n} ${plural(n, 'document', 'documents')}`,
     undo: 'Undo',
     undoHint: 'Puts back what was just removed.',
   },

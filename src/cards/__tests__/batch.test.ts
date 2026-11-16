@@ -1,5 +1,5 @@
 import { fields, images, makeStore } from '../../../test/fixtures';
-import { addTags, overTagLimit, removeAll, removeTag, removeTagEverywhere, shouldUnpin, togglePinned, withTags } from '../batch';
+import { addTags, overTagLimit, removeTag, removeTagEverywhere, shouldUnpin, togglePinned, withTags } from '../batch';
 import { sortCards } from '../listing';
 
 // Three cards, none pinned: new cards start pinned, and these tests are about pinning them.
@@ -46,22 +46,6 @@ test('takes a tag off every card that has it, and keeps everything else about th
   expect(after.get(b.id)).toMatchObject({ tags: ['Work'], name: 'B', expiresOn: '2027-01-01' });
   expect(after.get(c.id)?.tags).toEqual(['Work']);
   expect(await store.loadImage(b.id, 'front')).not.toBeNull();
-});
-
-test('deletes only the cards given, moving them to Recently deleted', async () => {
-  const { store, a, b, c, byId } = await threeCards();
-  expect(await removeAll(store, [a, c])).toBe(0);
-  expect([...(await byId()).keys()]).toEqual([b.id]);
-  expect((await store.listRecentlyDeleted()).map((x) => x.id).sort()).toEqual([a.id, c.id].sort());
-});
-
-test('one failure does not stop the rest, and is counted', async () => {
-  const { store, a, b, c, byId } = await threeCards();
-  const flaky = { ...store, moveToRecentlyDeleted: (id: string) => (id === b.id ? Promise.reject(new Error('disk')) : store.moveToRecentlyDeleted(id)) };
-  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-  expect(await removeAll(flaky, [a, b, c])).toBe(1);
-  warn.mockRestore();
-  expect([...(await byId()).keys()]).toEqual([b.id]);
 });
 
 describe('tags', () => {

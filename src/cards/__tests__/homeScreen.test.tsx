@@ -52,6 +52,7 @@ let mockHomeView: string | null = null;
 let mockSeenTips: string | null = null;
 let mockStackVertical = false;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
+const mockRestore = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
 const mockUpdate = jest.fn((_id: string, _fields: { tags?: string[] }) => Promise.resolve());
 const mockRefresh = jest.fn(() => Promise.resolve());
@@ -62,6 +63,7 @@ const mockServices = {
     loadImage: (id: string, side: string) => Promise.resolve(`${id}-${side}`),
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
     moveToRecentlyDeleted: (id: string) => mockRemove(id),
+    restore: (id: string) => mockRestore(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
     update: (id: string, fields: { tags?: string[] }) => mockUpdate(id, fields),
     count: () => Promise.resolve(mockCards.length),
@@ -101,6 +103,7 @@ beforeEach(() => {
   mockPush.mockClear();
   mockSettingsSet.mockClear();
   mockRemove.mockClear();
+  mockRestore.mockClear();
   mockShareCards.mockClear();
   mockSetPinned.mockClear();
   mockUpdate.mockClear();
@@ -411,24 +414,108 @@ describe('gallery view', () => {
     expect(screen.getByTestId('grid-a').props.accessibilityActions).toBeUndefined();
   });
 
-  test('deletes only the selected cards, after a confirmation', async () => {
-    await showGallery();
-    await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
-    await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
-    await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
-    expect(alert).toHaveBeenCalledWith(
-      strings.home.deleteSelectedTitle(2),
-      strings.home.deleteSelectedBody(2),
-      expect.any(Array),
-    );
-    await answer(strings.common.cancel);
-    expect(mockRemove).not.toHaveBeenCalled();
+  describe('deleting a selection', () => {
+    afterEach(() => act(() => mockUndo.end()));
 
-    await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
-    await answer(strings.common.delete);
-    expect(mockRemove.mock.calls.map(([id]) => id)).toEqual(['a', 'c']);
-    expect(mockRefresh).toHaveBeenCalled();
-    expect(screen.queryByTestId('selection-bar')).toBeNull();
+    test('deletes the selected documents at once, with no dialog, and ends selection', async () => {
+      await showGallery();
+      await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
+      await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
+      await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+      expect(alert).not.toHaveBeenCalled();
+      expect(mockRemove.mock.calls.map(([id]) => id).sort()).toEqual(['a', 'c']);
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(screen.queryByTestId('selection-bar')).toBeNull();
+    });
+
+    test('the Undo bar counts them, and one Undo restores every one', async () => {
+      await showGallery();
+      await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
+      await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
+      await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+      expect(within(screen.getByTestId('undo-bar')).getByText('Deleted 2 documents')).toBeTruthy();
+      mockRefresh.mockClear();
+      await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.undo.undo })));
+      expect(mockRestore.mock.calls.map(([id]) => id).sort()).toEqual(['a', 'c']);
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(screen.queryByTestId('undo-bar')).toBeNull();
+    });
+
+    test('after 5 seconds the delete is final: the bar goes and nothing is restored', async () => {
+      jest.useFakeTimers();
+      try {
+        await showGallery();
+        await act(async () => fireEvent(screen.getByTestId('grid-b'), 'longPress'));
+        await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+        expect(screen.getByTestId('undo-bar')).toBeTruthy();
+        await act(() => jest.advanceTimersByTime(5000));
+        expect(screen.queryByTestId('undo-bar')).toBeNull();
+        expect(mockRestore).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('a later removal replaces the offer, so Undo can only bring back the later one', async () => {
+      await showGallery();
+      await select('a', 'b');
+      await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+      await select('c');
+      await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+      expect(within(screen.getByTestId('undo-bar')).getByText('Deleted Gym')).toBeTruthy();
+      await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.undo.undo })));
+      expect(mockRestore.mock.calls.map(([id]) => id)).toEqual(['c']);
+    });
+
+    test('documents that fail to delete are counted, and Undo offers only the rest', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockRemove.mockImplementation((id: string) => (id === 'a' ? Promise.reject(new Error('disk')) : Promise.resolve()));
+      try {
+        await showGallery();
+        await select('a', 'b', 'c');
+        await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+        const { title, body } = strings.errors.deleteMany(1);
+        expect(alert).toHaveBeenCalledWith(title, body);
+        expect(title).toBe("Couldn't delete 1 document");
+        expect(within(screen.getByTestId('undo-bar')).getByText('Deleted 2 documents')).toBeTruthy();
+        await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.undo.undo })));
+        expect(mockRestore.mock.calls.map(([id]) => id).sort()).toEqual(['b', 'c']);
+      } finally {
+        mockRemove.mockImplementation(() => Promise.resolve());
+        warn.mockRestore();
+      }
+    });
+
+    test('when none can be deleted there is nothing to undo', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockRemove.mockImplementation(() => Promise.reject(new Error('disk')));
+      try {
+        await showGallery();
+        await select('a');
+        await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+        expect(alert).toHaveBeenCalledWith(strings.errors.deleteMany(1).title, strings.errors.deleteMany(1).body);
+        expect(screen.queryByTestId('undo-bar')).toBeNull();
+      } finally {
+        mockRemove.mockImplementation(() => Promise.resolve());
+        warn.mockRestore();
+      }
+    });
+
+    test('an Undo that cannot restore every document says so', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockRestore.mockImplementation((id: string) => (id === 'a' ? Promise.reject(new Error('disk')) : Promise.resolve()));
+      try {
+        await showGallery();
+        await select('a', 'c');
+        await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+        await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.undo.undo })));
+        expect(mockRestore.mock.calls.map(([id]) => id).sort()).toEqual(['a', 'c']);
+        expect(alert).toHaveBeenCalledWith(strings.errors.actions.undo.title, strings.errors.actions.undo.body);
+      } finally {
+        mockRestore.mockImplementation(() => Promise.resolve());
+        warn.mockRestore();
+      }
+    });
   });
 
   test('a filter that hides a selected card leaves it out of the delete', async () => {
@@ -438,8 +525,8 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Insurance' })));
     expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
-    await answer(strings.common.delete);
     expect(mockRemove.mock.calls.map(([id]) => id)).toEqual(['b']);
+    await act(() => mockUndo.end());
   });
 
   // The grid's cards, in the order shown.
