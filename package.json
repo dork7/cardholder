@@ -59,7 +59,8 @@
     "android": "expo run:android",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "test-files": "bash scripts/push-test-files.sh"
+    "test-files": "bash scripts/push-test-files.sh",
+    "prototypes": "python3 -m http.server 4178 --bind 127.0.0.1"
   },
   "private": true
 }
