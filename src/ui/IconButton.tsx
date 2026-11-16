@@ -35,7 +35,7 @@ export function IconButton({ icon, label, caption, hint, onPress, variant = 'sec
       onLongPress={onLongPress}
       testID={testID}
       hitSlop={4}
-      style={({ pressed }) => [styles.base, { borderColor: outline, opacity: disabled ? 0.4 : pressed ? 0.7 : 1 }]}
+      style={({ pressed }) => [styles.base, { backgroundColor: theme.glassStrong, borderColor: outline, opacity: disabled ? 0.4 : pressed ? 0.7 : 1 }]}
     >
       <RetroIcon name={icon} size={24} color={color} />
       {caption && (

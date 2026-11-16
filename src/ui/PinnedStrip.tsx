@@ -22,7 +22,7 @@ export function PinnedStrip({ cards, onOpen }: Props) {
   const now = new Date();
   return (
     <View style={styles.section} testID="pinned-strip">
-      <Text style={[styles.heading, { color: theme.muted }]} accessibilityRole="header">
+      <Text style={[styles.heading, { color: theme.text }]} accessibilityRole="header">
         {strings.home.pinned}
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroller} contentContainerStyle={styles.row}>
@@ -47,7 +47,7 @@ function PinnedTile({ card, now, onPress }: { card: Card; now: Date; onPress: ()
       accessibilityRole="button"
       accessibilityLabel={note ? `${strings.home.openCard(name)}, ${note}` : strings.home.openCard(name)}
       testID={`pinned-${card.id}`}
-      style={({ pressed }) => [styles.tile, { backgroundColor: theme.bannerBg, opacity: pressed ? 0.7 : 1 }]}
+      style={({ pressed }) => [styles.tile, { backgroundColor: theme.glassStrong, borderColor: theme.border, opacity: pressed ? 0.7 : 1 }]}
     >
       <View style={[styles.thumb, { backgroundColor: theme.bg }]}>
         {uri && <CardPicture uri={uri} vertical={card.vertical} blurPreview={card.blurPreview} />}
@@ -74,12 +74,12 @@ function PinnedTile({ card, now, onPress }: { card: Card; now: Date; onPress: ()
 
 const styles = StyleSheet.create({
   section: { gap: 8 },
-  // Label caps: the small tracked label that names a section, set flush with the column.
-  heading: { fontSize: TYPE.caption, fontWeight: '600', letterSpacing: TRACKING.caps, textTransform: 'uppercase' },
+  // A plain section title keeps the document names prominent.
+  heading: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight },
   // A horizontal ScrollView otherwise grows to fill a column.
   scroller: { flexGrow: 0 },
-  row: { gap: 8 },
-  tile: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, padding: 6, paddingRight: 16, borderRadius: RADIUS.sm, maxWidth: 240 },
+  row: { gap: 10 },
+  tile: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 62, padding: 8, paddingRight: 16, borderRadius: RADIUS.md, borderWidth: 1, maxWidth: 260 },
   // ID-1 proportions with the real card's corner (3.7% of 64 pt).
   thumb: { width: 64, height: 40, borderRadius: 2.4, overflow: 'hidden' },
   alert: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },

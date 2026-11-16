@@ -24,7 +24,7 @@ export interface ButtonProps {
 export function Button({ icon, label, onPress, onLongPress, variant = 'primary', disabled = false, testID, accessibilityLabel, accessibilityHint }: ButtonProps) {
   const theme = useTheme();
   const primary = variant === 'primary';
-  // The filled ink is for the primary action only; a secondary button is white text in a grey outline.
+  // Primary actions use the blue fill; secondary actions sit on a translucent surface.
   const labelColor = primary ? theme.onAccent : variant === 'danger' ? theme.danger : theme.text;
   // The outline is what shows where a transparent button is, so it needs 3:1 against the page
   // (hairline `border` is far too faint for that): mid grey for secondary, red for danger.
@@ -53,14 +53,14 @@ export function Button({ icon, label, onPress, onLongPress, variant = 'primary',
       style={({ pressed }) => [
         styles.base,
         {
-          backgroundColor: primary ? theme.accent : 'transparent',
+          backgroundColor: primary ? theme.accent : theme.glassStrong,
           borderColor: outline,
           opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
         },
       ]}
     >
       {onLongPress && <Animated.View style={[styles.fill, { backgroundColor: fillColor }, fill]} pointerEvents="none" testID={testID && `${testID}-fill`} />}
-      {icon && <RetroIcon name={icon} size={24} color={primary ? labelColor : undefined} backgroundColor={primary ? theme.accent : undefined} />}
+      {icon && <RetroIcon name={icon} size={24} color={primary ? labelColor : undefined} />}
       <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
     </Pressable>
   );

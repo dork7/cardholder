@@ -35,7 +35,7 @@ export function TagChips({ tags, selected, onPress, includeAll = false, multiple
             testID={option === null ? 'tag-chip-all' : `tag-chip-${option}`}
             style={[
               styles.chip,
-              { backgroundColor: on ? theme.accent : theme.bannerBg },
+              { backgroundColor: on ? theme.accent : theme.glass, borderColor: on ? theme.accent : theme.border },
             ]}
           >
             <Text style={[styles.text, { color: on ? theme.onAccent : theme.text, fontWeight: on ? '700' : '400' }]}>
@@ -50,7 +50,7 @@ export function TagChips({ tags, selected, onPress, includeAll = false, multiple
           accessibilityRole="button"
           accessibilityLabel={strings.edit.newTag}
           testID="tag-add"
-          style={[styles.chip, { backgroundColor: theme.bannerBg }]}
+          style={[styles.chip, { backgroundColor: theme.glass, borderColor: theme.border }]}
         >
           <Text style={[styles.text, { color: theme.text }]}>+ {strings.edit.newTagChip}</Text>
         </Pressable>
@@ -83,6 +83,6 @@ const styles = StyleSheet.create({
   row: { gap: 8, paddingVertical: 4 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap' },
   // 44 pt: the smallest comfortable touch target.
-  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: RADIUS.sm },
+  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: RADIUS.lg, borderWidth: 1 },
   text: { fontSize: TYPE.secondary },
 });

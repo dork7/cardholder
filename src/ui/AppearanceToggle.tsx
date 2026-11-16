@@ -25,7 +25,7 @@ export function AppearanceToggle() {
       accessibilityValue={{ text: strings.home.appearances[appearance] }}
       accessibilityHint={strings.home.appearanceHint}
       testID="appearance-toggle"
-      style={({ pressed }) => [styles.button, { borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
+      style={({ pressed }) => [styles.button, { backgroundColor: theme.glassStrong, borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
     >
       <RetroIcon name="appearance" size={24} appearance={appearance} />
       {tooltip}

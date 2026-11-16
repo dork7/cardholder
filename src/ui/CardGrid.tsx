@@ -78,7 +78,7 @@ function GridTile({ card, checked, selecting, onPress, onLongPress }: TileProps)
       accessibilityActions={selecting ? undefined : [{ name: 'select', label: strings.home.selectAction }]}
       onAccessibilityAction={(e) => e.nativeEvent.actionName === 'select' && onLongPress()}
       testID={`grid-${card.id}`}
-      style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.7 : 1 }]}
+      style={({ pressed }) => [styles.tile, { backgroundColor: theme.glassStrong, borderColor: theme.border, opacity: pressed ? 0.7 : 1 }]}
     >
       <View
         style={[
@@ -139,11 +139,11 @@ const styles = StyleSheet.create({
   list: { flex: 1, alignSelf: 'stretch' },
   content: { gap: 16, paddingBottom: 96 }, // clear of the add button
   row: { gap: 12 },
-  tile: { flex: 1, gap: 2 },
+  tile: { flex: 1, gap: 2, padding: 8, borderWidth: 1, borderRadius: RADIUS.md },
   // ID-1 proportions, like the cards in the stack.
   picture: {
     aspectRatio: 1.585,
-    borderRadius: RADIUS.none,
+    borderRadius: RADIUS.sm,
     borderWidth: 3,
     overflow: 'hidden',
     marginBottom: 4,

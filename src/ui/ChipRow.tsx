@@ -37,8 +37,8 @@ export function ChipRow({ chips, accessibilityLabel }: { chips: Chip[]; accessib
             style={[
               styles.chip,
               action
-                ? { borderWidth: 1, borderColor: theme.rosette }
-                : { backgroundColor: selected ? theme.accent : theme.bannerBg },
+                ? { borderColor: theme.rosette, backgroundColor: theme.glass }
+                : { backgroundColor: selected ? theme.accent : theme.glass, borderColor: selected ? theme.accent : theme.border },
             ]}
           >
             <Text
@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
   scroller: { flexGrow: 0 },
   row: { gap: 8, paddingVertical: 4 },
   // 44 pt: the smallest comfortable touch target.
-  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: RADIUS.sm },
+  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: RADIUS.lg, borderWidth: 1 },
   text: { fontSize: TYPE.secondary },
 });

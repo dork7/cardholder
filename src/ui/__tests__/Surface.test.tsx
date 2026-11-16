@@ -12,9 +12,9 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
 const panelStyle = () => StyleSheet.flatten(screen.getByTestId('panel').props.style);
 
 test.each([
-  ['light', '#F7F6F3'],
-  ['dark', '#1A1A1A'],
-] as const)('in %s mode a panel is a solid surface one step up from the page', async (scheme, surface) => {
+  ['light', 'rgba(255, 255, 255, 0.82)'],
+  ['dark', 'rgba(35, 49, 73, 0.84)'],
+] as const)('in %s mode a panel is a rounded glass surface', async (scheme, surface) => {
   mockScheme = scheme;
   await render(
     <Screen>
@@ -24,7 +24,6 @@ test.each([
     </Screen>,
   );
   expect(panelStyle().backgroundColor).toBe(surface);
-  expect(panelStyle().boxShadow).toBeUndefined();
-  expect(panelStyle().borderRadius).toBe(0);
+  expect(panelStyle().borderRadius).toBe(20);
   expect(screen.getByText('Inside')).toBeTruthy();
 });
