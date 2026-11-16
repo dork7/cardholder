@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { displayName } from '../src/cards/display';
 import { daysLeft } from '../src/cards/recentlyDeleted';
@@ -62,13 +62,13 @@ export default function RecentlyDeletedScreen() {
   };
 
   // Erasing is the one step here that can't be undone, so it always asks first.
-  const erase = async (run: () => Promise<void>) => {
+  const erase = async (action: 'erase' | 'emptyRecentlyDeleted', run: () => Promise<void>) => {
     setBusy(true);
     try {
       await run();
     } catch (e) {
       console.warn('Erasing failed', e);
-      Alert.alert(strings.common.error);
+      showError(action, e);
     } finally {
       await load();
       setBusy(false);
@@ -79,7 +79,7 @@ export default function RecentlyDeletedScreen() {
     if (busy) return;
     Alert.alert(strings.recentlyDeleted.deleteNowTitle(displayName(card)), strings.recentlyDeleted.deleteNowBody, [
       { text: strings.common.cancel, style: 'cancel' },
-      { text: strings.recentlyDeleted.deleteNow, style: 'destructive', onPress: () => erase(() => services.store.erase(card.id)) },
+      { text: strings.recentlyDeleted.deleteNow, style: 'destructive', onPress: () => erase('erase', () => services.store.erase(card.id)) },
     ]);
   };
 
@@ -87,7 +87,7 @@ export default function RecentlyDeletedScreen() {
     if (busy || !deleted?.length) return;
     Alert.alert(strings.recentlyDeleted.emptyTitle, strings.recentlyDeleted.emptyBody(deleted.length), [
       { text: strings.common.cancel, style: 'cancel' },
-      { text: strings.recentlyDeleted.emptyAction, style: 'destructive', onPress: () => erase(() => services.store.eraseRecentlyDeleted()) },
+      { text: strings.recentlyDeleted.emptyAction, style: 'destructive', onPress: () => erase('emptyRecentlyDeleted', () => services.store.eraseRecentlyDeleted()) },
     ]);
   };
 
