@@ -18,7 +18,7 @@ export function HomeActionBar({ gallery, onAddImage, onNotes, onToggleGallery }:
   const actions = [
     { key: 'add-card', label: strings.home.addImage, onPress: onAddImage, primary: true, icon: 'plus' },
     { key: 'open-notes', label: strings.notes.title, onPress: onNotes, primary: false, icon: 'note' },
-    { key: 'gallery-toggle', label: strings.home.galleryLabel, onPress: onToggleGallery, primary: false, icon: 'gallery' },
+    { key: 'gallery-toggle', label: gallery ? strings.home.stackLabel : strings.home.galleryLabel, onPress: onToggleGallery, primary: false, icon: 'gallery' },
   ];
   return (
     <GlassSurface testID="home-action-bar" style={styles.bar} strong>
@@ -28,7 +28,7 @@ export function HomeActionBar({ gallery, onAddImage, onNotes, onToggleGallery }:
         return (
           <Pressable key={action.key} testID={action.key} onPress={action.onPress}
             accessibilityRole={isGallery ? 'switch' : 'button'}
-            accessibilityLabel={isGallery ? strings.home.galleryView : action.label}
+            accessibilityLabel={isGallery ? gallery ? strings.home.stackView : strings.home.galleryView : action.label}
             accessibilityHint={isGallery ? strings.home.galleryViewHint : undefined}
             accessibilityState={isGallery ? { checked: gallery } : undefined}
             style={({ pressed }) => [styles.action, {

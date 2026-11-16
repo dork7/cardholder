@@ -49,6 +49,8 @@ let mockHomeFolders = { filter: true, manage: true };
 let mockLastExportAt: string | null = null;
 const mockSettingsSet = jest.fn(() => Promise.resolve());
 let mockHomeView: string | null = null;
+let mockGallerySort: string | null = null;
+let mockGalleryExpiring: string | null = null;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
 const mockUpdate = jest.fn((_id: string, _fields: { tags?: string[] }) => Promise.resolve());
@@ -67,7 +69,7 @@ const mockServices = {
   },
   settings: {
     getNumber: (key: string) => Promise.resolve(key === 'lastExportAt' && mockLastExportAt ? Number(mockLastExportAt) : null),
-    get: (key: string) => Promise.resolve(key === 'homeView' ? mockHomeView : null),
+    get: (key: string) => Promise.resolve(key === 'homeView' ? mockHomeView : key === 'gallerySort' ? mockGallerySort : key === 'galleryExpiring' ? mockGalleryExpiring : null),
     set: mockSettingsSet,
   },
 };
@@ -95,6 +97,8 @@ beforeEach(() => {
   mockUpdate.mockClear();
   mockRefresh.mockClear();
   mockHomeView = null;
+  mockGallerySort = null;
+  mockGalleryExpiring = null;
   mockUnlocked = false;
   mockFolders = [];
   mockHomeFolders = { filter: true, manage: true };
@@ -152,6 +156,12 @@ test('choosing a folder narrows the stack to its cards', async () => {
   mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
   mockCards = mockCards.map((c) => (c.id === 'b' ? { ...c, folderId: 'f1' } : c));
   await renderHome();
+  let folderGroup = screen.getByTestId('folder-filter-f1').parent;
+  while (folderGroup && folderGroup.props.accessibilityRole !== 'radiogroup') folderGroup = folderGroup.parent;
+  expect(folderGroup?.props.accessibilityLabel).toBe(strings.folders.title);
+  if (!folderGroup) throw new Error('Missing folder radio group');
+  expect(within(folderGroup).getByRole('radio', { name: 'Health' })).toBeTruthy();
+  expect(within(folderGroup).queryByRole('button', { name: strings.folders.manage })).toBeNull();
   await act(async () => fireEvent.press(screen.getByTestId('folder-filter-f1')));
   await act(async () => {
     fireEvent(screen.getByTestId('card-stack-frame'), 'layout', {
@@ -305,8 +315,17 @@ describe('gallery view', () => {
   };
 
   test('shows every card in a grid instead of the stack, and remembers the choice', async () => {
-    await showGallery();
+    await renderHome();
+    const toggle = screen.getByTestId('gallery-toggle');
+    expect(within(toggle).getByText(strings.home.galleryLabel)).toBeTruthy();
+    expect(toggle.props.accessibilityRole).toBe('switch');
+    expect(toggle.props.accessibilityLabel).toBe(strings.home.galleryView);
+    expect(toggle.props.accessibilityState).toEqual({ checked: false });
+    await act(async () => fireEvent.press(toggle));
     expect(screen.getByTestId('card-grid')).toBeTruthy();
+    expect(within(toggle).getByText(strings.home.stackLabel)).toBeTruthy();
+    expect(toggle.props.accessibilityLabel).toBe(strings.home.stackView);
+    expect(toggle.props.accessibilityState).toEqual({ checked: true });
     expect(screen.queryByTestId('card-stack')).toBeNull();
     for (const id of ['a', 'b', 'c']) expect(screen.getByTestId(`grid-${id}`)).toBeTruthy();
     // Each tile has the card's name and its tags.
@@ -336,6 +355,13 @@ describe('gallery view', () => {
     expect(screen.queryByTestId('selection-bar')).toBeNull();
     await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
     expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
+    for (const [id, caption] of [
+      ['selection-pin', strings.home.pinCaption],
+      ['selection-tags', strings.home.tagCaption],
+      ['selection-recreate', strings.home.readAgainCaption],
+      ['selection-share', strings.home.shareCaption],
+      ['selection-delete', strings.home.deleteCaption],
+    ]) expect(within(screen.getByTestId(id)).getByText(caption)).toBeTruthy();
     expect(screen.queryByTestId('add-card')).toBeNull();
 
     await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
@@ -407,13 +433,33 @@ describe('gallery view', () => {
       async () => {
         await showGallery();
         expect(gridOrder()).toEqual(['a', 'b', 'c']);
+        expect(screen.getByTestId('sort-chip').props.accessibilityLabel).toBe(strings.home.sortChip(strings.home.sortName));
+        expect(screen.queryByTestId('sort-expiry')).toBeNull();
+        await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
+        expect(screen.getByTestId('sort-sheet')).toBeTruthy();
+        expect(screen.getByRole('radio', { name: strings.home.sortName }).props.accessibilityState).toEqual({ checked: true });
         await act(async () => fireEvent.press(screen.getByTestId('sort-expiry')));
         expect(gridOrder()).toEqual(['b', 'a', 'c']);
         expect(mockSettingsSet).toHaveBeenLastCalledWith('gallerySort', 'expiry');
+        expect(screen.getByTestId('sort-chip').props.accessibilityLabel).toBe(strings.home.sortChip(strings.home.sortExpiry));
         await act(async () => fireEvent.press(screen.getByTestId('sort-added')));
         expect(gridOrder()).toEqual(['b', 'c', 'a']);
+        await act(async () => fireEvent.press(screen.getByTestId('sort-close')));
+        expect(screen.queryByTestId('sort-sheet')).toBeNull();
       },
     );
+  });
+
+  test('restores the saved gallery order and Expiring soon filter', async () => {
+    mockHomeView = 'gallery';
+    mockGallerySort = 'expiry';
+    mockGalleryExpiring = 'on';
+    await render(<Home />);
+    expect(await screen.findByTestId('sort-chip')).toBeTruthy();
+    expect(screen.getByTestId('sort-chip').props.accessibilityLabel).toBe(strings.home.sortChip(strings.home.sortExpiry));
+    await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
+    expect(screen.getByRole('radio', { name: strings.home.sortExpiry }).props.accessibilityState).toEqual({ checked: true });
+    expect(screen.getByRole('checkbox', { name: strings.home.expiringSoon }).props.accessibilityState).toEqual({ checked: true });
   });
 
   test('"Expiring soon" shows only cards that are expired or due within the reminder window', async () => {
@@ -431,8 +477,10 @@ describe('gallery view', () => {
       ],
       async () => {
         await showGallery();
+        await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
         await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
         expect(gridOrder()).toEqual(['gone', 'soon']);
+        expect(mockSettingsSet).toHaveBeenLastCalledWith('galleryExpiring', 'on');
         await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
         expect(gridOrder()).toHaveLength(4);
       },
@@ -441,6 +489,7 @@ describe('gallery view', () => {
 
   test('says so when nothing is expiring soon', async () => {
     await showGallery();
+    await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
     await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
     expect(screen.getByText(strings.home.noneExpiring(30))).toBeTruthy();
   });

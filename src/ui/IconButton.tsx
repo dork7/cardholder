@@ -39,7 +39,7 @@ export function IconButton({ icon, label, caption, hint, onPress, variant = 'sec
     >
       <RetroIcon name={icon} size={24} color={color} />
       {caption && (
-        <Text style={[styles.caption, { color }]} numberOfLines={1}>
+        <Text style={[styles.caption, { color }]} numberOfLines={2}>
           {caption}
         </Text>
       )}
@@ -59,5 +59,5 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingVertical: 6,
   },
-  caption: { fontSize: TYPE.caption, fontWeight: '600' },
+  caption: { fontSize: TYPE.caption, fontWeight: '600', textAlign: 'center' },
 });
