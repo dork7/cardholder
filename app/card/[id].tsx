@@ -23,7 +23,8 @@ import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
 import { exportCardPdf, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
 import { confirmIdShare } from '../../src/share/idWarning';
 import { cardMarkdown } from '../../src/cards/cardMarkdown';
-import { addTags, overTagLimit, removeTag } from '../../src/cards/batch';
+import { addTags, overTagLimit } from '../../src/cards/batch';
+import { removeTagWithUndo } from '../../src/cards/removeTagWithUndo';
 import { hasTag, isId, tagOptions } from '../../src/cards/tags';
 import { MAX_TAGS } from '../../src/config';
 import { AddTagPill, TagPill } from '../../src/ui/TagPill';
@@ -35,6 +36,7 @@ import { EASE_OUT } from '../../src/ui/motion';
 import { strings } from '../../src/strings';
 import { showError } from '../../src/ui/errorAlert';
 import { LiveText } from '../../src/ui/LiveText';
+import { UndoBar } from '../../src/ui/UndoBar';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -168,16 +170,15 @@ export default function CardView() {
   // Expired is the one state worth colour; soon is just brighter than an ordinary date.
   const expiryColor = expiry === 'expired' ? theme.danger : expiry === 'soon' || expiry === 'today' ? theme.text : theme.muted;
 
-  // Holding a tag for two seconds asks before taking it off this card.
-  const confirmRemoveTag = (tag: string) =>
-    Alert.alert(strings.tags.removeTitle, strings.tags.removeBody(tag), [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.tags.remove,
-        style: 'destructive',
-        onPress: () => void saveTags(() => removeTag(services.store, card, tag)),
-      },
-    ]);
+  // One tap takes the tag off at once; the Undo bar below puts it back.
+  const removeTagFromCard = async (tag: string) => {
+    try {
+      await removeTagWithUndo(services.store, undo, card, tag, refresh);
+    } catch (e) {
+      console.warn('Removing the tag failed', e);
+      showError('tags', e);
+    }
+  };
 
   const addTagsToCard = (tags: string[]) => {
     if (overTagLimit([card], tags).length > 0) {
@@ -316,7 +317,7 @@ export default function CardView() {
             {!staff && (
               <View style={styles.tags} testID="card-tags">
                 {card.tags.map((tag) => (
-                  <TagPill key={tag} tag={tag} onRemove={confirmRemoveTag} testID={`tag-${tag}`} />
+                  <TagPill key={tag} tag={tag} onRemove={(tag) => void removeTagFromCard(tag)} testID={`tag-${tag}`} />
                 ))}
                 <AddTagPill onPress={() => setTagging(true)} />
               </View>
@@ -388,7 +389,11 @@ export default function CardView() {
         </View>
       )}
 
-      <View style={styles.inset}>{footer}</View>
+      <View style={styles.inset}>
+        {/* The same Undo offer home shows, e.g. after a tag is removed. Not while shown to staff. */}
+        {!staff && <UndoBar undo={undo} />}
+        {footer}
+      </View>
       <ActionSheet
         visible={more && !staff}
         title={strings.card.moreTitle}
