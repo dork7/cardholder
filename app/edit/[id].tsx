@@ -41,6 +41,7 @@ import { takePendingShared } from '../../src/share/sharedIn';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { askReplace } from '../../src/ui/askReplace';
 import { strings } from '../../src/strings';
+import { showError } from '../../src/ui/errorAlert';
 import { Button } from '../../src/ui/Button';
 import { TagChips } from '../../src/ui/TagChips';
 import { TagNameInput } from '../../src/ui/TagNameInput';
@@ -377,7 +378,7 @@ export default function EditCard() {
       console.warn('Save failed', e);
       writing.current = false;
       setSaving(false);
-      Alert.alert(strings.common.error);
+      showError('save', e);
       return;
     }
     if (plan.fields.expiresOn) {
@@ -395,7 +396,7 @@ export default function EditCard() {
       await deleteWithUndo(services.store, undo, existing, refresh);
     } catch (e) {
       console.warn('Delete failed', e);
-      Alert.alert(strings.common.error);
+      showError('delete', e);
       return;
     }
     leave();

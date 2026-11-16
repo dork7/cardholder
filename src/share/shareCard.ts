@@ -7,6 +7,7 @@ import { base64, utf8 } from '../crypto/bytes';
 import { IMAGE_MAX_EDGE } from '../config';
 import { imagesToPdf, renderPages } from '../images/pdf';
 import { toIsoDate } from '../time/dates';
+import { PdfUnavailableError } from './pdfUnavailable';
 
 const shareDir = () => new Directory(Paths.cache, 'share');
 
@@ -86,7 +87,7 @@ export async function shareMarkdown(baseName: string, markdown: string): Promise
   }
 }
 
-export class PdfUnavailableError extends Error {}
+export { PdfUnavailableError };
 
 // "Gym.pdf" in a folder already holding it -> "Gym (2).pdf", so saving again never replaces a file.
 export function freeFileName(name: string, taken: ReadonlySet<string>): string {

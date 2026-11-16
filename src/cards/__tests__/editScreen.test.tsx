@@ -253,15 +253,24 @@ describe('saving', () => {
   test('a failed edit write shows the error, stays, and allows a retry', async () => {
     mockParams = { id: 'card1' };
     mockCards = [makeCard()];
-    mockUpdate.mockRejectedValueOnce(new Error('disk full'));
+    mockUpdate.mockRejectedValueOnce(new Error('io error'));
     await render(<EditCard />);
     await save();
-    expect(alert).toHaveBeenCalledWith(strings.common.error);
+    expect(alert).toHaveBeenCalledWith(strings.errors.actions.save.title, strings.errors.actions.save.body);
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockRefresh).not.toHaveBeenCalled();
     await save();
     expect(mockUpdate).toHaveBeenCalledTimes(2);
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  test('a save that fails because the phone is full says so', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard()];
+    mockUpdate.mockRejectedValueOnce(new Error('database or disk is full'));
+    await render(<EditCard />);
+    await save();
+    expect(alert).toHaveBeenCalledWith(strings.errors.actions.save.title, strings.errors.storageFull);
   });
 
   test('Save stays disabled after a successful write, so it cannot be written twice', async () => {
@@ -518,10 +527,10 @@ describe('deleting', () => {
     expect(mockRestore).toHaveBeenCalledWith('card1');
   });
 
-  test('a failed removal shows the generic error and stays on the screen', async () => {
+  test('a failed removal says the delete failed and stays on the screen', async () => {
     mockRemove.mockRejectedValue(new Error('io error'));
     await confirmDelete();
-    expect(alert).toHaveBeenCalledWith(strings.common.error);
+    expect(alert).toHaveBeenCalledWith(strings.errors.actions.delete.title, strings.errors.actions.delete.body);
     expect(mockRefresh).not.toHaveBeenCalled();
     expect(mockDismissAll).not.toHaveBeenCalled();
     expect(mockOffer).not.toHaveBeenCalled();

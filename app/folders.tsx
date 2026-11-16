@@ -3,6 +3,7 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { Folder } from '../src/cards/types';
 import { strings } from '../src/strings';
+import { showError } from '../src/ui/errorAlert';
 import { Button } from '../src/ui/Button';
 import { FolderNameInput } from '../src/ui/FolderNameInput';
 import { Panel, Screen } from '../src/ui/Surface';
@@ -25,7 +26,7 @@ export default function FoldersScreen() {
       setNaming(null);
     } catch (e) {
       console.warn('Folder change failed', e);
-      Alert.alert(strings.common.error);
+      showError('folder', e);
     } finally {
       setBusy(false);
       await refresh().catch((e) => console.warn('Refresh after folder change failed', e));

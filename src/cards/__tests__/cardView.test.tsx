@@ -3,6 +3,7 @@ import { Alert, StyleSheet } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import CardView from '../../../app/card/[id]';
 import { Removal } from '../../app/undo';
+import { PdfUnavailableError } from '../../share/pdfUnavailable';
 import { strings } from '../../strings';
 
 const mockPush = jest.fn();
@@ -49,7 +50,6 @@ const mockShareCard = jest.fn((..._a: unknown[]) => Promise.resolve());
 const mockShareMarkdown = jest.fn((..._a: unknown[]) => Promise.resolve());
 const mockExportPdf = jest.fn((..._a: unknown[]) => Promise.resolve());
 jest.mock('../../share/shareCard', () => ({
-  PdfUnavailableError: class extends Error {},
   exportCardPdf: (...a: unknown[]) => mockExportPdf(...a),
   shareCard: (...a: unknown[]) => mockShareCard(...a),
   shareCardMarkdown: (...a: unknown[]) => mockShareMarkdown(...a),
@@ -209,7 +209,7 @@ describe('actions', () => {
     jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
     await render(<CardView />);
     await pressInMore(strings.edit.deleteCard);
-    expect(alert).toHaveBeenCalledWith(strings.common.error);
+    expect(alert).toHaveBeenCalledWith(strings.errors.actions.delete.title, strings.errors.actions.delete.body);
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockOffer).not.toHaveBeenCalled();
   });
@@ -228,6 +228,27 @@ describe('actions', () => {
     expect(mockShareCard).not.toHaveBeenCalled();
     await pressInAlert(strings.idShare.share);
     expect(mockShareCard).toHaveBeenCalled();
+  });
+
+  test('a failed share says the share failed and what to try', async () => {
+    mockShareCard.mockRejectedValueOnce(new Error('share sheet closed badly'));
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.share }));
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(strings.errors.actions.share.title, strings.errors.actions.share.body),
+    );
+  });
+
+  test('a PDF export on a build without PDFs asks for an update', async () => {
+    mockExportPdf.mockRejectedValueOnce(new PdfUnavailableError('no pdf'));
+    await render(<CardView />);
+    await pressInMore(strings.card.exportPdf);
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        strings.errors.actions.exportPdf.title,
+        strings.errors.actions.exportPdf.pdfUnavailable,
+      ),
+    );
   });
 
   test('the ID warning offers Cancel, Share and Don\'t ask again', async () => {

@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Undo } from '../app/undo';
 import { strings } from '../strings';
 import { Button } from './Button';
+import { showError } from './errorAlert';
 import { LiveText } from './LiveText';
 import { RADIUS, SHADOW, TYPE, useTheme } from './theme';
 
@@ -16,7 +17,7 @@ export function UndoBar({ undo }: { undo: Undo }) {
   const press = () =>
     undo.undo().catch((e) => {
       console.warn('Undo failed', e);
-      Alert.alert(strings.common.error);
+      showError('undo', e);
     });
 
   return (

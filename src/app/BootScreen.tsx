@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet } from 'react-native';
 import { Text } from '../ui/Text';
 import { strings } from '../strings';
+import { showError } from '../ui/errorAlert';
 import { Button } from '../ui/Button';
 import { Panel, Screen } from '../ui/Surface';
 import { useTheme } from '../ui/theme';
@@ -23,9 +24,9 @@ export function BootScreen() {
           setBusy(true);
           try {
             await startFresh(thenImport);
-          } catch {
+          } catch (e) {
             setBusy(false);
-            Alert.alert(strings.common.error);
+            showError('startFresh', e);
           }
         },
       },

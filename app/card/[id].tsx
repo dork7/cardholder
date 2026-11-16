@@ -20,7 +20,7 @@ import { displayName } from '../../src/cards/display';
 import { deleteWithUndo } from '../../src/cards/deleteWithUndo';
 import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/expiry';
 import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
-import { exportCardPdf, PdfUnavailableError, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
+import { exportCardPdf, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
 import { confirmIdShare } from '../../src/share/idWarning';
 import { cardMarkdown } from '../../src/cards/cardMarkdown';
 import { addTags, overTagLimit, removeTag } from '../../src/cards/batch';
@@ -33,6 +33,7 @@ import { rereadCard } from '../../src/cards/readBackfill';
 import { ChipRow } from '../../src/ui/ChipRow';
 import { EASE_OUT } from '../../src/ui/motion';
 import { strings } from '../../src/strings';
+import { showError } from '../../src/ui/errorAlert';
 import { LiveText } from '../../src/ui/LiveText';
 
 export default function CardView() {
@@ -95,14 +96,14 @@ export default function CardView() {
     confirmIfId(() =>
       shareCardMarkdown(card, markdown).catch((e) => {
         console.warn('Saving the .md file failed', e);
-        Alert.alert(strings.common.error);
+        showError('saveMarkdown', e);
       }),
     );
 
   // Recreate .md: reads the text on the document's pictures again, which its Details are made from.
   const recreateMarkdown = async () => {
     if (!canReadText) {
-      Alert.alert(strings.common.error, strings.recreate.unavailable);
+      showError('readTextUnavailable', null);
       return;
     }
     setRecreating(true);
@@ -112,7 +113,7 @@ export default function CardView() {
       if (!saved) throw new Error('The document changed while it was being read');
     } catch (e) {
       console.warn('Reading the document again failed', e);
-      Alert.alert(strings.common.error);
+      showError('reread', e);
     } finally {
       setRecreating(false);
     }
@@ -125,7 +126,7 @@ export default function CardView() {
       : confirmIfId(() =>
           shareCard(services.store, card).catch((e) => {
             console.warn('Share failed', e);
-            Alert.alert(strings.common.error);
+            showError('share', e);
           }),
         );
 
@@ -135,7 +136,7 @@ export default function CardView() {
     confirmIfId(() =>
       exportCardPdf(services.store, card).catch((e) => {
         console.warn('PDF export failed', e);
-        Alert.alert(strings.common.error, e instanceof PdfUnavailableError ? strings.card.exportPdfNeedsUpdate : undefined);
+        showError('exportPdf', e);
       }),
     );
 
@@ -145,7 +146,7 @@ export default function CardView() {
       await deleteWithUndo(services.store, undo, card, refresh);
     } catch (e) {
       console.warn('Delete failed', e);
-      Alert.alert(strings.common.error);
+      showError('delete', e);
       return;
     }
     router.back();
@@ -156,7 +157,7 @@ export default function CardView() {
       await services.store.setPinned(card.id, !card.pinned);
     } catch (e) {
       console.warn('Pin failed', e);
-      Alert.alert(strings.common.error);
+      showError(card.pinned ? 'unpin' : 'pin', e);
       return;
     }
     await refresh().catch((e) => console.warn('Refresh after pin failed', e));
@@ -193,7 +194,7 @@ export default function CardView() {
       if (typeof failed === 'number' && failed > 0) throw new Error('Saving tags failed');
     } catch (e) {
       console.warn('Saving tags failed', e);
-      Alert.alert(strings.common.error);
+      showError('tags', e);
     }
     await refresh().catch((e) => console.warn('Refresh after tags failed', e));
   };

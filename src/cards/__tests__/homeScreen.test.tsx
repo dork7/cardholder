@@ -786,7 +786,7 @@ describe('Undo bar', () => {
     await render(<Home />);
     await act(() => mockUndo.offer({ message: 'Deleted Gym', undo: () => Promise.reject(new Error('disk')) }));
     await fireEvent.press(screen.getByRole('button', { name: strings.undo.undo }));
-    expect(alert).toHaveBeenCalledWith(strings.common.error);
+    expect(alert).toHaveBeenCalledWith(strings.errors.actions.undo.title, strings.errors.actions.undo.body);
     alert.mockRestore();
     warn.mockRestore();
   });

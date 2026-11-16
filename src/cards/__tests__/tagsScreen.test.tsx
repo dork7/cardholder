@@ -80,6 +80,6 @@ test('says how many cards could not be changed', async () => {
   await render(<TagsScreen />);
   await fireEvent.press(screen.getByTestId('delete-tag-Vehicle'));
   await pressInAlert(strings.common.delete);
-  await waitFor(() => expect(alert).toHaveBeenLastCalledWith(strings.common.error, strings.tagsScreen.deleteFailed(1)));
+  await waitFor(() => expect(alert).toHaveBeenLastCalledWith(strings.errors.removeTag(1).title, strings.errors.removeTag(1).body));
   warn.mockRestore();
 });

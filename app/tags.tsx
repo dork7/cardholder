@@ -22,7 +22,10 @@ export default function TagsScreen() {
     setBusy(true);
     try {
       const failed = await removeTagEverywhere(services.store, cards, tag);
-      if (failed > 0) Alert.alert(strings.common.error, strings.tagsScreen.deleteFailed(failed));
+      if (failed > 0) {
+        const { title, body } = strings.errors.removeTag(failed);
+        Alert.alert(title, body);
+      }
     } finally {
       setBusy(false);
       await refresh().catch((e) => console.warn('Refresh after deleting a tag failed', e));
