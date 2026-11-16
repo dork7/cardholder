@@ -402,11 +402,20 @@ export const strings = {
   recentlyDeleted: {
     title: 'Recently deleted',
     entry: (n: number) => `Recently deleted (${n})`,
-    intro: 'Deleted cards are kept here for 30 days, then erased.',
-    empty: 'Nothing here. Deleted cards are kept for 30 days, then erased.',
+    intro: 'Deleted documents are kept here for 30 days, then erased.',
+    empty: 'Nothing here. Deleted documents are kept for 30 days, then erased.',
     daysLeft: (n: number) => (n === 0 ? 'Erased today' : `${n} ${plural(n, 'day', 'days')} left`),
     restore: 'Restore',
     restoreLabel: (name: string) => `Restore ${name}`,
+    deleteNow: 'Delete now',
+    deleteNowLabel: (name: string) => `Delete ${name} now`,
+    deleteNowTitle: (name: string) => `Delete “${name}” for good?`,
+    deleteNowBody: "Its photos or PDF are erased too. This can't be undone.",
+    emptyAction: 'Empty',
+    emptyLabel: 'Empty Recently deleted',
+    emptyTitle: 'Empty Recently deleted?',
+    emptyBody: (n: number) =>
+      `${n} ${plural(n, 'document', 'documents')} and their photos or PDFs are erased for good. This can't be undone.`,
   },
   tagsScreen: {
     title: 'Tags',

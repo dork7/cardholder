@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import RecentlyDeletedScreen from '../../../app/recently-deleted';
 import SettingsScreen from '../../../app/settings';
@@ -24,12 +25,20 @@ let mockUnlocked = false;
 const mockRestore = jest.fn(async (id: string) => {
   mockDeleted = mockDeleted.filter((c) => c.id !== id);
 });
+const mockErase = jest.fn(async (id: string) => {
+  mockDeleted = mockDeleted.filter((c) => c.id !== id);
+});
+const mockEraseAll = jest.fn(async () => {
+  mockDeleted = [];
+});
 const mockRefresh = jest.fn(async () => {});
 const mockServices = {
   settings: { getNumber: async () => null },
   store: {
     listRecentlyDeleted: async () => mockDeleted,
     restore: (id: string) => mockRestore(id),
+    erase: (id: string) => mockErase(id),
+    eraseRecentlyDeleted: () => mockEraseAll(),
     loadImage: async () => null,
   },
 };
@@ -107,3 +116,69 @@ test('says so when nothing has been deleted', async () => {
   await render(<RecentlyDeletedScreen />);
   expect(await screen.findByText(strings.recentlyDeleted.empty)).toBeTruthy();
 });
+
+describe('erasing for good', () => {
+  let alert: jest.SpyInstance;
+  beforeEach(() => {
+    alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  });
+
+  // Alert.alert(title, body, buttons): press the button with this label.
+  const pressInAlert = async (label: string) => {
+    const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => unknown }[];
+    await buttons.find((b) => b.text === label)?.onPress?.();
+  };
+
+  test('Delete now asks first, then erases that document only', async () => {
+    await render(<RecentlyDeletedScreen />);
+    await fireEvent.press(await screen.findByTestId('delete-now-a'));
+    expect(alert).toHaveBeenCalledWith(strings.recentlyDeleted.deleteNowTitle('Passport'), strings.recentlyDeleted.deleteNowBody, expect.any(Array));
+    expect(mockErase).not.toHaveBeenCalled();
+    await pressInAlert(strings.recentlyDeleted.deleteNow);
+    expect(mockErase).toHaveBeenCalledWith('a');
+    expect(mockEraseAll).not.toHaveBeenCalled();
+    expect(await screen.findByText('Gym')).toBeTruthy();
+    expect(screen.queryByText('Passport')).toBeNull();
+  });
+
+  test('Empty asks first, then erases every deleted document', async () => {
+    await render(<RecentlyDeletedScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: strings.recentlyDeleted.emptyLabel }));
+    expect(alert).toHaveBeenCalledWith(strings.recentlyDeleted.emptyTitle, strings.recentlyDeleted.emptyBody(2), expect.any(Array));
+    expect(mockEraseAll).not.toHaveBeenCalled();
+    await pressInAlert(strings.recentlyDeleted.emptyAction);
+    expect(mockEraseAll).toHaveBeenCalled();
+    expect(await screen.findByText(strings.recentlyDeleted.empty)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: strings.recentlyDeleted.emptyLabel })).toBeNull();
+  });
+
+  test.each([
+    ['Delete now', () => screen.findByTestId('delete-now-a')],
+    ['Empty', () => screen.findByRole('button', { name: strings.recentlyDeleted.emptyLabel })],
+  ])('cancelling %s leaves everything as it was', async (_, find) => {
+    await render(<RecentlyDeletedScreen />);
+    await fireEvent.press(await find());
+    await pressInAlert(strings.common.cancel);
+    expect(mockErase).not.toHaveBeenCalled();
+    expect(mockEraseAll).not.toHaveBeenCalled();
+    expect(screen.getByText('Passport')).toBeTruthy();
+    expect(screen.getByText('Gym')).toBeTruthy();
+  });
+});
+
+test('screen readers hear each row as its name and days left, and its buttons by name', async () => {
+  await render(<RecentlyDeletedScreen />);
+  expect(await screen.findByLabelText(`Passport, ${strings.recentlyDeleted.daysLeft(28)}`)).toBeTruthy();
+  expect(screen.getByRole('button', { name: strings.recentlyDeleted.restoreLabel('Passport') })).toBeTruthy();
+  expect(screen.getByRole('button', { name: strings.recentlyDeleted.deleteNowLabel('Passport') })).toBeTruthy();
+  expect(screen.getByRole('button', { name: strings.recentlyDeleted.emptyLabel })).toBeTruthy();
+});
+
+test('the empty state explains the 30 days and offers no Empty button', async () => {
+  mockDeleted = [];
+  await render(<RecentlyDeletedScreen />);
+  expect(await screen.findByText(strings.recentlyDeleted.empty)).toBeTruthy();
+  expect(strings.recentlyDeleted.empty).toContain('30 days');
+  expect(screen.queryByRole('button', { name: strings.recentlyDeleted.emptyLabel })).toBeNull();
+});
+
