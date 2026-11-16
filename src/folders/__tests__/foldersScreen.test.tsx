@@ -88,6 +88,6 @@ test('a failed change shows the generic error', async () => {
   await fireEvent.press(screen.getByTestId('new-folder'));
   await fireEvent.changeText(screen.getByTestId('new-folder-name'), 'Work');
   await fireEvent.press(screen.getByTestId('new-folder-submit'));
-  expect(alert).toHaveBeenCalledWith(strings.common.error);
+  expect(alert).toHaveBeenCalledWith(strings.errors.actions.folder.title, strings.errors.actions.folder.body);
   warn.mockRestore();
 });

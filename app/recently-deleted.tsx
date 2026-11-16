@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { displayName } from '../src/cards/display';
 import { daysLeft } from '../src/cards/recentlyDeleted';
@@ -9,6 +9,7 @@ import { useCardImage } from '../src/hooks/useCardImage';
 import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
+import { showError } from '../src/ui/errorAlert';
 import { CardPicture } from '../src/ui/CardPicture';
 import { CARD_RADIUS, ID1_RATIO } from '../src/ui/stackGeometry';
 import { Panel, Screen } from '../src/ui/Surface';
@@ -52,7 +53,7 @@ export default function RecentlyDeletedScreen() {
       await services.store.restore(card.id);
     } catch (e) {
       console.warn('Restore failed', e);
-      Alert.alert(strings.common.error);
+      showError('restore', e);
     } finally {
       await refresh().catch((e) => console.warn('Refresh after restore failed', e));
       await load();

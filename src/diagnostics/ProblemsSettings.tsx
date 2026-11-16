@@ -1,5 +1,6 @@
 import { Alert, StyleSheet, View } from 'react-native';
 import { strings } from '../strings';
+import { showError } from '../ui/errorAlert';
 import { formatAgo } from '../time/dates';
 import { Button } from '../ui/Button';
 import { Text } from '../ui/Text';
@@ -56,7 +57,7 @@ export async function sendReport(record: CrashRecord | null, how: 'email' | 'sha
     if (record) dismissCrash();
   } catch (e) {
     console.warn('Sending the report failed', e);
-    Alert.alert(strings.common.error);
+    showError('sendReport', e);
   }
 }
 
