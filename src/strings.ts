@@ -300,13 +300,9 @@ export const strings = {
     apply: (n: number) => (n === 0 ? 'Choose tags' : `Add ${n} ${plural(n, 'tag', 'tags')}`),
     tooManyTitle: 'Too many tags',
     tooMany: (cards: number, max: number) =>
-      `${cards === 1 ? 'The card' : `${cards} cards`} would have more than ${max} tags. Choose fewer, or hold a tag on a card to remove it.`,
+      `${cards === 1 ? 'The card' : `${cards} cards`} would have more than ${max} tags. Choose fewer, or remove a tag from a card first.`,
     label: (tag: string) => `Tag ${tag}`,
-    holdHint: 'Hold for 2 seconds to remove it from this card.',
-    removeAction: 'Remove tag', // the screen-reader action, so the 2-second hold isn't the only way
-    removeTitle: 'Remove tag?',
-    removeBody: (tag: string) => `Remove "${tag}" from this card? The card itself is kept.`,
-    remove: 'Remove',
+    removeLabel: (tag: string) => `Remove tag ${tag}`, // the × on a tag; one tap, with Undo
   },
   // The buttons of the warning before an unencrypted copy of an ID leaves the app.
   idShare: {
@@ -453,6 +449,7 @@ export const strings = {
   },
   undo: {
     deleted: (name: string) => `Deleted ${name}`,
+    removedTag: (tag: string) => `Removed tag ${tag}`,
     undo: 'Undo',
     undoHint: 'Puts back what was just removed.',
   },

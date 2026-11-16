@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { Alert, StyleSheet } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import CardView from '../../../app/card/[id]';
-import { Removal } from '../../app/undo';
+import { createUndo, Removal } from '../../app/undo';
 import { PdfUnavailableError } from '../../share/pdfUnavailable';
 import { strings } from '../../strings';
 
@@ -58,7 +58,9 @@ jest.mock('../../analysis/readPhoto', () => ({ canReadText: true, readPhotoText:
 // Stable like the real provider's memoised value; a fresh object per render would reload images forever.
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockRestore = jest.fn((_id: string) => Promise.resolve());
-const mockOffer = jest.fn((_removal: Removal) => {});
+// The real undo module, so the screen's Undo bar shows what was offered.
+const mockUndo = createUndo();
+const mockOffer = jest.spyOn(mockUndo, 'offer') as jest.SpyInstance<void, [Removal]>;
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
 const mockUpdate = jest.fn((_id: string, _fields: { tags: string[] }) => Promise.resolve());
 const mockServices = {
@@ -80,7 +82,7 @@ jest.mock('../../app/AppProvider', () => ({
     cards: mockCards,
     folders: [],
     refresh: () => mockRefresh(),
-    undo: { offer: (removal: Removal) => mockOffer(removal) },
+    undo: mockUndo,
     warnIdShare: mockWarnIdShare,
     setWarnIdShare: (on: boolean) => mockSetWarnIdShare(on),
   }),
@@ -88,6 +90,7 @@ jest.mock('../../app/AppProvider', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUndo.end();
   mockWarnIdShare = true;
 });
 
@@ -491,44 +494,48 @@ describe('tags', () => {
     alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
   afterEach(() => alert.mockRestore());
-  const pressInAlert = async (label: string) => {
-    const buttons = alert.mock.calls.at(-1)[2] as { text: string; onPress?: () => unknown }[];
-    await buttons.find((b) => b.text === label)?.onPress?.();
-  };
 
-  test("the card's tags show under its name, each saying how to remove it", async () => {
+  const removeButton = (tag: string) => screen.getByRole('button', { name: strings.tags.removeLabel(tag) });
+
+  test("the card's tags show under its name, each with a labelled remove button of at least 44 pt", async () => {
     await render(<CardView />);
-    const work = screen.getByRole('button', { name: strings.tags.label('work') });
-    expect(work.props.accessibilityHint).toBe(strings.tags.holdHint);
     expect(screen.getByText('family')).toBeTruthy();
+    const style = StyleSheet.flatten(removeButton('work').props.style);
+    expect(style.minWidth).toBeGreaterThanOrEqual(44);
+    expect(style.minHeight).toBeGreaterThanOrEqual(44);
   });
 
-  test('a screen reader can remove a tag from the actions menu, after the same confirmation', async () => {
+  test('one tap removes a tag at once, with no hold and no dialog, and the Undo bar says so', async () => {
     await render(<CardView />);
-    const work = screen.getByTestId('tag-work');
-    expect(work.props.accessibilityActions).toEqual([{ name: 'remove', label: strings.tags.removeAction }]);
-    await fireEvent(work, 'accessibilityAction', { nativeEvent: { actionName: 'remove' } });
-    expect(alert).toHaveBeenCalledWith(strings.tags.removeTitle, strings.tags.removeBody('work'), expect.any(Array));
-    await pressInAlert(strings.tags.remove);
-    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('card1', expect.objectContaining({ tags: ['family'] })));
-  });
-
-  test('a tap does nothing; it takes a two-second hold, then a confirmation, to remove a tag', async () => {
-    await render(<CardView />);
-    const work = screen.getByTestId('tag-work');
-    expect(work.props.delayLongPress ?? 2000).toBe(2000);
-    await fireEvent.press(work);
+    await fireEvent.press(removeButton('work'));
     expect(alert).not.toHaveBeenCalled();
-
-    await fireEvent(work, 'longPress');
-    expect(alert).toHaveBeenCalledWith(strings.tags.removeTitle, strings.tags.removeBody('work'), expect.any(Array));
-    await pressInAlert(strings.common.cancel);
-    expect(mockUpdate).not.toHaveBeenCalled();
-
-    await fireEvent(work, 'longPress');
-    await pressInAlert(strings.tags.remove);
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('card1', expect.objectContaining({ tags: ['family'] })));
     expect(mockRefresh).toHaveBeenCalled();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Removed tag work')).toBeTruthy();
+  });
+
+  test("Undo puts the tag back where it was and leaves the card's other tags as they are", async () => {
+    await render(<CardView />);
+    await fireEvent.press(removeButton('work'));
+    await waitFor(() => expect(mockOffer).toHaveBeenCalled());
+    // Meanwhile the card gained a tag; Undo must not lose it.
+    mockCards = [makeCard({ id: 'card1', name: 'Gym', tags: ['family', 'car'] })];
+    mockUpdate.mockClear();
+    mockRefresh.mockClear();
+    await fireEvent.press(screen.getByTestId('undo-button'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('card1', expect.objectContaining({ tags: ['work', 'family', 'car'] })));
+    expect(mockRefresh).toHaveBeenCalled();
+    expect(screen.queryByTestId('undo-bar')).toBeNull();
+  });
+
+  test('a removal that fails says so and offers no Undo', async () => {
+    mockUpdate.mockRejectedValueOnce(new Error('disk'));
+    jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
+    await render(<CardView />);
+    await fireEvent.press(removeButton('work'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(strings.errors.actions.tags.title, strings.errors.actions.tags.body));
+    expect(mockOffer).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('undo-bar')).toBeNull();
   });
 
   test('+ Tag adds several tags at once: ones used on other cards and new ones typed in', async () => {
