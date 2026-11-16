@@ -28,6 +28,10 @@ export const strings = {
         body: 'Try again, or use Quick share to send the pictures instead.',
         pdfUnavailable: 'Exporting as PDF needs a newer version of Doc Keeper. Update the app, then try again.',
       },
+      undo: {
+        title: "Couldn't undo",
+        body: 'Try again. A deleted card can also be restored from Settings → Recently deleted.',
+      },
       restore: { title: "Couldn't restore the card", body: 'It is still in Recently deleted. Try restoring it again.' },
       erase: { title: "Couldn't erase the document", body: 'It is still in Recently deleted. Try again.' },
       emptyRecentlyDeleted: { title: "Couldn't empty Recently deleted", body: 'Some documents may still be there. Try again.' },
@@ -206,8 +210,6 @@ export const strings = {
     replace: 'Replace',
     keepBoth: 'Keep both',
     deleteCard: 'Delete card',
-    deleteConfirmTitle: 'Delete this card?',
-    deleteConfirmBody: 'It is kept in Recently deleted for 30 days, then erased.',
     captureFailed: "Couldn't open that photo. Check Doc Keeper's photo access in Settings.",
     cameraFailed: "Couldn't take a photo. Try again, or pick one from your photos.",
     pdfFailed: "Couldn't open that PDF.",
@@ -448,6 +450,11 @@ export const strings = {
     crashScreenTitle: 'Something went wrong',
     crashScreenBody: "Doc Keeper hit an error it couldn't recover from. Your cards are safe on this phone.",
     tryAgain: 'Try again',
+  },
+  undo: {
+    deleted: (name: string) => `Deleted ${name}`,
+    undo: 'Undo',
+    undoHint: 'Puts back what was just removed.',
   },
   recentlyDeleted: {
     title: 'Recently deleted',

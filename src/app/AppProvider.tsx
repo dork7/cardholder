@@ -18,6 +18,7 @@ import { createFileBlobStore } from '../storage/fileBlobStore';
 import { openDatabase } from '../storage/openDatabase';
 import { boot, BootDeps, bootFresh, Services } from './boot';
 import { AppSnapshot, createRefreshCoordinator } from './refreshCoordinator';
+import { createUndo, Undo } from './undo';
 
 export type BootPhase =
   | { status: 'loading' }
@@ -38,6 +39,8 @@ export interface AppContextValue {
   folders: Folder[];
   unlocked: boolean;
   refresh(): Promise<void>;
+  // The one Undo offer for removals (see undo.ts); home shows it as the Undo bar.
+  undo: Undo;
   openImportOnReady: boolean;
   clearOpenImport(): void;
   appearance: AppearancePref;
@@ -113,6 +116,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
   );
 
+  // Lives as long as the provider, so the offer survives the screen that made it closing.
+  const [undo] = useState(() => createUndo());
+
   // Saved preferences are applied before the first screen draws; reading them never blocks boot.
   const restorePreferences = useCallback(async (services: Services) => {
     const pref = await loadAppearance(services.settings).catch(() => 'system' as const);
@@ -184,9 +190,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!services) return;
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') void purgeRecentlyDeleted(services);
+      // Leaving the app makes the last removal final: Undo is no longer offered when it comes back.
+      if (state === 'background') undo.end();
     });
     return () => sub.remove();
-  }, [services]);
+  }, [services, undo]);
 
   // The home screen widget follows the pinned cards and app lock. Only once the cards are open: before
   // that the list is empty, and the widget would lose its cards on every launch.
@@ -272,6 +280,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             folders,
             unlocked,
             refresh,
+            undo,
             openImportOnReady,
             clearOpenImport,
             appearance,
@@ -294,6 +303,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       folders,
       unlocked,
       refresh,
+      undo,
       openImportOnReady,
       clearOpenImport,
       appearance,

@@ -17,6 +17,7 @@ import { useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { PdfPager } from '../../src/ui/PdfPager';
 import { displayName } from '../../src/cards/display';
+import { deleteWithUndo } from '../../src/cards/deleteWithUndo';
 import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/expiry';
 import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
 import { exportCardPdf, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
@@ -37,7 +38,7 @@ import { LiveText } from '../../src/ui/LiveText';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cards, folders, services, refresh, cardBrightness, warnIdShare, setWarnIdShare } = useApp();
+  const { cards, folders, services, refresh, undo, cardBrightness, warnIdShare, setWarnIdShare } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -139,25 +140,17 @@ export default function CardView() {
       }),
     );
 
-  const confirmDelete = () =>
-    Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await services.store.moveToRecentlyDeleted(card.id);
-          } catch (e) {
-            console.warn('Delete failed', e);
-            showError('delete', e);
-            return;
-          }
-          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
-          router.back();
-        },
-      },
-    ]);
+  // No dialog: the card goes to Recently deleted at once and home offers Undo.
+  const deleteCard = async () => {
+    try {
+      await deleteWithUndo(services.store, undo, card, refresh);
+    } catch (e) {
+      console.warn('Delete failed', e);
+      showError('delete', e);
+      return;
+    }
+    router.back();
+  };
 
   const togglePin = async () => {
     try {
@@ -404,7 +397,7 @@ export default function CardView() {
         actions={[
           { key: 'pdf', icon: 'pdf', label: strings.card.exportPdf, hint: strings.card.exportPdfHint, onPress: exportPdf, testID: 'export-pdf' },
           { key: 'edit', icon: 'edit', label: strings.card.edit, onPress: () => router.push(`/edit/${card.id}`), testID: 'edit-card' },
-          { key: 'delete', icon: 'trash', variant: 'danger', label: strings.edit.deleteCard, onPress: confirmDelete, testID: 'delete-card' },
+          { key: 'delete', icon: 'trash', variant: 'danger', label: strings.edit.deleteCard, onPress: () => void deleteCard(), testID: 'delete-card' },
         ]}
       />
       <TagSheet

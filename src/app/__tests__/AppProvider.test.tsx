@@ -11,6 +11,7 @@ import { strings } from '../../strings';
 import { Text } from '../../ui/Text';
 import { AppContextValue, AppProvider, useApp, useBoot } from '../AppProvider';
 import { BootScreen } from '../BootScreen';
+import { deleteWithUndo } from '../../cards/deleteWithUndo';
 
 let mockOpenDatabase: () => Promise<SqlDb>;
 let mockBlobs: BlobStore;
@@ -189,6 +190,51 @@ describe('Recently deleted', () => {
       for (const listener of listeners) listener('active');
     });
     await waitFor(async () => expect(await store.listRecentlyDeleted()).toEqual([]));
+  });
+});
+
+describe('Undo', () => {
+  function captureAppState() {
+    const listeners: ((state: AppStateStatus) => void)[] = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((type, listener) => {
+      if (type === 'change') listeners.push(listener as (state: AppStateStatus) => void);
+      return { remove: () => {} } as ReturnType<typeof AppState.addEventListener>;
+    });
+    return (state: AppStateStatus) =>
+      act(async () => {
+        for (const listener of listeners) listener(state);
+      });
+  }
+
+  test('a deleted document is gone from the list at once and Undo brings it back', async () => {
+    await renderApp();
+    await screen.findByText('cards:0');
+    const app = captured[captured.length - 1];
+    const card = await app.services.store.create(fields({ name: 'Passport', tags: ['ID'] }), images('passport'));
+    await act(() => app.refresh());
+    await screen.findByText('cards:1');
+
+    await act(() => deleteWithUndo(app.services.store, app.undo, card, app.refresh));
+    await screen.findByText('cards:0');
+    expect(app.undo.current()?.message).toBe('Deleted Passport');
+
+    await act(() => app.undo.undo());
+    await screen.findByText('cards:1');
+    expect(await app.services.store.get(card.id)).toMatchObject({ name: 'Passport', tags: ['ID'] });
+    expect(await app.services.store.loadImage(card.id, 'front')).toBeTruthy();
+  });
+
+  test('going to the background ends the Undo offer; the document stays in Recently deleted', async () => {
+    const emit = captureAppState();
+    await renderApp();
+    await screen.findByText('cards:0');
+    const app = captured[captured.length - 1];
+    const card = await app.services.store.create(fields({ name: 'Passport' }), images('passport'));
+    await act(() => deleteWithUndo(app.services.store, app.undo, card, app.refresh));
+
+    await emit('background');
+    expect(app.undo.current()).toBeNull();
+    expect((await app.services.store.listRecentlyDeleted()).map((c) => c.name)).toEqual(['Passport']);
   });
 });
 

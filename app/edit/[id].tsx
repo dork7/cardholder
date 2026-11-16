@@ -7,6 +7,7 @@ import { EASE_OUT } from '../../src/ui/motion';
 import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
 import { displayName } from '../../src/cards/display';
+import { deleteWithUndo } from '../../src/cards/deleteWithUndo';
 import { FrontImage, looksVertical, PdfDocument } from '../../src/cards/types';
 import { findDuplicate } from '../../src/cards/duplicates';
 import { allTags, hasTag, normalizeTags, sameTag, tagOptions } from '../../src/cards/tags';
@@ -59,7 +60,7 @@ import { LiveText } from '../../src/ui/LiveText';
 export default function EditCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
-  const { services, cards, folders, unlocked, refresh } = useApp();
+  const { services, cards, folders, unlocked, refresh, undo } = useApp();
   const existing = isNew ? null : (cards.find((c) => c.id === id) ?? null);
   const router = useRouter();
   const theme = useTheme();
@@ -388,27 +389,19 @@ export default function EditCard() {
     router.back();
   };
 
-  const confirmDelete = () =>
-    Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: async () => {
-          if (!existing) return;
-          try {
-            await services.store.moveToRecentlyDeleted(existing.id);
-          } catch (e) {
-            console.warn('Delete failed', e);
-            showError('delete', e);
-            return;
-          }
-          leave();
-          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
-          router.dismissAll();
-        },
-      },
-    ]);
+  // No dialog: the card goes to Recently deleted at once and home offers Undo.
+  const deleteCard = async () => {
+    if (!existing) return;
+    try {
+      await deleteWithUndo(services.store, undo, existing, refresh);
+    } catch (e) {
+      console.warn('Delete failed', e);
+      showError('delete', e);
+      return;
+    }
+    leave();
+    router.dismissAll();
+  };
 
   const folderChips: Chip[] = [
     {
@@ -668,7 +661,7 @@ export default function EditCard() {
           {existing && (
             // Glides, rather than jumps, when a field above it appears or goes.
             <Animated.View layout={MOVE} style={styles.danger}>
-              <Button variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} />
+              <Button variant="danger" label={strings.edit.deleteCard} onPress={() => void deleteCard()} />
             </Animated.View>
           )}
         </ScrollView>
