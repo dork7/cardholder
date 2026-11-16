@@ -111,6 +111,16 @@ test('an unlocked user restores past the free limit', async () => {
   expect(mockRestore).toHaveBeenCalledWith('a');
 });
 
+test('a failed restore says the restore failed and keeps the document here', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  mockRestore.mockRejectedValueOnce(new Error('io error'));
+  await render(<RecentlyDeletedScreen />);
+  await fireEvent.press(await screen.findByTestId('restore-a'));
+  expect(alert).toHaveBeenCalledWith(strings.errors.actions.restore.title, strings.errors.actions.restore.body);
+  expect(screen.getByText('Passport')).toBeTruthy();
+});
+
 test('says so when nothing has been deleted', async () => {
   mockDeleted = [];
   await render(<RecentlyDeletedScreen />);

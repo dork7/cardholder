@@ -8,7 +8,58 @@ export const strings = {
     save: 'Save',
     delete: 'Delete',
     close: 'Close',
-    error: 'Something went wrong. Please try again.',
+  },
+  // What failed, then what to try. errorMessage (src/ui/errorAlert.ts) swaps the body for storageFull
+  // when the phone is out of space, and for pdfUnavailable when this build can't make PDFs.
+  errors: {
+    storageFull: 'Your phone is out of storage. Free up some space, then try again.',
+    actions: {
+      save: { title: "Couldn't save the card", body: 'Your changes are still here. Try saving again.' },
+      delete: { title: "Couldn't delete the card", body: 'The card is still here. Try deleting it again.' },
+      share: { title: "Couldn't share the card", body: 'Try again, or pick a different app in the share sheet.' },
+      shareMany: {
+        title: "Couldn't share the cards",
+        body: 'Try again, or share fewer cards at a time.',
+        pdfUnavailable: 'Sharing several cards needs a newer version of Doc Keeper. Update the app, then try again.',
+      },
+      saveMarkdown: { title: "Couldn't share the details", body: 'Try again, or pick a different app in the share sheet.' },
+      exportPdf: {
+        title: "Couldn't export the PDF",
+        body: 'Try again, or use Quick share to send the pictures instead.',
+        pdfUnavailable: 'Exporting as PDF needs a newer version of Doc Keeper. Update the app, then try again.',
+      },
+      restore: { title: "Couldn't restore the card", body: 'It is still in Recently deleted. Try restoring it again.' },
+      pin: { title: "Couldn't pin the card", body: 'Try pinning it again.' },
+      unpin: { title: "Couldn't unpin the card", body: 'Try unpinning it again.' },
+      tags: { title: "Couldn't save the tags", body: 'Try adding or removing the tag again.' },
+      blur: { title: "Couldn't change the blur", body: 'Try again, or change it in Edit.' },
+      reread: { title: "Couldn't read the text again", body: 'Check the photos are sharp and well lit, then try again.' },
+      readTextUnavailable: {
+        title: "Couldn't read the text again",
+        body: 'Reading text needs a newer version of Doc Keeper. Update the app, then try again.',
+      },
+      folder: { title: "Couldn't change the folder", body: 'Try again. Your cards are not affected.' },
+      appLock: { title: "Couldn't change the app lock", body: "Check your phone's screen lock is set up, then try again." },
+      startFresh: { title: "Couldn't remove the locked cards", body: 'Close Doc Keeper, open it again and try again.' },
+      sendReport: { title: "Couldn't send the report", body: 'Try again, or pick a different app in the share sheet.' },
+    },
+    // Batch actions know how many cards failed, not why.
+    deleteMany: (n: number) => ({
+      title: `Couldn't delete ${n} ${plural(n, 'card', 'cards')}`,
+      body: 'Select them and try deleting again.',
+    }),
+    pinMany: (n: number) => ({
+      title: `Couldn't change the pin on ${n} ${plural(n, 'card', 'cards')}`,
+      body: 'Select them and try again.',
+    }),
+    tagMany: (n: number) => ({
+      title: `Couldn't tag ${n} ${plural(n, 'card', 'cards')}`,
+      body: 'Select them and try adding the tags again.',
+    }),
+    removeTag: (n: number) => ({
+      title: `Couldn't take the tag off ${n} ${plural(n, 'card', 'cards')}`,
+      body: 'Try deleting the tag again.',
+    }),
   },
   boot: {
     loading: 'Opening your cards…',
@@ -78,7 +129,6 @@ export const strings = {
     shareSelectedHint: 'Sends the selected cards as one PDF.',
     shareIdsTitle: 'Share an ID?',
     shareIdsBody: 'The selection includes an ID. This shares an unencrypted copy of the cards.',
-    shareNeedsUpdate: 'Sharing several cards needs a newer version of Doc Keeper.',
     sortLabel: 'Sort and filter',
     sortName: 'Name',
     sortExpiry: 'Expiry',
@@ -233,7 +283,6 @@ export const strings = {
     workingMany: (done: number, n: number) => `Reading ${done} of ${n}…`,
     done: 'The document was read again.',
     doneMany: (n: number) => `${n} ${plural(n, 'document was', 'documents were')} read again.`,
-    unavailable: 'Reading text needs a newer version of Doc Keeper.',
   },
   tags: {
     // Offered before the user has any tags of their own, and what card reading suggests for these kinds.
@@ -281,7 +330,6 @@ export const strings = {
     flip: 'Flip',
     exportPdf: 'Export as PDF',
     exportPdfHint: 'The whole card as one PDF file, front then back, through the share sheet: send it, or save it to Files.',
-    exportPdfNeedsUpdate: 'Exporting as PDF needs a newer version of Doc Keeper.',
     share: 'Quick share',
     shareHint: 'AirDrop on iPhone, Quick Share on Android, over Bluetooth and Wi-Fi, or any other app.',
     shareMarkdownHint: 'Sends the details as a Markdown file only, without the pictures.',
@@ -425,7 +473,6 @@ export const strings = {
     deleteConfirmTitle: (name: string) => `Delete “${name}”?`,
     deleteConfirmBody: (n: number) =>
       `It is taken off ${n} ${plural(n, 'card', 'cards')}. The ${plural(n, 'card itself is', 'cards themselves are')} kept.`,
-    deleteFailed: (n: number) => `${n} ${plural(n, "card couldn't", "cards couldn't")} be changed. Try again.`,
   },
   notes: {
     title: 'Notes',
