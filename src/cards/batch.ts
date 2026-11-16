@@ -70,7 +70,7 @@ export function addTags(store: CardStore, cards: Card[], tags: readonly string[]
 }
 
 // Takes one tag off one card, matching it ignoring case.
-export function removeTag(store: CardStore, card: Card, tag: string): Promise<Card> {
+export function removeTag(store: Pick<CardStore, 'update'>, card: Card, tag: string): Promise<Card> {
   return store.update(card.id, { ...fieldsOf(card), tags: card.tags.filter((t) => !sameTag(t, tag)) });
 }
 
