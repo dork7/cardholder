@@ -7,7 +7,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
-import { addTags, overTagLimit, removeAll, setBlurPreview, shouldUnpin, togglePinned } from '../src/cards/batch';
+import { addTags, overTagLimit, setBlurPreview, shouldUnpin, togglePinned } from '../src/cards/batch';
 import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
 import { filterCards, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
@@ -28,6 +28,7 @@ import { ChipRow } from '../src/ui/ChipRow';
 import { SORT_LABELS, SortSheet } from '../src/ui/SortSheet';
 import { HomeActionBar } from '../src/ui/HomeActionBar';
 import { UndoBar } from '../src/ui/UndoBar';
+import { deleteAllWithUndo } from '../src/cards/deleteWithUndo';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { PixelLogo } from '../src/ui/PixelLogo';
@@ -199,15 +200,9 @@ export default function Home() {
     );
   };
 
+  // No dialog: the selection goes to Recently deleted at once and one Undo brings it all back.
   const deleteSelected = () =>
-    Alert.alert(strings.home.deleteSelectedTitle(selected.length), strings.home.deleteSelectedBody(selected.length), [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: () => onSelection((cards) => removeAll(services.store, cards), strings.errors.deleteMany),
-      },
-    ]);
+    onSelection((cards) => deleteAllWithUndo(services.store, undo, cards, refresh), strings.errors.deleteMany);
 
   // One PDF of every selected card. An ID asks first, as on the card's own screen, unless the
   // warning is turned off. Selection stays, so the same cards can be sent elsewhere.
