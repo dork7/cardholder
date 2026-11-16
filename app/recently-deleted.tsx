@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { displayName } from '../src/cards/display';
 import { daysLeft } from '../src/cards/recentlyDeleted';
@@ -61,6 +61,36 @@ export default function RecentlyDeletedScreen() {
     }
   };
 
+  // Erasing is the one step here that can't be undone, so it always asks first.
+  const erase = async (action: 'erase' | 'emptyRecentlyDeleted', run: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await run();
+    } catch (e) {
+      console.warn('Erasing failed', e);
+      showError(action, e);
+    } finally {
+      await load();
+      setBusy(false);
+    }
+  };
+
+  const confirmDeleteNow = (card: DeletedCard) => {
+    if (busy) return;
+    Alert.alert(strings.recentlyDeleted.deleteNowTitle(displayName(card)), strings.recentlyDeleted.deleteNowBody, [
+      { text: strings.common.cancel, style: 'cancel' },
+      { text: strings.recentlyDeleted.deleteNow, style: 'destructive', onPress: () => erase('erase', () => services.store.erase(card.id)) },
+    ]);
+  };
+
+  const confirmEmpty = () => {
+    if (busy || !deleted?.length) return;
+    Alert.alert(strings.recentlyDeleted.emptyTitle, strings.recentlyDeleted.emptyBody(deleted.length), [
+      { text: strings.common.cancel, style: 'cancel' },
+      { text: strings.recentlyDeleted.emptyAction, style: 'destructive', onPress: () => erase('emptyRecentlyDeleted', () => services.store.eraseRecentlyDeleted()) },
+    ]);
+  };
+
   const now = Date.now();
   return (
     <Screen>
@@ -79,14 +109,27 @@ export default function RecentlyDeletedScreen() {
             left={daysLeft(card.deletedAt, now)}
             busy={busy}
             onRestore={() => void restore(card)}
+            onDeleteNow={() => confirmDeleteNow(card)}
           />
         ))}
+        {deleted !== null && deleted.length > 0 ? (
+          <Button
+            variant="danger"
+            label={strings.recentlyDeleted.emptyAction}
+            accessibilityLabel={strings.recentlyDeleted.emptyLabel}
+            onPress={confirmEmpty}
+            disabled={busy}
+            testID="recently-deleted-empty-all"
+          />
+        ) : null}
       </ScrollView>
     </Screen>
   );
 }
 
-function DeletedRow({ card, left, busy, onRestore }: { card: DeletedCard; left: number; busy: boolean; onRestore: () => void }) {
+type RowProps = { card: DeletedCard; left: number; busy: boolean; onRestore: () => void; onDeleteNow: () => void };
+
+function DeletedRow({ card, left, busy, onRestore, onDeleteNow }: RowProps) {
   const theme = useTheme();
   const thumb = useCardImage(card, 'thumb');
   const name = displayName(card);
@@ -103,14 +146,25 @@ function DeletedRow({ card, left, busy, onRestore }: { card: DeletedCard; left: 
           <Text style={[styles.caption, { color: theme.muted }]}>{strings.recentlyDeleted.daysLeft(left)}</Text>
         </View>
       </View>
-      <Button
-        variant="secondary"
-        label={strings.recentlyDeleted.restore}
-        accessibilityLabel={strings.recentlyDeleted.restoreLabel(name)}
-        onPress={onRestore}
-        disabled={busy}
-        testID={`restore-${card.id}`}
-      />
+      {/* Restore first; Delete now is destructive, so it sits last. */}
+      <View style={styles.actions}>
+        <Button
+          variant="secondary"
+          label={strings.recentlyDeleted.restore}
+          accessibilityLabel={strings.recentlyDeleted.restoreLabel(name)}
+          onPress={onRestore}
+          disabled={busy}
+          testID={`restore-${card.id}`}
+        />
+        <Button
+          variant="danger"
+          label={strings.recentlyDeleted.deleteNow}
+          accessibilityLabel={strings.recentlyDeleted.deleteNowLabel(name)}
+          onPress={onDeleteNow}
+          disabled={busy}
+          testID={`delete-now-${card.id}`}
+        />
+      </View>
     </Panel>
   );
 }
@@ -122,6 +176,7 @@ const styles = StyleSheet.create({
   thumb: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   picture: { width: THUMB_W, height: THUMB_W / ID1_RATIO, overflow: 'hidden' },
   text: { flex: 1, gap: 4 },
+  actions: { gap: 8 },
   title: { fontSize: TYPE.body, fontWeight: '700' },
   caption: { fontSize: TYPE.secondary },
 });
