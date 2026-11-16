@@ -58,7 +58,7 @@ test('says when a side or the whole card has no text yet', () => {
   expect(cardMarkdown(makeCard({ hasBack: true, readText: { front: 'X', back: '  ' } }), [])).toContain(
     '## Back\n\n_No text was read from this side._',
   );
-  expect(cardMarkdown(makeCard({ readText: null }), [])).toContain('## Scanned text\n\n_No text has been read from this card yet.');
+  expect(cardMarkdown(makeCard({ readText: null }), [])).toContain('## Scanned text\n\n_No text has been read from this document yet.');
 });
 
 test('a PDF card names its pages', () => {

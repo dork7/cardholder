@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { normalizeTags, sameTag } from '../cards/tags';
 import { TAG_MAX_LENGTH } from '../config';
 import { strings } from '../strings';
 import { Button } from './Button';
+import { Sheet } from './Sheet';
 import { FONT, Text } from './Text';
 import { RADIUS, TRACKING, TYPE, useTheme } from './theme';
 
@@ -20,7 +20,6 @@ interface Props {
 // number of the tags already in use, or type new ones, then add them all at once.
 export function TagSheet({ visible, title, existing, onApply, onClose }: Props) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const [chosen, setChosen] = useState<string[]>([]);
   const [typed, setTyped] = useState<string[]>([]); // new tags typed in this sheet, shown with the others
   const [draft, setDraft] = useState('');
@@ -49,85 +48,79 @@ export function TagSheet({ visible, title, existing, onApply, onClose }: Props) 
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.fill} onPress={onClose} accessibilityLabel={strings.common.cancel} />
-        <View style={[styles.sheet, { backgroundColor: theme.bannerBg, paddingBottom: insets.bottom + 16 }]} testID="tag-sheet">
-          <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
-            {title}
-          </Text>
+    <Sheet visible={visible} onClose={onClose} avoidKeyboard style={styles.sheet} testID="tag-sheet">
+      <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
+        {title}
+      </Text>
 
-          <View style={[styles.field, { backgroundColor: theme.surface, borderColor: theme.rosette }]}>
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              onSubmitEditing={addDraft}
-              submitBehavior="submit"
-              placeholder={strings.tags.newPlaceholder}
-              placeholderTextColor={theme.muted}
-              accessibilityLabel={strings.tags.newPlaceholder}
-              maxLength={TAG_MAX_LENGTH}
-              autoCapitalize="words"
-              returnKeyType="done"
-              style={[styles.input, { color: theme.text }]}
-              testID="tag-input"
-            />
-            <Pressable
-              onPress={addDraft}
-              disabled={draft.trim() === ''}
-              accessibilityRole="button"
-              accessibilityLabel={strings.tags.addNew}
-              accessibilityState={{ disabled: draft.trim() === '' }}
-              testID="tag-input-add"
-              style={({ pressed }) => [styles.addNew, { opacity: draft.trim() === '' ? 0.4 : pressed ? 0.7 : 1 }]}
-            >
-              <Text style={[styles.addNewText, { color: theme.text }]}>{strings.tags.addNew}</Text>
-            </Pressable>
-          </View>
+      <View style={[styles.field, { backgroundColor: theme.surface, borderColor: theme.rosette }]}>
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          onSubmitEditing={addDraft}
+          submitBehavior="submit"
+          placeholder={strings.tags.newPlaceholder}
+          placeholderTextColor={theme.muted}
+          accessibilityLabel={strings.tags.newPlaceholder}
+          maxLength={TAG_MAX_LENGTH}
+          autoCapitalize="words"
+          returnKeyType="done"
+          style={[styles.input, { color: theme.text }]}
+          testID="tag-input"
+        />
+        <Pressable
+          onPress={addDraft}
+          disabled={draft.trim() === ''}
+          accessibilityRole="button"
+          accessibilityLabel={strings.tags.addNew}
+          accessibilityState={{ disabled: draft.trim() === '' }}
+          testID="tag-input-add"
+          style={({ pressed }) => [styles.addNew, { opacity: draft.trim() === '' ? 0.4 : pressed ? 0.7 : 1 }]}
+        >
+          <Text style={[styles.addNewText, { color: theme.text }]}>{strings.tags.addNew}</Text>
+        </Pressable>
+      </View>
 
-          <ScrollView style={styles.list} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
-            {options.length === 0 ? (
-              <Text style={{ color: theme.muted, fontSize: TYPE.secondary }}>{strings.tags.none}</Text>
-            ) : (
-              options.map((tag) => {
-                const on = isChosen(tag);
-                return (
-                  <Pressable
-                    key={tag}
-                    onPress={() => toggle(tag)}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: on }}
-                    testID={`tag-option-${tag}`}
-                    style={({ pressed }) => [
-                      styles.chip,
-                      { backgroundColor: on ? theme.accent : theme.surface, opacity: pressed ? 0.7 : 1 },
-                    ]}
-                  >
-                    <Text style={[styles.chipText, { color: on ? theme.onAccent : theme.text }]} numberOfLines={1}>
-                      {tag}
-                    </Text>
-                  </Pressable>
-                );
-              })
-            )}
-          </ScrollView>
+      <ScrollView style={styles.list} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
+        {options.length === 0 ? (
+          <Text style={{ color: theme.muted, fontSize: TYPE.secondary }}>{strings.tags.none}</Text>
+        ) : (
+          options.map((tag) => {
+            const on = isChosen(tag);
+            return (
+              <Pressable
+                key={tag}
+                onPress={() => toggle(tag)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on }}
+                testID={`tag-option-${tag}`}
+                style={({ pressed }) => [
+                  styles.chip,
+                  { backgroundColor: on ? theme.accent : theme.surface, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Text style={[styles.chipText, { color: on ? theme.onAccent : theme.text }]} numberOfLines={1}>
+                  {tag}
+                </Text>
+              </Pressable>
+            );
+          })
+        )}
+      </ScrollView>
 
-          <Button
-            label={strings.tags.apply(chosen.length)}
-            disabled={chosen.length === 0}
-            onPress={() => onApply(chosen)}
-            testID="tag-sheet-apply"
-          />
-          <Button variant="secondary" label={strings.common.cancel} onPress={onClose} testID="tag-sheet-cancel" />
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      <Button
+        label={strings.tags.apply(chosen.length)}
+        disabled={chosen.length === 0}
+        onPress={() => onApply(chosen)}
+        testID="tag-sheet-apply"
+      />
+      <Button variant="secondary" label={strings.common.cancel} onPress={onClose} testID="tag-sheet-cancel" />
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  sheet: { borderTopLeftRadius: RADIUS.none, borderTopRightRadius: RADIUS.none, padding: 16, gap: 12, maxHeight: '80%' },
+  sheet: { gap: 12, maxHeight: '80%' },
   title: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight, paddingHorizontal: 4 },
   field: { flexDirection: 'row', alignItems: 'center', minHeight: 48, borderRadius: RADIUS.sm, borderWidth: 1, paddingLeft: 16, paddingRight: 6 },
   input: { flex: 1, minHeight: 48, fontSize: TYPE.body, fontFamily: FONT.regular },

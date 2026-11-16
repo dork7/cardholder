@@ -1,13 +1,16 @@
 import { Undo } from '../app/undo';
+import { MAX_TAGS } from '../config';
 import { strings } from '../strings';
-import { fieldsOf, removeTag } from './batch';
+import { fieldsOf, removeTag, TooManyTagsError } from './batch';
 import { CardStore } from './cardStore';
+import { refreshAfter } from './refreshAfter';
 import { hasTag, sameTag } from './tags';
 import { Card } from './types';
 
-// Takes one tag off a card at once and offers Undo, which puts it back where it was. Undo works on the
-// card as it is by then, so tags added or removed meanwhile are kept. Rejects, offering nothing, when
-// the removal itself fails. A failed refresh only leaves the screen stale until the next one.
+// Takes one tag off a document at once and offers Undo, which puts it back where it was. Undo works on
+// the document as it is by then, so tags added or removed meanwhile are kept; when it has filled up to
+// MAX_TAGS meanwhile, Undo leaves it alone and rejects with TooManyTagsError. Rejects, offering nothing,
+// when the removal itself fails.
 export async function removeTagWithUndo(
   store: Pick<CardStore, 'update' | 'get'>,
   undo: Pick<Undo, 'offer'>,
@@ -19,15 +22,17 @@ export async function removeTagWithUndo(
   await removeTag(store, card, tag);
   undo.offer({
     message: strings.undo.removedTag(tag),
+    failure: 'undoTag',
     undo: async () => {
       const now = await store.get(card.id);
       if (now && !hasTag(now, tag)) {
+        if (now.tags.length >= MAX_TAGS) throw new TooManyTagsError();
         const tags = [...now.tags];
         tags.splice(Math.max(0, Math.min(at, tags.length)), 0, tag);
         await store.update(card.id, { ...fieldsOf(now), tags });
       }
-      await refresh().catch((e) => console.warn('Refresh after undo failed', e));
+      await refreshAfter(refresh, 'undo');
     },
   });
-  await refresh().catch((e) => console.warn('Refresh after removing a tag failed', e));
+  await refreshAfter(refresh, 'removing a tag');
 }

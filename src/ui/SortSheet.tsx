@@ -1,9 +1,9 @@
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { GallerySort } from '../cards/listing';
 import { strings } from '../strings';
+import { Sheet } from './Sheet';
 import { Text } from './Text';
-import { RADIUS, TYPE, useTheme } from './theme';
+import { TYPE, useTheme } from './theme';
 
 interface Props {
   visible: boolean;
@@ -22,54 +22,47 @@ const orders: [GallerySort, string][] = [
 
 export function SortSheet({ visible, sort, expiringOnly, onSort, onExpiringOnly, onClose }: Props) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.fill}>
-        <Pressable style={styles.fill} onPress={onClose} accessibilityLabel={strings.common.close} />
-        <View style={[styles.sheet, { backgroundColor: theme.bannerBg, paddingBottom: insets.bottom + 16 }]} testID="sort-sheet">
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">{strings.home.sortLabel}</Text>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.common.close} testID="sort-close" style={styles.close}>
-              <Text style={{ color: theme.text, fontSize: TYPE.secondary }}>{strings.common.close}</Text>
-            </Pressable>
-          </View>
-          <View accessibilityRole="radiogroup" accessibilityLabel={strings.home.sortLabel}>
-            {orders.map(([key, label]) => (
-              <Pressable
-                key={key}
-                onPress={() => onSort(key)}
-                accessibilityRole="radio"
-                accessibilityLabel={label}
-                accessibilityState={{ checked: sort === key }}
-                testID={`sort-${key}`}
-                style={[styles.option, { borderColor: theme.border }]}
-              >
-                <Text style={{ color: theme.text, fontSize: TYPE.body }}>{label}</Text>
-                <Text style={{ color: theme.selection, fontSize: TYPE.body }}>{sort === key ? '■' : '□'}</Text>
-              </Pressable>
-            ))}
-          </View>
+    <Sheet visible={visible} onClose={onClose} backdropLabel={strings.common.close} style={styles.sheet} testID="sort-sheet">
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">{strings.home.sortLabel}</Text>
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.common.close} testID="sort-close" style={styles.close}>
+          <Text style={{ color: theme.text, fontSize: TYPE.secondary }}>{strings.common.close}</Text>
+        </Pressable>
+      </View>
+      <View accessibilityRole="radiogroup" accessibilityLabel={strings.home.sortLabel}>
+        {orders.map(([key, label]) => (
           <Pressable
-            onPress={() => onExpiringOnly(!expiringOnly)}
-            accessibilityRole="checkbox"
-            accessibilityLabel={strings.home.expiringSoon}
-            accessibilityState={{ checked: expiringOnly }}
-            testID="filter-expiring"
+            key={key}
+            onPress={() => onSort(key)}
+            accessibilityRole="radio"
+            accessibilityLabel={label}
+            accessibilityState={{ checked: sort === key }}
+            testID={`sort-${key}`}
             style={[styles.option, { borderColor: theme.border }]}
           >
-            <Text style={{ color: theme.text, fontSize: TYPE.body }}>{strings.home.expiringSoon}</Text>
-            <Text style={{ color: theme.selection, fontSize: TYPE.body }}>{expiringOnly ? '■' : '□'}</Text>
+            <Text style={{ color: theme.text, fontSize: TYPE.body }}>{label}</Text>
+            <Text style={{ color: theme.selection, fontSize: TYPE.body }}>{sort === key ? '■' : '□'}</Text>
           </Pressable>
-        </View>
+        ))}
       </View>
-    </Modal>
+      <Pressable
+        onPress={() => onExpiringOnly(!expiringOnly)}
+        accessibilityRole="checkbox"
+        accessibilityLabel={strings.home.expiringSoon}
+        accessibilityState={{ checked: expiringOnly }}
+        testID="filter-expiring"
+        style={[styles.option, { borderColor: theme.border }]}
+      >
+        <Text style={{ color: theme.text, fontSize: TYPE.body }}>{strings.home.expiringSoon}</Text>
+        <Text style={{ color: theme.selection, fontSize: TYPE.body }}>{expiringOnly ? '■' : '□'}</Text>
+      </Pressable>
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  sheet: { borderTopLeftRadius: RADIUS.none, borderTopRightRadius: RADIUS.none, padding: 16, gap: 12 },
+  sheet: { gap: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: TYPE.section, fontWeight: '700' },
   close: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' },

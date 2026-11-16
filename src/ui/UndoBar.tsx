@@ -5,10 +5,12 @@ import { strings } from '../strings';
 import { Button } from './Button';
 import { showError } from './errorAlert';
 import { LiveText } from './LiveText';
-import { RADIUS, SHADOW, TYPE, useTheme } from './theme';
+import { GlassSurface } from './Surface';
+import { TYPE, useTheme } from './theme';
 
-// "Deleted Passport · Undo" while a removal can still be taken back (see app/undo.ts). The message is
-// a live region, so screen readers hear it, and Undo is a labelled button they can reach.
+// "Deleted Passport · Undo" while a removal can still be taken back (see app/undo.ts), floating in the
+// same glass as the home dock. The message is a live region, so screen readers hear it, and Undo is a
+// labelled button they can reach.
 export function UndoBar({ undo }: { undo: Undo }) {
   const theme = useTheme();
   const removal = useSyncExternalStore(undo.subscribe, undo.current);
@@ -17,11 +19,11 @@ export function UndoBar({ undo }: { undo: Undo }) {
   const press = () =>
     undo.undo().catch((e) => {
       console.warn('Undo failed', e);
-      showError('undo', e);
+      showError(removal.failure ?? 'undo', e);
     });
 
   return (
-    <View testID="undo-bar" style={[styles.bar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <GlassSurface testID="undo-bar" style={styles.bar} strong>
       <LiveText style={[styles.message, { color: theme.text }]} numberOfLines={2}>
         {removal.message}
       </LiveText>
@@ -34,7 +36,7 @@ export function UndoBar({ undo }: { undo: Undo }) {
           testID="undo-button"
         />
       </View>
-    </View>
+    </GlassSurface>
   );
 }
 
@@ -47,9 +49,6 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
     paddingRight: 8,
     marginBottom: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: RADIUS.none,
-    ...SHADOW.heavy,
   },
   message: { flex: 1, fontSize: TYPE.secondary, fontWeight: '600' },
   action: { minWidth: 96 },

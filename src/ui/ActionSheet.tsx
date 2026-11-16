@@ -1,7 +1,7 @@
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet } from 'react-native';
 import { strings } from '../strings';
 import { Button } from './Button';
+import { Sheet } from './Sheet';
 import { ActionIconName, RetroIcon } from './RetroIcon';
 import { Text } from './Text';
 import { RADIUS, TRACKING, TYPE, useTheme } from './theme';
@@ -29,58 +29,47 @@ interface Props {
 // Picking a row closes the sheet first, then runs the action.
 export function ActionSheet({ visible, title, actions, onClose, testID }: Props) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.fill}>
-        <Pressable style={styles.fill} onPress={onClose} accessibilityLabel={strings.common.cancel} />
-        <View
-          style={[styles.sheet, { backgroundColor: theme.bannerBg, paddingBottom: insets.bottom + 16 }]}
-          accessibilityRole="menu"
-          testID={testID}
-        >
-          <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
-            {title}
-          </Text>
-          {actions.map((action) => {
-            const color = action.variant === 'danger' ? theme.danger : theme.text;
-            const outline = action.variant === 'danger' ? theme.danger : theme.rosette;
-            return (
-              <Pressable
-                key={action.key}
-                accessibilityRole="menuitem"
-                accessibilityLabel={action.label}
-                accessibilityHint={action.hint}
-                onPress={() => {
-                  onClose();
-                  action.onPress();
-                }}
-                testID={action.testID}
-                style={({ pressed }) => [
-                  styles.row,
-                  { backgroundColor: theme.surface, borderColor: outline, opacity: pressed ? 0.7 : 1 },
-                ]}
-              >
-                <RetroIcon name={action.icon} size={24} color={color} />
-                <Text style={[styles.label, { color }]}>{action.label}</Text>
-              </Pressable>
-            );
-          })}
-          <Button
-            variant="secondary"
-            label={strings.common.cancel}
-            onPress={onClose}
-            testID={testID ? `${testID}-cancel` : undefined}
-          />
-        </View>
-      </View>
-    </Modal>
+    <Sheet visible={visible} onClose={onClose} accessibilityRole="menu" style={styles.sheet} testID={testID}>
+      <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
+        {title}
+      </Text>
+      {actions.map((action) => {
+        const color = action.variant === 'danger' ? theme.danger : theme.text;
+        const outline = action.variant === 'danger' ? theme.danger : theme.rosette;
+        return (
+          <Pressable
+            key={action.key}
+            accessibilityRole="menuitem"
+            accessibilityLabel={action.label}
+            accessibilityHint={action.hint}
+            onPress={() => {
+              onClose();
+              action.onPress();
+            }}
+            testID={action.testID}
+            style={({ pressed }) => [
+              styles.row,
+              { backgroundColor: theme.surface, borderColor: outline, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <RetroIcon name={action.icon} size={24} color={color} />
+            <Text style={[styles.label, { color }]}>{action.label}</Text>
+          </Pressable>
+        );
+      })}
+      <Button
+        variant="secondary"
+        label={strings.common.cancel}
+        onPress={onClose}
+        testID={testID ? `${testID}-cancel` : undefined}
+      />
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  sheet: { borderTopLeftRadius: RADIUS.none, borderTopRightRadius: RADIUS.none, padding: 16, gap: 8 },
+  sheet: { gap: 8 },
   title: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight, paddingHorizontal: 4, paddingBottom: 4 },
   row: {
     flexDirection: 'row',

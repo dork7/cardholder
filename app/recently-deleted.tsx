@@ -135,27 +135,32 @@ function DeletedRow({ card, left, busy, onRestore, onDeleteNow }: RowProps) {
   const name = displayName(card);
   return (
     <Panel style={styles.row} testID={`deleted-${card.id}`}>
-      <View style={styles.thumb} accessible accessibilityLabel={`${name}, ${strings.recentlyDeleted.daysLeft(left)}`}>
-        <View style={[styles.picture, { borderRadius: THUMB_W * CARD_RADIUS, backgroundColor: theme.bannerBg }]}>
-          <CardPicture uri={thumb} vertical={card.vertical} radius={THUMB_W * CARD_RADIUS} blurPreview={card.blurPreview} />
+      <View style={styles.main}>
+        <View style={styles.thumb} accessible accessibilityLabel={`${name}, ${strings.recentlyDeleted.daysLeft(left)}`}>
+          <View style={[styles.picture, { borderRadius: THUMB_W * CARD_RADIUS, backgroundColor: theme.bannerBg }]}>
+            <CardPicture uri={thumb} vertical={card.vertical} radius={THUMB_W * CARD_RADIUS} blurPreview={card.blurPreview} />
+          </View>
+          <View style={styles.text}>
+            <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+              {name}
+            </Text>
+            <Text style={[styles.caption, { color: theme.muted }]}>{strings.recentlyDeleted.daysLeft(left)}</Text>
+          </View>
         </View>
-        <View style={styles.text}>
-          <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
-            {name}
-          </Text>
-          <Text style={[styles.caption, { color: theme.muted }]}>{strings.recentlyDeleted.daysLeft(left)}</Text>
+        {/* Restore is the row's action, beside what it brings back. Delete now can't be undone, so it is set
+            apart below a rule, on the other side of the row. */}
+        <View style={styles.restore}>
+          <Button
+            variant="secondary"
+            label={strings.recentlyDeleted.restore}
+            accessibilityLabel={strings.recentlyDeleted.restoreLabel(name)}
+            onPress={onRestore}
+            disabled={busy}
+            testID={`restore-${card.id}`}
+          />
         </View>
       </View>
-      {/* Restore first; Delete now is destructive, so it sits last. */}
-      <View style={styles.actions}>
-        <Button
-          variant="secondary"
-          label={strings.recentlyDeleted.restore}
-          accessibilityLabel={strings.recentlyDeleted.restoreLabel(name)}
-          onPress={onRestore}
-          disabled={busy}
-          testID={`restore-${card.id}`}
-        />
+      <View style={[styles.danger, { borderTopColor: theme.border }]}>
         <Button
           variant="danger"
           label={strings.recentlyDeleted.deleteNow}
@@ -172,11 +177,13 @@ function DeletedRow({ card, left, busy, onRestore, onDeleteNow }: RowProps) {
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 32 },
   intro: { paddingHorizontal: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  row: { gap: 12, padding: 16 },
+  main: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   thumb: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   picture: { width: THUMB_W, height: THUMB_W / ID1_RATIO, overflow: 'hidden' },
   text: { flex: 1, gap: 4 },
-  actions: { gap: 8 },
+  restore: { minWidth: 96 },
+  danger: { alignItems: 'flex-start', paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   title: { fontSize: TYPE.body, fontWeight: '700' },
   caption: { fontSize: TYPE.secondary },
 });

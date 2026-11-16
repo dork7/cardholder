@@ -5,11 +5,11 @@ import { errorMessage, showError } from '../errorAlert';
 
 test('names the action that failed and what to try', () => {
   expect(errorMessage('save', new Error('io'))).toEqual({
-    title: "Couldn't save the card",
+    title: "Couldn't save the document",
     body: 'Your changes are still here. Try saving again.',
   });
-  expect(errorMessage('delete', new Error('io')).title).toBe("Couldn't delete the card");
-  expect(errorMessage('share', new Error('io')).title).toBe("Couldn't share the card");
+  expect(errorMessage('delete', new Error('io')).title).toBe("Couldn't delete the document");
+  expect(errorMessage('share', new Error('io')).title).toBe("Couldn't share the document");
 });
 
 test('a full phone says so, whatever was being done', () => {
@@ -20,7 +20,7 @@ test('a full phone says so, whatever was being done', () => {
     new Error('No space left on device'),
   ]) {
     expect(errorMessage('save', e)).toEqual({
-      title: "Couldn't save the card",
+      title: "Couldn't save the document",
       body: 'Your phone is out of storage. Free up some space, then try again.',
     });
   }
@@ -37,7 +37,7 @@ test('a build that cannot make PDFs asks for an update', () => {
     body: 'Exporting as PDF needs a newer version of Doc Keeper. Update the app, then try again.',
   });
   expect(errorMessage('shareMany', new PdfUnavailableError('no pdf')).body).toBe(
-    'Sharing several cards needs a newer version of Doc Keeper. Update the app, then try again.',
+    'Sharing several documents needs a newer version of Doc Keeper. Update the app, then try again.',
   );
 });
 

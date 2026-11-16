@@ -48,6 +48,13 @@ export function togglePinned(store: CardStore, cards: Card[]): Promise<number> {
   );
 }
 
+// A change that would give a document more than MAX_TAGS tags.
+export class TooManyTagsError extends Error {
+  constructor() {
+    super(`More than ${MAX_TAGS} tags`);
+  }
+}
+
 // A card's tags with `tags` added after them; repeats, ignoring case, keep the spelling already there.
 export const withTags = (card: Card, tags: readonly string[]): string[] => normalizeTags([...card.tags, ...tags]);
 

@@ -1,11 +1,15 @@
+import type { ErrorAction } from '../ui/errorAlert';
+
 // How long the Undo bar offers to take a removal back.
 export const UNDO_MS = 5000;
 
 // Something already removed that can be put back: one or more documents moved to Recently deleted,
 // a tag taken off a document. The removal itself has happened before it is offered; `undo` reverses it.
 export interface Removal {
-  // What the bar says, e.g. "Deleted Passport", "Deleted 3 cards", "Removed tag Car".
+  // What the bar says, e.g. "Deleted Passport", "Deleted 3 documents", "Removed tag Car".
   message: string;
+  // Which error the bar shows when `undo` rejects; deleted documents ('undo') by default.
+  failure?: ErrorAction;
   undo(): Promise<void>;
 }
 
