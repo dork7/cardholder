@@ -61,12 +61,13 @@ interface Props {
   vertical?: boolean; // swipe up and down, the pile fanned out below (a setting)
   // Given, the front card carries a button that blurs or clears that document's previews.
   onToggleBlur?: (card: Card) => void;
+  onMove?: () => void; // the stack moved to another card: swiped, or a strip tapped
 }
 
 // Wallet-style stack: the front card is fully visible, the cards behind it fan out to its right,
 // swiping left sends the front card to the back, swiping right brings the previous one back,
 // and tapping a strip brings that card straight to the front.
-export function CardStack({ cards, onOpen, vertical = false, onToggleBlur }: Props) {
+export function CardStack({ cards, onOpen, vertical = false, onToggleBlur, onMove }: Props) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
   const [width, setWidth] = useState(0);
@@ -109,6 +110,7 @@ export function CardStack({ cards, onOpen, vertical = false, onToggleBlur }: Pro
   const settle = (index: number) => {
     const card = cardsRef.current[index];
     if (card) setActiveId(card.id);
+    onMove?.();
   };
 
   const duration = reduceMotion ? 0 : DURATION;

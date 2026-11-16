@@ -48,15 +48,16 @@ test('takes a tag off every card that has it, and keeps everything else about th
   expect(await store.loadImage(b.id, 'front')).not.toBeNull();
 });
 
-test('deletes only the cards given', async () => {
+test('deletes only the cards given, moving them to Recently deleted', async () => {
   const { store, a, b, c, byId } = await threeCards();
   expect(await removeAll(store, [a, c])).toBe(0);
   expect([...(await byId()).keys()]).toEqual([b.id]);
+  expect((await store.listRecentlyDeleted()).map((x) => x.id).sort()).toEqual([a.id, c.id].sort());
 });
 
 test('one failure does not stop the rest, and is counted', async () => {
   const { store, a, b, c, byId } = await threeCards();
-  const flaky = { ...store, remove: (id: string) => (id === b.id ? Promise.reject(new Error('disk')) : store.remove(id)) };
+  const flaky = { ...store, moveToRecentlyDeleted: (id: string) => (id === b.id ? Promise.reject(new Error('disk')) : store.moveToRecentlyDeleted(id)) };
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   expect(await removeAll(flaky, [a, b, c])).toBe(1);
   warn.mockRestore();

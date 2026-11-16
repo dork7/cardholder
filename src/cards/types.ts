@@ -74,3 +74,8 @@ export interface Card extends CardFields {
   createdAt: number;
   updatedAt: number;
 }
+
+// A document in Recently deleted, with when it was deleted.
+export interface DeletedCard extends Card {
+  deletedAt: number;
+}

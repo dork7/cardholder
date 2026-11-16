@@ -124,3 +124,33 @@ test('a backup PDF that is not a PDF, or whose cover page is out of range, is in
   expect(entry({ pdfBase64: real, pageCount: 2, coverPage: 2 })).toThrow('invalid-contents');
   expect(entry({ pdfBase64: real, pageCount: 0, coverPage: 0 })).toThrow('invalid-contents');
 });
+
+describe('Recently deleted', () => {
+  test('a backup holds only current documents', async () => {
+    const { store } = await makeStore();
+    await store.create(fields({ name: 'Kept' }), images('kept'));
+    const gone = await store.create(fields({ name: 'Gone' }), images('gone'));
+    await store.moveToRecentlyDeleted(gone.id);
+    expect((await buildSnapshot(store, 1)).cards.map((entry) => entry.card.name)).toEqual(['Kept']);
+  });
+
+  test('a replace restore empties Recently deleted, photos included', async () => {
+    const { store, blobs } = await makeStore();
+    await store.create(fields({ name: 'A' }), images('a')); // card1
+    await store.create(fields({ name: 'B' }), images('b')); // card2
+    const gone = await store.create(fields({ name: 'Gone' }), images('gone')); // card3, not in the backup
+    await store.moveToRecentlyDeleted(gone.id);
+    await applySnapshot(store, backupSnapshot(), 'replace');
+    expect(await store.listRecentlyDeleted()).toEqual([]);
+    expect((await blobs.list()).filter((name) => name.startsWith('card3.'))).toEqual([]);
+  });
+
+  test('a merge restore leaves Recently deleted as it was', async () => {
+    const { store } = await makeStore();
+    await store.create(fields({ name: 'Other' }), images('other')); // card1
+    const gone = await store.create(fields({ name: 'Gone' }), images('gone')); // card2, also in the backup
+    await store.moveToRecentlyDeleted(gone.id);
+    expect(await applySnapshot(store, backupSnapshot(), 'merge')).toMatchObject({ added: 0, skipped: 2 });
+    expect((await store.listRecentlyDeleted()).map((c) => c.name)).toEqual(['Gone']);
+  });
+});

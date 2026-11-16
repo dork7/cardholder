@@ -1,7 +1,7 @@
 import { backupSnapshot, fields, images, makeStore } from '../../../test/fixtures';
 import { createCardStore } from '../../cards/cardStore';
 import { SqlDb } from '../../storage/sqlDb';
-import { decodeBackup, encodeBackup, parseSnapshot } from '../../backup/backupFile';
+import { BackupSnapshot, decodeBackup, encodeBackup, parseSnapshot } from '../../backup/backupFile';
 import { applySnapshot, buildSnapshot } from '../../backup/backupService';
 
 const secret = 'private backup passphrase';
@@ -76,4 +76,79 @@ test('failed restore rolls back notes and document rows together', async () => {
   await expect(applySnapshot(store, snapshot, 'replace', phone.notes)).rejects.toThrow('Disk full');
   expect(await phone.notes.list()).toEqual([note]);
   expect((await phone.store.get(mine.id))!.name).toBe('Keep document');
+});
+
+const roundTrip = async (snapshot: BackupSnapshot) =>
+  decodeBackup(await encodeBackup(snapshot, secret, { iterations: 1_000 }), secret);
+
+test('replace swaps current notes for the backup notes, keeping pins, timestamps and order', async () => {
+  const a = await makeStore();
+  await a.notes.save('older', { title: 'Older', body: '' });
+  await a.notes.save('newer', { title: 'Newer', body: '' });
+  await a.notes.save('latest', { title: 'Latest', body: '' });
+  await a.notes.setPinned('older', true);
+  const snapshot = await roundTrip(await buildSnapshot(a.store, 42, a.notes));
+  const b = await makeStore();
+  await b.notes.save('mine', { title: 'Only on this phone', body: '' });
+  await applySnapshot(b.store, snapshot, 'replace', b.notes);
+  const restored = await b.notes.list();
+  expect(restored.map((note) => note.id)).toEqual(['older', 'latest', 'newer']);
+  expect(restored).toEqual(await a.notes.list());
+});
+
+test('a backup with an empty notes collection round trips; merge keeps current notes, replace clears them', async () => {
+  const a = await makeStore();
+  await a.store.create(fields(), images('doc'));
+  const snapshot = await roundTrip(await buildSnapshot(a.store, 42, a.notes));
+  expect(snapshot.notes).toEqual([]);
+  const b = await makeStore();
+  await b.notes.save('mine', { title: '', body: 'Mine' });
+  expect(await applySnapshot(b.store, snapshot, 'merge', b.notes)).toMatchObject({ added: 1, notesAdded: 0, notesSkipped: 0 });
+  expect(await b.notes.list()).toHaveLength(1);
+  expect(await applySnapshot(b.store, snapshot, 'replace', b.notes)).toMatchObject({ added: 1, notesAdded: 0 });
+  expect(await b.notes.list()).toEqual([]);
+});
+
+test('a notes backup opened with the wrong passphrase, or damaged, is refused', async () => {
+  const a = await makeStore();
+  await a.notes.save('a', { title: '', body: 'Secret' });
+  const encrypted = await encodeBackup(await buildSnapshot(a.store, 42, a.notes), secret, { iterations: 1_000 });
+  await expect(decodeBackup(encrypted, 'not the passphrase')).rejects.toThrow('wrong-passphrase-or-damaged');
+  const damaged = encrypted.slice();
+  damaged[damaged.length - 1] ^= 1;
+  await expect(decodeBackup(damaged, secret)).rejects.toThrow('wrong-passphrase-or-damaged');
+});
+
+test('a failed merge adds none of the incoming notes', async () => {
+  const phone = await makeStore();
+  const note = await phone.notes.save('keep', { title: '', body: 'Keep note' });
+  const flaky: SqlDb = { ...phone.db, async runAsync(sql, params) {
+    if (sql.startsWith('INSERT INTO cards')) throw new Error('Disk full');
+    return phone.db.runAsync(sql, params);
+  } };
+  const store = createCardStore({ db: flaky, aead: phone.aead, blobs: phone.blobs });
+  const snapshot = { ...backupSnapshot(), notes: [{ ...note, id: 'incoming', body: 'Incoming' }] };
+  await expect(applySnapshot(store, snapshot, 'merge', phone.notes)).rejects.toThrow('Disk full');
+  expect(await phone.notes.list()).toEqual([note]);
+});
+
+test('right after a restore, the restored notes are not reported as changed since that backup', async () => {
+  const a = await makeStore();
+  await a.notes.save('a', { title: '', body: 'Backed up' });
+  const snapshot = await buildSnapshot(a.store, 42, a.notes);
+  for (const mode of ['replace', 'merge'] as const) {
+    const b = await makeStore();
+    await applySnapshot(b.store, snapshot, mode, b.notes);
+    expect(await b.notes.lastChangeAt()).toBeLessThanOrEqual(snapshot.exportedAt);
+  }
+});
+
+test('merging backup notes into a phone with notes of its own counts as a change', async () => {
+  const a = await makeStore();
+  await a.notes.save('a', { title: '', body: 'Backed up' });
+  const snapshot = await buildSnapshot(a.store, 42, a.notes);
+  const b = await makeStore();
+  await b.notes.save('mine', { title: '', body: 'Not in that backup' });
+  await applySnapshot(b.store, snapshot, 'merge', b.notes);
+  expect(await b.notes.lastChangeAt()).toBeGreaterThan(snapshot.exportedAt);
 });

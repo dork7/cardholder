@@ -4,7 +4,7 @@ import { useTheme } from './theme';
 // Section, field and button icons: two tones plus paper.
 export type RetroIconName = 'backup' | 'documents' | 'lock' | 'appearance' | 'blur' | 'expiry' | 'import' | 'settings';
 // Action icons for IconButton: one colour, drawn with outline cells only.
-export type ActionIconName = 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'tag' | 'pdf' | 'refresh';
+export type ActionIconName = 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'tag' | 'pdf' | 'refresh' | 'more';
 type Name = RetroIconName | ActionIconName | 'appearance-light' | 'appearance-dark';
 type Tone = 'outline' | 'tint' | 'paper';
 
@@ -282,6 +282,21 @@ export const ICON_GRIDS: Record<Name, string[]> = {
     '.oo......oo.',
     '..ooo..ooo..',
     '....oooo....',
+  ],
+  // Three dots in a row: more actions.
+  more: [
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    'oo...oo...oo',
+    'oo...oo...oo',
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
   ],
   // A luggage tag with its hole.
   tag: [

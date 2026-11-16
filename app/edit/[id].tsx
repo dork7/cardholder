@@ -397,7 +397,7 @@ export default function EditCard() {
         onPress: async () => {
           if (!existing) return;
           try {
-            await services.store.remove(existing.id);
+            await services.store.moveToRecentlyDeleted(existing.id);
           } catch (e) {
             console.warn('Delete failed', e);
             showError('delete', e);

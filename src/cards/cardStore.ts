@@ -3,12 +3,12 @@ import { Aead } from '../crypto/aead';
 import { base64, toHex, utf8 } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
 import { BlobStore } from '../storage/blobStore';
-import { SqlDb } from '../storage/sqlDb';
+import { SqlDb, SqlValue } from '../storage/sqlDb';
 import { sortCards } from './listing';
-import { DEFAULT_REMIND_DAYS } from '../config';
+import { DAY_MS, DEFAULT_REMIND_DAYS, RECENTLY_DELETED_DAYS } from '../config';
 import { parseRemindDays, toCardText } from './validate';
 import { withLegacyCategory } from './tags';
-import { Card, CardFields, CardPdf, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument } from './types';
+import { Card, CardFields, CardPdf, DeletedCard, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument } from './types';
 
 export class FolderNotFoundError extends Error {
   constructor(id: string) {
@@ -31,6 +31,7 @@ export interface ImportEntry {
 
 export interface CardStore {
   list(): Promise<Card[]>;
+  // Every id in use, Recently deleted included, so an import never reuses one.
   ids(): Promise<string[]>;
   get(id: string): Promise<Card | null>;
   count(): Promise<number>;
@@ -39,11 +40,23 @@ export interface CardStore {
   loadPdf(id: string): Promise<string | null>; // base64
   create(fields: CardFields, images: NewCardImages): Promise<Card>;
   update(id: string, fields: CardFields, changes?: ImageChanges): Promise<Card>;
-  remove(id: string): Promise<void>;
+  // Every delete moves the document to Recently deleted; it stays sealed, photos and all, until it is
+  // restored or erased. Only current documents are listed, counted or fetched by `get`.
+  moveToRecentlyDeleted(id: string): Promise<void>;
+  // Most recently deleted first.
+  listRecentlyDeleted(): Promise<DeletedCard[]>;
+  // Back exactly as it was: pin, folder, tags, photos or PDF.
+  restore(id: string): Promise<void>;
+  // Erases one document in Recently deleted, and its photos or PDF, for good.
+  erase(id: string): Promise<void>;
+  // Erases everything in Recently deleted.
+  eraseRecentlyDeleted(): Promise<void>;
+  // Erases what has been in Recently deleted for RECENTLY_DELETED_DAYS or more; returns how many.
+  purgeRecentlyDeleted(): Promise<number>;
   setPinned(id: string, pinned: boolean): Promise<void>;
   reorderPinned(orderedIds: string[]): Promise<void>;
   // Folders given here are written with the cards; ones already on the phone keep their name.
-  insertMany(entries: ImportEntry[], options: { replace: boolean; folders?: Folder[]; notes?: Note[] }): Promise<void>;
+  insertMany(entries: ImportEntry[], options: { replace: boolean; folders?: Folder[]; notes?: Note[]; notesBackedUpAt?: number }): Promise<void>;
   listFolders(): Promise<Folder[]>;
   createFolder(name: string): Promise<Folder>;
   renameFolder(id: string, name: string): Promise<Folder>;
@@ -67,6 +80,7 @@ interface Row {
   payload: Uint8Array;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 interface FolderRow {
@@ -82,6 +96,7 @@ type BlobKind = ImageSide | 'pdf';
 const KINDS: BlobKind[] = ['front', 'back', 'thumb', 'pdf'];
 const INSERT_SQL =
   'INSERT INTO cards (id, pinned, position, folder_id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
+const CURRENT = 'deleted_at IS NULL';
 const INSERT_FOLDER_SQL = 'INSERT INTO folders (id, payload, created_at) VALUES (?, ?, ?)';
 
 export const blobName = (id: string, kind: BlobKind) => `${id}.${kind}`;
@@ -155,7 +170,7 @@ export function createCardStore({
   });
   const folderName = (name: string) => name.trim();
 
-  const getRow = (id: string) => db.getFirstAsync<Row>('SELECT * FROM cards WHERE id = ?', [id]);
+  const getRow = (id: string) => db.getFirstAsync<Row>(`SELECT * FROM cards WHERE id = ? AND ${CURRENT}`, [id]);
 
   const putImage = (id: string, kind: BlobKind, base64Data: string) =>
     blobs.put(blobName(id, kind), aead.seal(base64.decode(base64Data)));
@@ -186,17 +201,27 @@ export function createCardStore({
       )
     )?.next ?? 0;
 
-  const listCards = async () => {
-    const rows = await db.getAllAsync<Row>('SELECT * FROM cards', []);
-    const cards: Card[] = [];
-    for (const row of rows) {
+  const readRows = async <T,>(sql: string, params: SqlValue[], read: (row: Row) => T): Promise<T[]> => {
+    const out: T[] = [];
+    for (const row of await db.getAllAsync<Row>(sql, params)) {
       try {
-        cards.push(toCard(row));
+        out.push(read(row));
       } catch {
         console.warn(`Skipping unreadable card ${row.id}`);
       }
     }
-    return sortCards(cards);
+    return out;
+  };
+
+  const listCards = async () => sortCards(await readRows(`SELECT * FROM cards WHERE ${CURRENT}`, [], toCard));
+
+  const eraseWhere = async (where: string, params: SqlValue[]) => {
+    const rows = await db.getAllAsync<{ id: string }>(`SELECT id FROM cards WHERE ${where}`, params);
+    for (const { id } of rows) {
+      await db.runAsync('DELETE FROM cards WHERE id = ?', [id]);
+      await removeImages(id);
+    }
+    return rows.length;
   };
 
   const ids = async () => (await db.getAllAsync<{ id: string }>('SELECT id FROM cards', [])).map((r) => r.id);
@@ -212,7 +237,7 @@ export function createCardStore({
     },
 
     async count() {
-      return (await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM cards', []))?.n ?? 0;
+      return (await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM cards WHERE ${CURRENT}`, []))?.n ?? 0;
     },
 
     async lastChangeAt() {
@@ -278,10 +303,31 @@ export function createCardStore({
       return next;
     },
 
-    async remove(id) {
-      await db.runAsync('DELETE FROM cards WHERE id = ?', [id]);
-      await removeImages(id);
+    async moveToRecentlyDeleted(id) {
+      await db.runAsync(`UPDATE cards SET deleted_at = ? WHERE id = ? AND ${CURRENT}`, [now(), id]);
     },
+
+    listRecentlyDeleted: async () =>
+      (
+        await readRows('SELECT * FROM cards WHERE deleted_at IS NOT NULL', [], (row) => ({
+          ...toCard(row),
+          deletedAt: row.deleted_at!,
+        }))
+      ).sort((a, b) => b.deletedAt - a.deletedAt || a.id.localeCompare(b.id)),
+
+    async restore(id) {
+      await db.runAsync('UPDATE cards SET deleted_at = NULL WHERE id = ?', [id]);
+    },
+
+    async erase(id) {
+      await eraseWhere('id = ? AND deleted_at IS NOT NULL', [id]);
+    },
+
+    async eraseRecentlyDeleted() {
+      await eraseWhere('deleted_at IS NOT NULL', []);
+    },
+
+    purgeRecentlyDeleted: () => eraseWhere('deleted_at <= ?', [now() - RECENTLY_DELETED_DAYS * DAY_MS]),
 
     async setPinned(id, pinned) {
       const row = await getRow(id);
@@ -299,7 +345,7 @@ export function createCardStore({
       });
     },
 
-    async insertMany(entries, { replace, folders = [], notes }) {
+    async insertMany(entries, { replace, folders = [], notes, notesBackedUpAt }) {
       const existingBefore = new Set(await ids());
       const previousIds = replace ? [...existingBefore] : [];
       const newBlobIds: string[] = [];
@@ -325,7 +371,7 @@ export function createCardStore({
             const exists = await db.getFirstAsync('SELECT id FROM folders WHERE id = ?', [folder.id]);
             if (!exists) await db.runAsync(INSERT_FOLDER_SQL, [folder.id, sealFolder(folder), folder.createdAt]);
           }
-          if (notes !== undefined) await importNotes(db, aead, notes, replace);
+          if (notes !== undefined) await importNotes(db, aead, notes, replace, notesBackedUpAt);
           for (const { card } of entries) {
             const stored: Card = { ...card, position: positions.get(card.id) ?? 0 };
             await db.runAsync(INSERT_SQL, [

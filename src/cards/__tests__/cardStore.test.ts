@@ -113,12 +113,13 @@ test('update of a missing card throws CardNotFoundError', async () => {
   await expect(store.update('nope', fields())).rejects.toBeInstanceOf(CardNotFoundError);
 });
 
-test('remove deletes the row and every image immediately', async () => {
+test('erasing a deleted document removes the row and every image', async () => {
   const { store, blobs } = await makeStore();
   const card = await store.create(fields(), images('x', true));
-  await store.remove(card.id);
+  await store.moveToRecentlyDeleted(card.id);
+  await store.erase(card.id);
   expect(await store.get(card.id)).toBeNull();
-  expect(await store.count()).toBe(0);
+  expect(await store.ids()).toEqual([]);
   expect(blobs.raw.size).toBe(0);
 });
 
@@ -383,11 +384,21 @@ describe('PDF cards', () => {
     expect(text(await store.loadImage(card.id, 'front'))).toBe('JPEG:photo');
   });
 
-  test('remove deletes the PDF too', async () => {
+  test('erasing deletes the PDF too', async () => {
     const { store, blobs } = await makeStore();
     const card = await store.create(fields(), { ...images('cover'), pdf: pdf() });
-    await store.remove(card.id);
+    await store.moveToRecentlyDeleted(card.id);
+    await store.erase(card.id);
     expect(await blobs.list()).toEqual([]);
+  });
+
+  test('a restored PDF document keeps its PDF', async () => {
+    const { store } = await makeStore();
+    const card = await store.create(fields(), { ...images('cover'), pdf: pdf(2) });
+    await store.moveToRecentlyDeleted(card.id);
+    await store.restore(card.id);
+    expect((await store.get(card.id))!.pdf).toEqual({ pageCount: 3, coverPage: 2 });
+    expect(text(await store.loadPdf(card.id))).toBe('%PDF-1.7 secret');
   });
 });
 
@@ -463,4 +474,122 @@ test('blur preference persists and survives edits of other fields', async () => 
   expect((await store.get(card.id))?.blurPreview).toBe(true);
   await store.update(card.id, { ...fieldsOf(card), blurPreview: false });
   expect((await store.get(card.id))?.blurPreview).toBe(false);
+});
+
+describe('Recently deleted', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  test('a deleted document leaves the list and the count, and waits in Recently deleted', async () => {
+    const { store } = await makeStore();
+    const kept = await store.create(fields({ name: 'Kept' }), images('k'));
+    const gone = await store.create(fields({ name: 'Gone' }), images('g'));
+    await store.moveToRecentlyDeleted(gone.id);
+    expect((await store.list()).map((c) => c.id)).toEqual([kept.id]);
+    expect(await store.count()).toBe(1);
+    expect(await store.get(gone.id)).toBeNull();
+    const deleted = await store.listRecentlyDeleted();
+    expect(deleted.map((c) => c.name)).toEqual(['Gone']);
+    expect(deleted[0].deletedAt).toEqual(expect.any(Number));
+    expect(await store.loadImage(gone.id, 'thumb')).not.toBeNull();
+  });
+
+  test('restore brings a document back exactly as it was, photos and all', async () => {
+    const { store } = await makeStore();
+    const folder = await store.createFolder('Health');
+    const card = await store.create(
+      fields({
+        name: 'Daman',
+        tags: ['Insurance'],
+        folderId: folder.id,
+        expiresOn: '2027-01-01',
+        remindDaysBefore: 30,
+        readText: { front: 'DAMAN', back: 'POLICY' },
+      }),
+      images('daman', true),
+    );
+    const before = await store.get(card.id);
+    expect(before?.pinned).toBe(true);
+    await store.moveToRecentlyDeleted(card.id);
+    await store.restore(card.id);
+    expect(await store.get(card.id)).toEqual(before);
+    expect(await store.listRecentlyDeleted()).toEqual([]);
+    expect(text(await store.loadImage(card.id, 'back'))).toBe('JPEG:daman-back');
+  });
+
+  test('the most recently deleted comes first', async () => {
+    const { store } = await makeStore();
+    const a = await store.create(fields({ name: 'A' }), images('a'));
+    const b = await store.create(fields({ name: 'B' }), images('b'));
+    await store.moveToRecentlyDeleted(a.id);
+    await store.moveToRecentlyDeleted(b.id);
+    expect((await store.listRecentlyDeleted()).map((c) => c.name)).toEqual(['B', 'A']);
+  });
+
+  test('purge erases, photos included, only what was deleted 30 days ago or more', async () => {
+    const { store, blobs, advance } = await makeStore();
+    const old = await store.create(fields({ name: 'Old' }), images('old', true));
+    const recent = await store.create(fields({ name: 'Recent' }), images('recent'));
+    const current = await store.create(fields({ name: 'Current' }), images('current'));
+    await store.moveToRecentlyDeleted(old.id);
+    advance(2 * DAY);
+    await store.moveToRecentlyDeleted(recent.id);
+    advance(28 * DAY);
+    expect(await store.purgeRecentlyDeleted()).toBe(1);
+    expect((await store.listRecentlyDeleted()).map((c) => c.name)).toEqual(['Recent']);
+    expect((await store.list()).map((c) => c.id)).toEqual([current.id]);
+    expect((await blobs.list()).filter((n) => n.startsWith(`${old.id}.`))).toEqual([]);
+    expect(await store.loadImage(recent.id, 'front')).not.toBeNull();
+    expect(await store.ids()).not.toContain(old.id);
+  });
+
+  test('erase removes one deleted document and its photos for good', async () => {
+    const { store, blobs } = await makeStore();
+    const a = await store.create(fields({ name: 'A' }), images('a', true));
+    const b = await store.create(fields({ name: 'B' }), images('b'));
+    await store.moveToRecentlyDeleted(a.id);
+    await store.moveToRecentlyDeleted(b.id);
+    await store.erase(a.id);
+    expect((await store.listRecentlyDeleted()).map((c) => c.name)).toEqual(['B']);
+    expect((await blobs.list()).filter((n) => n.startsWith(`${a.id}.`))).toEqual([]);
+  });
+
+  test('erase leaves a current document alone', async () => {
+    const { store } = await makeStore();
+    const a = await store.create(fields({ name: 'A' }), images('a'));
+    await store.erase(a.id);
+    expect(await store.get(a.id)).not.toBeNull();
+  });
+
+  test('emptying Recently deleted erases every deleted document and nothing else', async () => {
+    const { store, blobs } = await makeStore();
+    const a = await store.create(fields({ name: 'A' }), images('a'));
+    const b = await store.create(fields({ name: 'B' }), images('b'));
+    const c = await store.create(fields({ name: 'C' }), images('c'));
+    await store.moveToRecentlyDeleted(a.id);
+    await store.moveToRecentlyDeleted(b.id);
+    await store.eraseRecentlyDeleted();
+    expect(await store.listRecentlyDeleted()).toEqual([]);
+    expect((await store.list()).map((x) => x.id)).toEqual([c.id]);
+    expect((await blobs.list()).every((n) => n.startsWith(`${c.id}.`))).toBe(true);
+  });
+
+  test('a document saved before Recently deleted existed is still current after the upgrade', async () => {
+    const db = memoryDb();
+    // The schema as it was before the deletion timestamp, holding one document.
+    await db.execAsync(`
+      CREATE TABLE cards (id TEXT PRIMARY KEY NOT NULL, pinned INTEGER NOT NULL, position INTEGER NOT NULL,
+        payload BLOB NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, folder_id TEXT);
+      CREATE TABLE settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
+      CREATE TABLE folders (id TEXT PRIMARY KEY NOT NULL, payload BLOB NOT NULL, created_at INTEGER NOT NULL);
+      CREATE TABLE notes (id TEXT PRIMARY KEY NOT NULL, pinned INTEGER NOT NULL, payload BLOB NOT NULL,
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+      PRAGMA user_version = 5;`);
+    const aead = createAead(generateKey());
+    const payload = { name: 'Old', expiresOn: null, tags: [], hasBack: false, frontAspect: 1.586, backAspect: null };
+    await db.runAsync(INSERT, ['old', 0, 0, aead.seal(utf8.encode(JSON.stringify(payload))), 1, 1]);
+    await migrate(db);
+    const store = createCardStore({ db, blobs: createMemoryBlobStore(), aead });
+    expect((await store.list()).map((c) => c.name)).toEqual(['Old']);
+    expect(await store.listRecentlyDeleted()).toEqual([]);
+  });
 });

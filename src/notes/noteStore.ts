@@ -51,7 +51,10 @@ async function changed(db: SqlDb, at: number) {
 }
 
 // Called inside the document import's transaction so notes and document rows commit together.
-export async function importNotes(db: SqlDb, aead: Aead, notes: readonly Note[], replace: boolean) {
+// When the notes left on the phone are exactly the backup's, they changed no later than the backup
+// (backedUpAt), so Settings doesn't report the notes just restored as changed since that backup.
+export async function importNotes(db: SqlDb, aead: Aead, notes: readonly Note[], replace: boolean, backedUpAt?: number) {
+  const matchesBackup = replace || !(await db.getFirstAsync('SELECT id FROM notes LIMIT 1', []));
   if (replace) await db.runAsync('DELETE FROM notes', []);
   let inserted = 0;
   for (const note of notes) {
@@ -59,7 +62,7 @@ export async function importNotes(db: SqlDb, aead: Aead, notes: readonly Note[],
     await db.runAsync(INSERT, [note.id, note.pinned ? 1 : 0, seal(aead, note), note.createdAt, note.updatedAt]);
     inserted++;
   }
-  if (replace || inserted) await changed(db, Date.now());
+  if (replace || inserted) await changed(db, matchesBackup && backedUpAt !== undefined ? backedUpAt : Date.now());
 }
 
 export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(engine.randomBytes(16)) }: {

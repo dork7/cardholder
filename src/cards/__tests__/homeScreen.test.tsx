@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, AlertButton } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import { Folder } from '../types';
@@ -49,6 +49,8 @@ let mockHomeFolders = { filter: true, manage: true };
 let mockLastExportAt: string | null = null;
 const mockSettingsSet = jest.fn(() => Promise.resolve());
 let mockHomeView: string | null = null;
+let mockSeenTips: string | null = null;
+let mockStackVertical = false;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
 const mockUpdate = jest.fn((_id: string, _fields: { tags?: string[] }) => Promise.resolve());
@@ -59,7 +61,7 @@ const mockServices = {
   store: {
     loadImage: (id: string, side: string) => Promise.resolve(`${id}-${side}`),
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
-    remove: (id: string) => mockRemove(id),
+    moveToRecentlyDeleted: (id: string) => mockRemove(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
     update: (id: string, fields: { tags?: string[] }) => mockUpdate(id, fields),
     count: () => Promise.resolve(mockCards.length),
@@ -67,7 +69,7 @@ const mockServices = {
   },
   settings: {
     getNumber: (key: string) => Promise.resolve(key === 'lastExportAt' && mockLastExportAt ? Number(mockLastExportAt) : null),
-    get: (key: string) => Promise.resolve(key === 'homeView' ? mockHomeView : null),
+    get: (key: string) => Promise.resolve(key === 'homeView' ? mockHomeView : key === 'seenTips' ? mockSeenTips : null),
     set: mockSettingsSet,
   },
 };
@@ -87,6 +89,7 @@ jest.mock('../../app/AppProvider', () => ({
     setAppearance: mockSetAppearance,
     homeFolders: mockHomeFolders,
     refresh: mockRefresh,
+    stackVertical: mockStackVertical,
   }),
 }));
 
@@ -101,6 +104,9 @@ beforeEach(() => {
   mockUpdate.mockClear();
   mockRefresh.mockClear();
   mockHomeView = null;
+  // Most tests are about other things, so the gesture tips count as seen unless a test says otherwise.
+  mockSeenTips = 'stack,gallery';
+  mockStackVertical = false;
   mockUnlocked = false;
   mockFolders = [];
   mockHomeFolders = { filter: true, manage: true };
@@ -169,6 +175,20 @@ test('choosing a folder narrows the stack to its cards', async () => {
   expect(stack.props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 1) });
   await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.folders.manage })));
   expect(mockPush).toHaveBeenCalledWith('/folders');
+});
+
+test('folder choices are radios in a group; Manage is a button outside it', async () => {
+  mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
+  await renderHome();
+  // A radiogroup View isn't itself focusable (that would hide its radios), so it's found by test ID.
+  const groupView = screen.getByTestId('folder-filter-choices');
+  expect(groupView.props.accessibilityRole).toBe('radiogroup');
+  expect(groupView.props.accessibilityLabel).toBe(strings.folders.title);
+  const group = within(groupView);
+  expect(group.getByRole('radio', { name: strings.folders.all }).props.accessibilityState).toEqual({ checked: true });
+  expect(group.getByRole('radio', { name: 'Health' }).props.accessibilityState).toEqual({ checked: false });
+  expect(group.queryByRole('button', { name: strings.folders.manage })).toBeNull();
+  expect(screen.getByRole('button', { name: strings.folders.manage })).toBeTruthy();
 });
 
 test('with folders hidden there is no folder row', async () => {
@@ -427,6 +447,37 @@ describe('gallery view', () => {
     for (const id of ids.slice(1)) await act(async () => fireEvent.press(screen.getByTestId(`grid-${id}`)));
   };
 
+  // Opens the Sort sheet, presses one of its options, then closes it with Done.
+  const chooseSort = async (testID: string) => {
+    await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
+    await act(async () => fireEvent.press(within(screen.getByTestId('sort-sheet')).getByTestId(testID)));
+    await act(async () => fireEvent.press(screen.getByTestId('sort-sheet-done')));
+  };
+
+  test('one Sort chip replaces the row of sort chips', async () => {
+    await showGallery();
+    expect(screen.getByRole('button', { name: strings.home.sortChip(strings.home.sortName) })).toBeTruthy();
+    expect(screen.queryByTestId('sort-expiry')).toBeNull();
+    expect(screen.queryByTestId('filter-expiring')).toBeNull();
+  });
+
+  test('the Sort sheet offers the order as radios and Expiring soon as a checkbox', async () => {
+    await showGallery();
+    await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
+    const sheet = within(screen.getByTestId('sort-sheet'));
+    expect(sheet.getByRole('radio', { name: strings.home.sortName }).props.accessibilityState).toEqual({ checked: true });
+    expect(sheet.getByRole('radio', { name: strings.home.sortExpiry }).props.accessibilityState).toEqual({ checked: false });
+    expect(sheet.getByRole('radio', { name: strings.home.sortAdded })).toBeTruthy();
+    expect(sheet.getByRole('checkbox', { name: strings.home.expiringSoon }).props.accessibilityState).toEqual({ checked: false });
+    await act(async () => fireEvent.press(sheet.getByRole('checkbox', { name: strings.home.expiringSoon })));
+    expect(sheet.getByRole('checkbox', { name: strings.home.expiringSoon }).props.accessibilityState).toEqual({ checked: true });
+    await act(async () => fireEvent.press(screen.getByTestId('sort-sheet-done')));
+    expect(screen.queryByTestId('sort-sheet')).toBeNull();
+    expect(screen.getByTestId('sort-chip')).toHaveTextContent(
+      strings.home.sortChip(strings.home.sortName, true),
+    );
+  });
+
   test('sorts by name, expiry or newest, and remembers the choice', async () => {
     await withCards(
       [
@@ -437,10 +488,12 @@ describe('gallery view', () => {
       async () => {
         await showGallery();
         expect(gridOrder()).toEqual(['a', 'b', 'c']);
-        await act(async () => fireEvent.press(screen.getByTestId('sort-expiry')));
+        expect(screen.getByTestId('sort-chip')).toHaveTextContent(strings.home.sortChip(strings.home.sortName));
+        await chooseSort('sort-expiry');
         expect(gridOrder()).toEqual(['b', 'a', 'c']);
         expect(mockSettingsSet).toHaveBeenLastCalledWith('gallerySort', 'expiry');
-        await act(async () => fireEvent.press(screen.getByTestId('sort-added')));
+        expect(screen.getByTestId('sort-chip')).toHaveTextContent(strings.home.sortChip(strings.home.sortExpiry));
+        await chooseSort('sort-added');
         expect(gridOrder()).toEqual(['b', 'c', 'a']);
       },
     );
@@ -461,9 +514,9 @@ describe('gallery view', () => {
       ],
       async () => {
         await showGallery();
-        await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+        await chooseSort('filter-expiring');
         expect(gridOrder()).toEqual(['gone', 'soon']);
-        await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+        await chooseSort('filter-expiring');
         expect(gridOrder()).toHaveLength(4);
       },
     );
@@ -471,7 +524,7 @@ describe('gallery view', () => {
 
   test('says so when nothing is expiring soon', async () => {
     await showGallery();
-    await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+    await chooseSort('filter-expiring');
     expect(screen.getByText(strings.home.noneExpiring(30))).toBeTruthy();
   });
 
@@ -595,5 +648,100 @@ test('a purchased unlock allows adding past ten documents', async () => {
     await renderHome();
     await fireEvent.press(screen.getByTestId('add-card'));
     expect(mockPush).toHaveBeenLastCalledWith('/edit/new');
+  });
+});
+
+describe('gesture tips', () => {
+  test('the first stack shows a tip on how to browse it', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    expect(await screen.findByText(strings.home.stackTip)).toBeTruthy();
+  });
+
+  test('dismissing the stack tip hides it for good', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    await act(async () => fireEvent.press(await screen.findByRole('button', { name: strings.home.dismissTip })));
+    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
+    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)stack(,|$)/));
+  });
+
+  test('swiping the stack hides its tip for good', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    await screen.findByText(strings.home.stackTip);
+    fireEvent(screen.getByTestId('card-stack'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    await waitFor(() => expect(screen.queryByText(strings.home.stackTip)).toBeNull());
+    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)stack(,|$)/));
+  });
+
+  test('a stack tip seen before a restart stays hidden', async () => {
+    mockSeenTips = 'stack.read,stack';
+    await renderHome();
+    await act(async () => {});
+    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
+  });
+
+  test('with vertical swipe on, the tip says to swipe up', async () => {
+    mockSeenTips = null;
+    mockStackVertical = true;
+    await renderHome();
+    expect(await screen.findByText(strings.home.stackTipVertical)).toBeTruthy();
+    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
+  });
+
+  test('the tip is read out to screen readers only the first time it shows', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    const first = await screen.findByText(strings.home.stackTip);
+    expect(first.props.accessibilityLiveRegion).toBe('polite');
+    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', 'stack.read');
+  });
+
+  test('a tip already read out once stays quiet on the next visit', async () => {
+    mockSeenTips = 'stack.read';
+    await renderHome();
+    const again = await screen.findByText(strings.home.stackTip);
+    expect(again.props.accessibilityLiveRegion).toBe('none');
+  });
+
+  describe('in the gallery', () => {
+    const showGallery = async () => {
+      await renderHome();
+      await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+    };
+
+    test('the first gallery shows a tip on selecting', async () => {
+      mockSeenTips = 'stack';
+      await showGallery();
+      expect(await screen.findByText(strings.home.galleryTip)).toBeTruthy();
+      // Each view has its own tip.
+      expect(screen.queryByText(strings.home.stackTip)).toBeNull();
+    });
+
+    test('dismissing the gallery tip hides it for good', async () => {
+      mockSeenTips = 'stack';
+      await showGallery();
+      await act(async () => fireEvent.press(await screen.findByRole('button', { name: strings.home.dismissTip })));
+      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
+      expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)gallery(,|$)/));
+    });
+
+    test('selecting with a long-press hides the gallery tip for good', async () => {
+      mockSeenTips = 'stack';
+      await showGallery();
+      await screen.findByText(strings.home.galleryTip);
+      await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
+      await act(async () => fireEvent.press(screen.getByTestId('selection-cancel')));
+      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
+      expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)gallery(,|$)/));
+    });
+
+    test('a gallery tip seen before a restart stays hidden', async () => {
+      mockSeenTips = 'stack,gallery.read,gallery';
+      await showGallery();
+      await act(async () => {});
+      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
+    });
   });
 });

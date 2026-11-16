@@ -34,6 +34,11 @@ _Avoid_: category, folder, type, label
 The words read from a document's photos or PDF, kept with it so it can be searched.
 _Avoid_: OCR, scan text
 
+**Recently deleted**:
+Where a deleted document waits 30 days, still encrypted, before it is erased. It can be restored
+from there exactly as it was. Notes are not kept there.
+_Avoid_: trash, bin, recycle
+
 ## Keeping notes
 
 **Note**:
