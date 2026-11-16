@@ -366,7 +366,7 @@ export function CardStack({ cards, onOpen, vertical = false, onToggleBlur, onMov
             // Amber while the previews are blurred, so the button shows which way it is set.
             style={({ pressed }) => [styles.flipButton, front.blurPreview && { backgroundColor: theme.accent }, { opacity: pressed ? 0.7 : 1 }]}
           >
-            <RetroIcon name="blur" size={24} color={front.blurPreview ? theme.onAccent : '#FFFFFF'} backgroundColor={front.blurPreview ? theme.accent : '#1A1A1A'} />
+            <RetroIcon name="blur" size={24} color={front.blurPreview ? theme.onAccent : '#FFFFFF'} />
             {blurTip.tooltip}
           </Pressable>
         </Animated.View>

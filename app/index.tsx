@@ -25,13 +25,11 @@ import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
-import { SORT_LABELS, SortSheet } from '../src/ui/SortSheet';
 import { HomeActionBar } from '../src/ui/HomeActionBar';
 import { UndoBar } from '../src/ui/UndoBar';
 import { deleteAllWithUndo } from '../src/cards/deleteWithUndo';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
-import { PixelLogo } from '../src/ui/PixelLogo';
 import { RetroIcon } from '../src/ui/RetroIcon';
 import { PinnedStrip } from '../src/ui/PinnedStrip';
 import { Panel, Screen } from '../src/ui/Surface';
@@ -39,6 +37,7 @@ import { RADIUS, TRACKING, TYPE, useTheme } from '../src/ui/theme';
 import { useTooltip } from '../src/ui/Tooltip';
 import { LiveText } from '../src/ui/LiveText';
 import { GestureTip, GestureTipName, useGestureTips } from '../src/ui/GestureTip';
+import { SortSheet } from '../src/ui/SortSheet';
 
 // Panels settle in from just off their resting place; Reanimated skips this under Reduce Motion.
 const ENTER = 360;
@@ -72,9 +71,8 @@ export default function Home() {
   const folderId =
     FOLDERS_ENABLED &&
     homeFolders.filter && chosenFolder && folders.some((f) => f.id === chosenFolder) ? chosenFolder : null;
-  const folderChips = [
-    ...(homeFolders.filter
-      ? [
+  const folderChips = homeFolders.filter
+    ? [
           {
             key: 'all',
             label: strings.folders.all,
@@ -89,17 +87,15 @@ export default function Home() {
             onPress: () => setChosenFolder(f.id),
             testID: `folder-filter-${f.id}`,
           })),
-        ]
-      : []),
-    ...(homeFolders.manage
-      ? [{ key: 'manage', label: strings.folders.manage, onPress: () => router.push('/folders') }]
-      : []),
-  ];
+      ]
+    : [];
   const shown = filterCards(cards, { query, tag, folderId });
   const { pinned } = splitPinned(cards);
   const [gallery, setGallery] = useSavedChoice('homeView', (v): v is 'gallery' | 'stack' => v === 'gallery' || v === 'stack', 'stack');
   const [sort, setSort] = useSavedChoice('gallerySort', isGallerySort, 'name');
-  const [expiringOnly, setExpiringOnly] = useState(false);
+  const [expiringChoice, setExpiringChoice] = useSavedChoice('galleryExpiring', (v): v is 'on' | 'off' => v === 'on' || v === 'off', 'off');
+  const expiringOnly = expiringChoice === 'on';
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const now = new Date();
   // The gallery has its own order and an "Expiring soon" filter on top of search and tag.
   const inGallery = sortForGallery(expiringOnly ? shown.filter((c) => isExpiringSoon(c, now)) : shown, sort);
@@ -222,15 +218,7 @@ export default function Home() {
     });
   };
 
-  const [sorting, setSorting] = useState(false);
-  const sortChip = [
-    {
-      key: 'sort',
-      label: strings.home.sortChip(SORT_LABELS[sort], expiringOnly),
-      onPress: () => setSorting(true),
-      testID: 'sort-chip',
-    },
-  ];
+  const sortName = sort === 'name' ? strings.home.sortName : sort === 'expiry' ? strings.home.sortExpiry : strings.home.sortAdded;
 
   // "Import backup" on the recovery screen lands here first, then opens the import flow.
   useEffect(() => {
@@ -253,7 +241,7 @@ export default function Home() {
           <AppearanceToggle />
           <SettingsButton onPress={() => router.push('/settings')} />
         </Panel>
-        {cards.length > 1 && <SearchField value={query} onChange={setQuery} />}
+        {cards.length > 0 && <SearchField value={query} onChange={setQuery} />}
         {/* Pinned cards stay put while searching or filtering: they're the shortcut, the stack is the browse. */}
         <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
       </Animated.View>
@@ -262,7 +250,9 @@ export default function Home() {
       <View style={[styles.inset, styles.body]}>
         {cards.length === 0 ? (
           <View style={styles.empty} testID="empty-state">
-            <PixelLogo size={160} theme={theme} />
+            <View style={[styles.emptyIcon, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
+              <RetroIcon name="folder" size={64} color={theme.accent} />
+            </View>
             <Text style={[styles.emptyTitle, { color: theme.text }]} accessibilityRole="header">
               {strings.home.emptyTitle}
             </Text>
@@ -272,17 +262,16 @@ export default function Home() {
         ) : (
           <>
             {gallery === 'gallery' && shown.length > 0 && (
-              <>
-                <ChipRow chips={sortChip} />
-                <SortSheet
-                  visible={sorting}
-                  sort={sort}
-                  expiringOnly={expiringOnly}
-                  onSort={setSort}
-                  onToggleExpiring={() => setExpiringOnly((on) => !on)}
-                  onClose={() => setSorting(false)}
-                />
-              </>
+              <Pressable
+                onPress={() => setSortSheetOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={strings.home.sortChip(sortName)}
+                accessibilityHint={`${strings.home.sortLabel}. ${strings.home.expiringSoon}: ${expiringOnly ? 'on' : 'off'}`}
+                testID="sort-chip"
+                style={[styles.sortChip, { backgroundColor: theme.glass, borderColor: theme.rosette }]}
+              >
+                <Text style={{ color: theme.text, fontSize: TYPE.secondary, fontWeight: '700' }}>{strings.home.sortChip(sortName)}</Text>
+              </Pressable>
             )}
             {shown.length === 0 ? (
               <LiveText style={[styles.promise, { color: theme.muted }]}>
@@ -319,16 +308,32 @@ export default function Home() {
               shown.length > 1 &&
               tipBar('stack', stackVertical ? strings.home.stackTipVertical : strings.home.stackTip)}
             {/* Which parts of the folder row show is chosen in settings. */}
-            {FOLDERS_ENABLED && folders.length > 0 && folderChips.length > 0 && (
-              <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} testID="folder-filter-choices" />
+            {FOLDERS_ENABLED && folders.length > 0 && (folderChips.length > 0 || homeFolders.manage) && (
+              <View style={styles.folderRow}>
+                {folderChips.length > 0 && (
+                  <View style={styles.folderChoices}>
+                    <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} testID="folder-filter-choices" />
+                  </View>
+                )}
+                {homeFolders.manage && <Button variant="secondary" label={strings.folders.manage} onPress={() => router.push('/folders')} />}
+              </View>
             )}
             {present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
           </>
         )}
       </View>
 
+      <SortSheet
+        visible={sortSheetOpen}
+        sort={sort}
+        expiringOnly={expiringOnly}
+        onSort={setSort}
+        onExpiringOnly={(on) => setExpiringChoice(on ? 'on' : 'off')}
+        onClose={() => setSortSheetOpen(false)}
+      />
+
       {selecting ? (
-        <View style={[styles.selectionBar, { paddingBottom: 0, backgroundColor: theme.bg }]} testID="selection-bar">
+        <View style={[styles.selectionBar, { paddingBottom: 0, backgroundColor: theme.glassStrong, borderColor: theme.border }]} testID="selection-bar">
           <View style={styles.selectionRow}>
             <LiveText style={[styles.selectionCount, { color: theme.text }]}>
               {rereading ? strings.recreate.workingMany(rereading.done, rereading.of) : strings.home.selected(selected.length)}
@@ -337,46 +342,56 @@ export default function Home() {
               <Button variant="secondary" label={strings.common.cancel} onPress={clearSelection} testID="selection-cancel" />
             </View>
           </View>
-          <View style={styles.selectionRow}>
-            <IconButton
-              icon={shouldUnpin(selected) ? 'unpin' : 'pin'}
-              label={shouldUnpin(selected) ? strings.home.unpinSelected : strings.home.pinSelected}
-              caption={shouldUnpin(selected) ? strings.home.selectionCaptions.unpin : strings.home.selectionCaptions.pin}
-              onPress={() => void onSelection((cards) => togglePinned(services.store, cards), strings.errors.pinMany)}
-              testID="selection-pin"
-            />
-            <IconButton
-              icon="tag"
-              label={strings.home.tagSelected}
-              caption={strings.home.selectionCaptions.tag}
-              onPress={() => setChoosingTags(true)}
-              testID="selection-tags"
-            />
-            <IconButton
-              icon="refresh"
-              label={strings.recreate.button}
-              caption={strings.home.selectionCaptions.recreate}
-              hint={strings.recreate.galleryHint}
-              onPress={() => void recreateSelected()}
-              disabled={rereading !== null}
-              testID="selection-recreate"
-            />
-            <IconButton
-              icon="share"
-              label={strings.home.shareSelected}
-              caption={strings.home.selectionCaptions.share}
-              hint={strings.home.shareSelectedHint}
-              onPress={shareSelected}
-              testID="selection-share"
-            />
-            <IconButton
-              icon="trash"
-              label={strings.home.deleteSelected}
-              caption={strings.home.selectionCaptions.delete}
-              onPress={deleteSelected}
-              variant="danger"
-              testID="selection-delete"
-            />
+          <View style={styles.selectionActions}>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon={shouldUnpin(selected) ? 'unpin' : 'pin'}
+                label={shouldUnpin(selected) ? strings.home.unpinSelected : strings.home.pinSelected}
+                caption={shouldUnpin(selected) ? strings.home.unpinCaption : strings.home.pinCaption}
+                onPress={() => void onSelection((cards) => togglePinned(services.store, cards), strings.errors.pinMany)}
+                testID="selection-pin"
+              />
+            </View>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon="tag"
+                label={strings.home.tagSelected}
+                caption={strings.home.tagCaption}
+                onPress={() => setChoosingTags(true)}
+                testID="selection-tags"
+              />
+            </View>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon="refresh"
+                label={strings.recreate.button}
+                caption={strings.home.readAgainCaption}
+                hint={strings.recreate.galleryHint}
+                onPress={() => void recreateSelected()}
+                disabled={rereading !== null}
+                testID="selection-recreate"
+              />
+            </View>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon="share"
+                label={strings.home.shareSelected}
+                caption={strings.home.shareCaption}
+                hint={strings.home.shareSelectedHint}
+                onPress={shareSelected}
+                testID="selection-share"
+              />
+            </View>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon="trash"
+                label={strings.home.deleteSelected}
+                caption={strings.home.deleteCaption}
+                onPress={deleteSelected}
+                variant="danger"
+                testID="selection-delete"
+              />
+            </View>
           </View>
           <TagSheet
             visible={choosingTags}
@@ -410,7 +425,7 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
   const stroke = { stroke: theme.muted, strokeWidth: 2, strokeLinecap: 'round' as const };
   const clear = useTooltip(strings.home.clearSearch);
   return (
-    <View style={[styles.search, { backgroundColor: theme.bannerBg, borderColor: theme.rosette }]}>
+    <View style={[styles.search, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
       <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
         <Circle cx={11} cy={11} r={7} {...stroke} />
         <Path d="M16.5 16.5L21 21" {...stroke} />
@@ -459,7 +474,7 @@ function SettingsButton({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel={strings.home.settings}
       testID="open-settings"
-      style={({ pressed }) => [styles.round, { borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
+      style={({ pressed }) => [styles.round, { backgroundColor: theme.glassStrong, borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
     >
       <RetroIcon name="settings" size={24} />
       {tooltip}
@@ -467,8 +482,8 @@ function SettingsButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-// A choice kept in settings, so the home screen opens the way it was left: the view, the gallery's order.
-function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort', isValid: (v: unknown) => v is T, fallback: T) {
+// Choices kept in settings, so the home screen opens the way it was left.
+function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort' | 'galleryExpiring', isValid: (v: unknown) => v is T, fallback: T) {
   const { services } = useApp();
   const [value, setValue] = useState<T>(fallback);
   useEffect(() => {
@@ -494,19 +509,24 @@ function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort', isVal
 }
 
 const styles = StyleSheet.create({
+  sortChip: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderWidth: 1, borderRadius: RADIUS.sm },
+  folderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  folderChoices: { flex: 1, minWidth: 0 },
   dock: { paddingHorizontal: 16, paddingTop: 8 },
-  selectionBar: { position: 'absolute', left: 0, right: 0, bottom: 0, gap: 10, paddingHorizontal: 16, paddingTop: 12 },
+  selectionBar: { position: 'absolute', left: 8, right: 8, bottom: 8, gap: 10, paddingHorizontal: 16, paddingTop: 12, borderWidth: 1, borderRadius: RADIUS.lg },
   selectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  selectionActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  selectionButton: { width: '30%' },
   selectionCount: { flex: 1, fontSize: TYPE.secondary, fontWeight: '700' },
   selectionAction: { minWidth: 112 },
   inset: { paddingHorizontal: 16 },
-  top: { gap: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20, paddingRight: 10, paddingVertical: 8 },
+  top: { gap: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20, paddingRight: 10, paddingVertical: 10 },
   title: { flex: 1, fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight },
   round: {
     width: 44,
     height: 44,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.lg,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
@@ -518,13 +538,15 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingLeft: 16,
     paddingRight: 8,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
+    shadowColor: '#314570', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 3 },
   },
   searchInput: { flex: 1, minHeight: 48, fontSize: TYPE.body, fontFamily: FONT.regular },
   clear: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  body: { flex: 1, justifyContent: 'center', paddingVertical: 24, gap: 24 },
+  body: { flex: 1, justifyContent: 'center', paddingVertical: 20, gap: 20 },
   empty: { alignItems: 'center', gap: 12 },
+  emptyIcon: { width: 124, height: 124, borderRadius: RADIUS.lg, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight, textAlign: 'center' },
   promise: { fontSize: TYPE.body, textAlign: 'center' },
 });

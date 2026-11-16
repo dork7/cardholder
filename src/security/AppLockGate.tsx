@@ -4,9 +4,9 @@ import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { strings } from '../strings';
 import { Button } from '../ui/Button';
-import { PixelLogo } from '../ui/PixelLogo';
+import { RetroIcon } from '../ui/RetroIcon';
 import { Text } from '../ui/Text';
-import { TRACKING, TYPE, useTheme } from '../ui/theme';
+import { RADIUS, TRACKING, TYPE, useTheme } from '../ui/theme';
 import { lockOnReturn } from './appLock';
 import { authenticate } from './deviceAuth';
 
@@ -82,7 +82,9 @@ export function AppLockGate({ enabled, children }: Props) {
       testID="app-lock"
     >
       <View style={styles.centre}>
-        <PixelLogo size={160} theme={theme} />
+        <View style={[styles.lockIcon, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
+          <RetroIcon name="lock" size={64} color={theme.accent} />
+        </View>
         <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
           {strings.lock.title}
         </Text>
@@ -114,6 +116,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   cover: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', paddingHorizontal: 16 },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  lockIcon: { width: 124, height: 124, borderRadius: RADIUS.lg, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight, textAlign: 'center' },
   body: { fontSize: TYPE.body, textAlign: 'center' },
   action: { paddingHorizontal: 16 },

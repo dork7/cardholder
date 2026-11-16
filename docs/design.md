@@ -110,31 +110,29 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
 ## Visual design
 
-Revised 2026-11-15: the visual language is **Swiss style** (full rules in the project skill `.claude/skills/swiss-design`), replacing the Spotify-inspired look of 2026-10-23. White paper and off-black ink, square corners, hairline rules and a strict type scale; the card photos are the only strong colour. Actions are ink rather than a hue; taupe tints the pixel icons and nothing else. Tokens live in `src/ui/theme.ts`.
+Revised 2026-11-16: the visual language follows the **Apple · Fluid glass** direction in `prototypes/doc-keeper/`. A cool blue canvas, translucent floating controls, generous rounded surfaces and a blue primary action frame the document photos. Tokens live in `src/ui/theme.ts`; shared material is implemented in `src/ui/Surface.tsx`.
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| Page | `#FFFFFF` | `#111111` | background |
-| Surface | `#F7F6F3` | `#1A1A1A` | panels, title and action bars |
-| Raised | `#F5F1E8` (beige) | `#242424` | sheets, chips, tag pills, tooltips |
-| Text / muted | `#111111` / `#5C5C5C` | `#F5F5F5` / `#A8A8A8` | primary and secondary text (4.5:1) |
-| Ink accent | `#111111`, white label | `#F5F1E8`, ink label | filled primary buttons, chosen chips, the add button, switch tracks |
-| Taupe | `#B38B6D` | `#B38B6D` | the tint inside pixel icons and the logo seal — decoration only, never an action or a state |
-| Outline grey | `#808080` | `#808080` | secondary button outlines (3:1) |
-| Selection blue | `#1F6FD0` | `#539DF5` | selection, focus, the card being dragged — nothing else |
-| Negative red | `#C2283A` | `#F3727F` | destructive actions, "can't be recovered" |
+| Page | `#F1F3F9` | `#101827` | background beneath soft blue and lilac washes |
+| Surface | `#FFFFFF` | `#19253A` | opaque fallback and document content |
+| Raised | `#E6EDF8` | `#26344B` | sheets, chips, tag pills, tooltips |
+| Text / muted | `#1C2433` / `#596273` | `#F3F6FC` / `#B5C1D3` | primary and secondary text (4.5:1 on opaque surfaces) |
+| Accent | `#0960C5`, white label | `#80B8FF`, navy label | filled primary buttons, chosen chips, selection |
+| Ornament | `#8AA7D1` | `#8AA7D1` | subtle icon tint |
+| Outline | `#6E788B` | `#A5B3C8` | secondary button outlines |
+| Negative red | `#B3263B` | `#FF8B9B` | destructive actions |
 | Counter black | `#000000` | `#000000` | counter view only |
 
-Depth is shown by shade and a hairline rule (12% black/white), not by shadow; only what floats (the add button, tooltips) carries a sharp, light shadow (16% black, 4 blur, 2 down). Ink is never pure black. Card thumbnails get a 12% black veil in dark mode so white plastic doesn't glare; the counter view is never dimmed. A toggle in the home title bar cycles System → Light → Dark; System follows the phone, and the choice is saved in settings and applied app-wide (native alerts and pickers included) before the first screen draws. Contrast tests check text and secondary text at 4.5:1 on every opaque surface in both palettes.
+Raised panels and the floating dock use a translucent tint, a light edge and a diffuse shadow. iOS uses native backdrop blur; Android uses the tinted glass fallback. The card photos remain clear, and the counter view is never dimmed. The appearance toggle still cycles System → Light → Dark. Contrast tests check text on the opaque fallback colours in both palettes.
 
-- **Type:** Public Sans (OFL, bundled; a neutral grotesque) for all text; 400 body, 600 labels, 700 headings. Scale 12 / 14 / **16 body** / 18 / 24, 32 for display. Headings are tracked tight (−0.4); small section labels are uppercase 12 semibold, tracked 1.2. Button labels are sentence case, 16 semibold. Card numbers use tabular figures.
-- **Shape:** square. Panels, bars and sheets have no radius; anything pressed or typed into (buttons, icon buttons, chips, tag pills, search and tag fields, the add button, the toggles) takes a 2 pt corner. No pills or circles; the stack's dots and the grid's checkboxes are squares. Card photos are the card — no box or border — with the true ID-1 corner radius (3.18 mm on 85.6 mm ≈ 3.7% of width). Text fields a bottom rule only.
-- **Icons:** one pixel-art set (`src/ui/RetroIcon.tsx`), each drawn on a 12 × 12 grid of 2 px cells so edges stay whole at any density; section and field icons use outline + taupe + paper, action buttons the one outline colour. No line icons or icon fonts.
-- **One bold element:** a guilloche rosette (SVG), shown only on the empty state and the app-switcher cover.
+- **Type:** Public Sans remains bundled for consistent offline rendering. The scale is 12 / 14 / **16 body** / 18 / 28, with 32 for display. Headings use tight tracking; controls use sentence case.
+- **Shape:** controls use 14 pt corners, panels 20 pt and the floating dock 28 pt. Chips are rounded. Card photos retain their physical card proportions.
+- **Icons:** one rounded 1.7 pt vector outline set (`src/ui/RetroIcon.tsx`) based on the fluid glass prototype. Navigation, actions, fields, the empty state and expiry alerts share this vocabulary.
 - **Two motions:** a 3D card flip (on the home stack's front card, via the flip button shown on two-sided cards: a spring turn with a slight lift and shading, interruptible mid-turn), and the home screen's wallet-style card stack (cards behind fan out to the right; swipe left sends the front card to the back, swipe right brings the previous one back, tapping a peeking card brings it straight to the front). A Settings switch, **Swipe cards up and down** (off by default), fans the stack out below the front card instead, with swipe up for the next card and swipe down for the previous one. On release the stack finishes on a spring that starts at the finger's speed, so a flick keeps its momentum. Both motions are instant when Reduce Motion is on. Small fades also smooth fields appearing on the edit screen, and the expiry alert sign pops in once.
-- **Surfaces** (glass removed 2026-10-21): every screen sits on the plain page colour (`bg`), with solid panels (`surface`, a hairline `border`) for the chrome: home's title bar, card caption and Add card bar; the card view's header (with Close) and Show / Share / Pin / More bar; the edit form's three groups and its Close / Save bar; the boot panel. No blur, translucency or backdrop blobs. Card photos stay unframed on the page.
+- **Surfaces:** the page carries a quiet blue and lilac wash. Panels, search and the home dock float above it; card photos and text stay legible on stronger tints.
 - Content left-aligned; only the empty state centres its single call to action.
-- Avoid: pills and circles, gradients and glows, coloured buttons other than destructive ones, extra hues, uppercase button labels.
+- Avoid: glass over document details where it reduces readability, decorative motion, uppercase button labels.
 
 ## Stack
 

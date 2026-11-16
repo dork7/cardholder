@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 import { RADIUS, SHADOW, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
+import { RetroIcon } from './RetroIcon';
 
 export interface FabProps {
   label: string;
@@ -29,9 +29,7 @@ export function Fab({ label, onPress, testID }: FabProps) {
         { bottom: 24 + insets.bottom, backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
       ]}
     >
-      <Svg width={24} height={24} viewBox="0 0 24 24">
-        <Path d="M12 4v16M4 12h16" stroke={theme.onAccent} strokeWidth={2.5} strokeLinecap="square" />
-      </Svg>
+      <RetroIcon name="plus" color={theme.onAccent} />
       {tooltip}
     </Pressable>
   );

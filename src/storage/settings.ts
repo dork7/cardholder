@@ -7,6 +7,7 @@ export type SettingKey =
   | 'appearance'
   | 'homeView'
   | 'gallerySort'
+  | 'galleryExpiring'
   | 'appLock'
   | 'homeFolderFilter'
   | 'homeManageFolders'

@@ -7,6 +7,7 @@
     "@react-native-community/datetimepicker": "9.2.1",
     "buffer": "^6.0.3",
     "expo": "~58.0.14",
+    "expo-blur": "~58.0.6",
     "expo-brightness": "~58.0.2",
     "expo-build-properties": "~58.0.11",
     "expo-constants": "~58.0.12",
@@ -59,7 +60,8 @@
     "android": "expo run:android",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "test-files": "bash scripts/push-test-files.sh"
+    "test-files": "bash scripts/push-test-files.sh",
+    "prototypes": "python3 -m http.server 4178 --bind 127.0.0.1"
   },
   "private": true
 }
