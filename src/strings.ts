@@ -28,6 +28,7 @@ export const strings = {
         body: 'Try again, or use Quick share to send the pictures instead.',
         pdfUnavailable: 'Exporting as PDF needs a newer version of Doc Keeper. Update the app, then try again.',
       },
+      restore: { title: "Couldn't restore the card", body: 'It is still in Recently deleted. Try restoring it again.' },
       pin: { title: "Couldn't pin the card", body: 'Try pinning it again.' },
       unpin: { title: "Couldn't unpin the card", body: 'Try unpinning it again.' },
       tags: { title: "Couldn't save the tags", body: 'Try adding or removing the tag again.' },

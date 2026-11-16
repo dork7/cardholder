@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import RecentlyDeletedScreen from '../../../app/recently-deleted';
 import SettingsScreen from '../../../app/settings';
@@ -100,6 +101,16 @@ test('an unlocked user restores past the free limit', async () => {
   await render(<RecentlyDeletedScreen />);
   await fireEvent.press(await screen.findByTestId('restore-a'));
   expect(mockRestore).toHaveBeenCalledWith('a');
+});
+
+test('a failed restore says the restore failed and keeps the document here', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  mockRestore.mockRejectedValueOnce(new Error('io error'));
+  await render(<RecentlyDeletedScreen />);
+  await fireEvent.press(await screen.findByTestId('restore-a'));
+  expect(alert).toHaveBeenCalledWith(strings.errors.actions.restore.title, strings.errors.actions.restore.body);
+  expect(screen.getByText('Passport')).toBeTruthy();
 });
 
 test('says so when nothing has been deleted', async () => {

@@ -219,7 +219,7 @@ describe('actions', () => {
   test('a failed delete says the delete failed and stays', async () => {
     mockRemove.mockRejectedValueOnce(new Error('io error'));
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    await pressInMore(strings.edit.deleteCard);
     await pressInAlert(strings.common.delete);
     await waitFor(() =>
       expect(alert).toHaveBeenCalledWith(strings.errors.actions.delete.title, strings.errors.actions.delete.body),
@@ -230,7 +230,7 @@ describe('actions', () => {
   test('a PDF export on a build without PDFs asks for an update', async () => {
     mockExportPdf.mockRejectedValueOnce(new PdfUnavailableError('no pdf'));
     await render(<CardView />);
-    await fireEvent.press(screen.getByRole('button', { name: strings.card.exportPdf }));
+    await pressInMore(strings.card.exportPdf);
     await waitFor(() =>
       expect(alert).toHaveBeenCalledWith(
         strings.errors.actions.exportPdf.title,
