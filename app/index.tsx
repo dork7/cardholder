@@ -13,7 +13,7 @@ import { filterCards, isExpiringSoon, isGallerySort, sortForGallery, splitPinned
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { shareCards } from '../src/share/shareCard';
-import { confirmIdShare } from '../src/share/idWarning';
+import { useConfirmIdShare } from '../src/share/useConfirmIdShare';
 import { strings } from '../src/strings';
 import { showError } from '../src/ui/errorAlert';
 import { Button } from '../src/ui/Button';
@@ -54,9 +54,8 @@ export default function Home() {
     refresh,
     undo,
     stackVertical,
-    warnIdShare,
-    setWarnIdShare,
   } = useApp();
+  const confirmIdShare = useConfirmIdShare();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -206,7 +205,6 @@ export default function Home() {
     const picked = selected;
     confirmIdShare({
       hasId: picked.some(isId),
-      warn: warnIdShare,
       title: strings.home.shareIdsTitle,
       body: strings.home.shareIdsBody,
       go: () =>
@@ -214,7 +212,6 @@ export default function Home() {
           console.warn('Share failed', e);
           showError('shareMany', e);
         }),
-      stopWarning: () => setWarnIdShare(false),
     });
   };
 

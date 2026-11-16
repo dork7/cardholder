@@ -21,7 +21,7 @@ import { deleteWithUndo } from '../../src/cards/deleteWithUndo';
 import { expiryLabel, expiryStatus, needsExpiryAlert } from '../../src/cards/expiry';
 import { ExpiryAlert } from '../../src/ui/ExpiryAlert';
 import { exportCardPdf, shareCard, shareCardMarkdown } from '../../src/share/shareCard';
-import { confirmIdShare } from '../../src/share/idWarning';
+import { useConfirmIdShare } from '../../src/share/useConfirmIdShare';
 import { cardMarkdown } from '../../src/cards/cardMarkdown';
 import { addTags, overTagLimit } from '../../src/cards/batch';
 import { removeTagWithUndo } from '../../src/cards/removeTagWithUndo';
@@ -40,7 +40,8 @@ import { UndoBar } from '../../src/ui/UndoBar';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cards, folders, services, refresh, undo, cardBrightness, warnIdShare, setWarnIdShare } = useApp();
+  const { cards, folders, services, refresh, undo, cardBrightness } = useApp();
+  const confirmIdShare = useConfirmIdShare();
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -86,11 +87,9 @@ export default function CardView() {
   const confirmIfId = (go: () => unknown) =>
     confirmIdShare({
       hasId: isId(card),
-      warn: warnIdShare,
       title: strings.card.shareIdTitle,
       body: strings.card.shareIdBody,
       go,
-      stopWarning: () => setWarnIdShare(false),
     });
 
   const markdown = cardMarkdown(card, folders);
