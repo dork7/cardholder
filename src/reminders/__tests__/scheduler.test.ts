@@ -26,7 +26,7 @@ test('cancels everything, then schedules the plan', async () => {
   expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(15);
   expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith({
     identifier: 'c1:14',
-    content: { title: 'Visa expires in 14 days', body: 'Tap to open the card.', data: { cardId: 'c1' } },
+    content: { title: 'Visa expires in 14 days', body: 'Tap to open the document.', data: { cardId: 'c1' } },
     trigger: { type: 'date', date: new Date(2027, 5, 16, 9, 0), channelId: 'reminders' },
   });
 });

@@ -528,6 +528,31 @@ describe('tags', () => {
     expect(screen.queryByTestId('undo-bar')).toBeNull();
   });
 
+  test("an Undo that can't put the tag back says so in terms of the tag", async () => {
+    await render(<CardView />);
+    await fireEvent.press(removeButton('work'));
+    await waitFor(() => expect(mockOffer).toHaveBeenCalled());
+    mockCards = [makeCard({ id: 'card1', name: 'Gym', tags: ['family'] })];
+    mockUpdate.mockRejectedValueOnce(new Error('disk'));
+    jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
+    await fireEvent.press(screen.getByTestId('undo-button'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(strings.errors.actions.undoTag.title, strings.errors.actions.undoTag.body));
+  });
+
+  test('Undo keeps to the 8-tag limit: a document that filled up meanwhile is left as it is, and the user is told', async () => {
+    await render(<CardView />);
+    await fireEvent.press(removeButton('work'));
+    await waitFor(() => expect(mockOffer).toHaveBeenCalled());
+    mockCards = [makeCard({ id: 'card1', name: 'Gym', tags: ['family', '2', '3', '4', '5', '6', '7', '8'] })];
+    mockUpdate.mockClear();
+    jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
+    await fireEvent.press(screen.getByTestId('undo-button'));
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(strings.errors.actions.undoTag.title, strings.errors.actions.undoTag.tooManyTags),
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   test('a removal that fails says so and offers no Undo', async () => {
     mockUpdate.mockRejectedValueOnce(new Error('disk'));
     jest.spyOn(console, 'warn').mockImplementationOnce(() => {});

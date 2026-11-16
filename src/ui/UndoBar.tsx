@@ -17,7 +17,7 @@ export function UndoBar({ undo }: { undo: Undo }) {
   const press = () =>
     undo.undo().catch((e) => {
       console.warn('Undo failed', e);
-      showError('undo', e);
+      showError(removal.failure ?? 'undo', e);
     });
 
   return (

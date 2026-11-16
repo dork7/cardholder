@@ -12,7 +12,7 @@ test('one reminder a day at 09:00, from 14 days before expiry by default through
     daysBefore: 14,
     fireAt: new Date(2027, 5, 16, 9, 0),
     title: 'Emirates ID expires in 14 days',
-    body: 'Tap to open the card.',
+    body: 'Tap to open the document.',
   });
   expect(plan.map((r) => r.daysBefore)).toEqual([14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
   expect(plan[13].title).toBe('Emirates ID expires in 1 day');
