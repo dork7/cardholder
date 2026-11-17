@@ -13,9 +13,10 @@ let mockCards: ReturnType<typeof makeCard>[] = [];
 const mockLoadImage = jest.fn((id: string, side: string) => Promise.resolve(`${id}-${side}`));
 
 let mockScreenOptions: Record<string, unknown> = {};
+let mockShow: string | undefined;
 jest.mock('expo-router', () => ({
   Stack: { Screen: ({ options }: { options: Record<string, unknown> }) => ((mockScreenOptions = options), null) },
-  useLocalSearchParams: () => ({ id: 'card1' }),
+  useLocalSearchParams: () => ({ id: 'card1', show: mockShow }),
   useRouter: () => ({ back: () => mockBack(), push: (...a: unknown[]) => mockPush(...a) }),
 }));
 jest.mock('expo-brightness', () => ({
@@ -92,6 +93,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUndo.end();
   mockWarnIdShare = true;
+  mockShow = undefined;
 });
 
 const imageUri = (label: string) => screen.getByLabelText(label).props.source?.uri ?? screen.getByLabelText(label).props.source?.[0]?.uri;
@@ -368,6 +370,18 @@ test('in landscape the front and back sit side by side, with only Close below', 
 describe('show to staff', () => {
   beforeEach(() => {
     mockCards = [makeCard({ id: 'card1' })];
+  });
+
+  test('a Show shortcut starts in Show mode and holding finish returns to the document', async () => {
+    mockShow = '1';
+    await render(<CardView />);
+    expect(screen.getByTestId('finish-staff')).toBeTruthy();
+    expect(screen.queryByTestId('close-card')).toBeNull();
+    expect(screen.queryByTestId('card-actions')).toBeNull();
+    expect(mockScreenOptions.gestureEnabled).toBe(false);
+    await fireEvent(screen.getByTestId('finish-staff'), 'longPress');
+    expect(screen.getByTestId('close-card')).toBeTruthy();
+    expect(mockScreenOptions.gestureEnabled).toBe(true);
   });
 
   test('locks the screen to the card: no actions, no Close, no swipe away, no back', async () => {
