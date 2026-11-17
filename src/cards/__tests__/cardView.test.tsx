@@ -12,15 +12,22 @@ const mockRefresh = jest.fn(() => Promise.resolve());
 let mockCards: ReturnType<typeof makeCard>[] = [];
 const mockLoadImage = jest.fn((id: string, side: string) => Promise.resolve(`${id}-${side}`));
 
+let mockStatusHidden = false;
+jest.mock('expo-status-bar', () => ({
+  StatusBar: ({ hidden }: { hidden: boolean }) => ((mockStatusHidden = hidden), null),
+}));
 let mockScreenOptions: Record<string, unknown> = {};
 jest.mock('expo-router', () => ({
   Stack: { Screen: ({ options }: { options: Record<string, unknown> }) => ((mockScreenOptions = options), null) },
   useLocalSearchParams: () => ({ id: 'card1' }),
   useRouter: () => ({ back: () => mockBack(), push: (...a: unknown[]) => mockPush(...a) }),
 }));
+const mockSetBrightness = jest.fn(() => Promise.resolve());
+let mockCardBrightness = true;
 jest.mock('expo-brightness', () => ({
   getBrightnessAsync: () => Promise.resolve(0.5),
-  setBrightnessAsync: () => Promise.resolve(),
+  setBrightnessAsync: () => mockSetBrightness(),
+  restoreSystemBrightnessAsync: () => Promise.resolve(),
 }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 const mockLockOrientation = jest.fn((_lock: number) => Promise.resolve());
@@ -78,6 +85,7 @@ let mockWarnIdShare = true;
 const mockSetWarnIdShare = jest.fn((_on: boolean) => Promise.resolve());
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
+    cardBrightness: mockCardBrightness,
     services: mockServices,
     cards: mockCards,
     folders: [],
@@ -92,6 +100,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUndo.end();
   mockWarnIdShare = true;
+  mockCardBrightness = true;
 });
 
 const imageUri = (label: string) => screen.getByLabelText(label).props.source?.uri ?? screen.getByLabelText(label).props.source?.[0]?.uri;
@@ -378,6 +387,45 @@ describe('show to staff', () => {
     mockCards = [makeCard({ id: 'card1' })];
   });
 
+  test('fills the display with one fitted photo, hides chrome and status bar, and swallows modal dismissal', async () => {
+    mockCardBrightness = false;
+    await render(<CardView />);
+    expect(mockSetBrightness).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('show-to-staff'));
+    const modal = screen.getByTestId('staff-modal');
+    expect(modal.props.presentationStyle).toBe('fullScreen');
+    expect(modal.props.supportedOrientations).toEqual(['portrait', 'landscape-left', 'landscape-right']);
+    expect(mockStatusHidden).toBe(true);
+    for (const id of ['card-header', 'card-footer', 'card-tags', 'view-details', 'card-expiry']) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    const image = screen.getByLabelText(strings.card.imageLabel('Gym', strings.card.front));
+    expect(image.props.contentFit).toBe('contain');
+    expect(StyleSheet.flatten(screen.getByTestId('staff-view').props.style)).toMatchObject({ flex: 1, padding: 0 });
+    await fireEvent(modal, 'requestClose');
+    expect(screen.getByTestId('finish-staff')).toBeTruthy();
+    expect(mockBack).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockSetBrightness).toHaveBeenCalled());
+    await fireEvent(screen.getByTestId('finish-staff'), 'longPress');
+    expect(mockStatusHidden).toBe(false);
+    expect(screen.getByTestId('card-header')).toBeTruthy();
+  });
+
+  test('Flip shows the other side full screen and keeps it when staff mode is reopened', async () => {
+    mockCards = [makeCard({ id: 'card1', name: 'Gym', hasBack: true })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('show-to-staff'));
+    await fireEvent.press(screen.getByRole('button', { name: strings.card.flip }));
+    expect(screen.queryByLabelText(strings.card.imageLabel('Gym', strings.card.front))).toBeNull();
+    const image = screen.getByLabelText(strings.card.imageLabel('Gym', strings.card.back));
+    expect(image.props.contentFit).toBe('contain');
+    expect(image.props.accessibilityHint).toBe(strings.card.zoomHint);
+    await fireEvent(image, 'accessibilityAction', { nativeEvent: { actionName: 'zoomIn' } });
+    await fireEvent(screen.getByTestId('finish-staff'), 'longPress');
+    await fireEvent.press(screen.getByTestId('show-to-staff'));
+    expect(screen.getByLabelText(strings.card.imageLabel('Gym', strings.card.back))).toBeTruthy();
+  });
+
   test('locks the screen to the card: no actions, no Close, no swipe away, no back', async () => {
     const back = jest.spyOn(require('react-native').BackHandler, 'addEventListener');
     await render(<CardView />);
@@ -416,6 +464,25 @@ describe('a PDF card', () => {
     expect(imageUri(page(3))).toBe('data:image/jpeg;base64,page-2');
     expect(screen.getByText(strings.card.page(1, 3))).toBeTruthy();
     expect(screen.queryByLabelText(strings.card.imageLabel('Policy', strings.card.front))).toBeNull();
+  });
+
+  test('staff mode keeps the current PDF page, hides the counter, and preserves it on exit', async () => {
+    mockCards = [pdfCard()];
+    await render(<CardView />);
+    const layout = { nativeEvent: { layout: { width: 300, height: 500 } } };
+    await fireEvent(screen.getByTestId('pdf-pager'), 'layout', layout);
+    await fireEvent(screen.getByTestId('pdf-pages'), 'momentumScrollEnd', { nativeEvent: { contentOffset: { x: 300 } } });
+    expect(screen.getByText(strings.card.page(2, 3))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('show-to-staff'));
+    expect(screen.queryByText(strings.card.page(2, 3))).toBeNull();
+    await fireEvent(screen.getByTestId('pdf-pager'), 'layout', layout);
+    await fireEvent(screen.getByTestId('finish-staff'), 'longPress');
+    expect(screen.getByText(strings.card.page(2, 3))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('show-to-staff'));
+    await fireEvent(screen.getByTestId('pdf-pager'), 'layout', layout);
+    await fireEvent(screen.getByTestId('pdf-pages'), 'momentumScrollEnd', { nativeEvent: { contentOffset: { x: 600 } } });
+    await fireEvent(screen.getByTestId('finish-staff'), 'longPress');
+    expect(screen.getByText(strings.card.page(3, 3))).toBeTruthy();
   });
 
 });
@@ -491,7 +558,7 @@ describe('details (.md)', () => {
     await render(<CardView />);
     await fireEvent.press(screen.getByTestId('view-details'));
     await fireEvent.press(screen.getByTestId('show-to-staff'));
-    expect(screen.getByTestId('card-sides')).toBeTruthy();
+    expect(screen.getByTestId('staff-view')).toBeTruthy();
     expect(screen.queryByTestId('view-details')).toBeNull();
   });
 });

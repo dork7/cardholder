@@ -348,7 +348,7 @@ export const strings = {
     pin: 'Pin to home',
     unpin: 'Unpin from home',
     showToStaff: 'Show to staff',
-    staffHint: 'Locks this screen to this document until you hold Done.',
+    staffHint: 'Shows this document full screen until you hold to finish.',
     staffDone: 'Hold to finish',
     staffDoneHint: 'Press and hold to unlock the screen.',
     staffHoldReminder: 'Press and hold to finish.',
