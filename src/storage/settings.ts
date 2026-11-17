@@ -6,6 +6,7 @@ export type SettingKey =
   | 'lastExportAt'
   | 'appearance'
   | 'homeView'
+  | 'showStack'
   | 'gallerySort'
   | 'galleryExpiring'
   | 'appLock'

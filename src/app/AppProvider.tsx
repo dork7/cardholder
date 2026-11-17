@@ -56,6 +56,9 @@ export interface AppContextValue {
   // Whether the home stack swipes up and down instead of sideways.
   stackVertical: boolean;
   setStackVertical(on: boolean): Promise<void>;
+  // When off, Home uses only the gallery and hides its view selector.
+  showStack: boolean;
+  setShowStack(on: boolean): Promise<void>;
   // Whether sharing an ID asks first (see share/idWarning.ts).
   warnIdShare: boolean;
   setWarnIdShare(on: boolean): Promise<void>;
@@ -92,6 +95,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [homeFolders, setHomeFoldersState] = useState<HomeFolderOptions>(DEFAULT_HOME_FOLDERS);
   const [cardBrightness, setCardBrightnessState] = useState(true);
   const [stackVertical, setStackVerticalState] = useState(false);
+  const [showStack, setShowStackState] = useState(true);
   const [warnIdShare, setWarnIdShareState] = useState(true);
   const depsRef = useRef<BootDeps | null>(null);
   const bootingRef = useRef(false);
@@ -130,6 +134,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setHomeFoldersState(await loadHomeFolders(services.settings).catch(() => DEFAULT_HOME_FOLDERS));
     setCardBrightnessState(await loadCardBrightness(services.settings).catch(() => true));
     setStackVerticalState(await loadStackVertical(services.settings).catch(() => false));
+    setShowStackState(await services.settings.get('showStack').then((value) => value !== '0').catch(() => true));
     // A failed read keeps the warning on: it only ever errs towards asking.
     setWarnIdShareState(await loadWarnIdShare(services.settings).catch(() => true));
   }, []);
@@ -269,6 +274,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [services],
   );
 
+  const setShowStack = useCallback(
+    async (on: boolean) => {
+      setShowStackState(on);
+      if (services) await services.settings.set('showStack', on ? '1' : '0');
+    },
+    [services],
+  );
+
   const bootValue = useMemo(() => ({ phase, startFresh, retry }), [phase, startFresh, retry]);
 
   const appValue = useMemo<AppContextValue | null>(
@@ -293,6 +306,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setCardBrightness,
             stackVertical,
             setStackVertical,
+            showStack,
+            setShowStack,
             warnIdShare,
             setWarnIdShare,
           }
@@ -316,6 +331,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCardBrightness,
       stackVertical,
       setStackVertical,
+      showStack,
+      setShowStack,
       warnIdShare,
       setWarnIdShare,
     ],

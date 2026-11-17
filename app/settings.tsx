@@ -40,6 +40,8 @@ export default function SettingsScreen() {
     setCardBrightness,
     stackVertical,
     setStackVertical,
+    showStack,
+    setShowStack,
     warnIdShare,
     setWarnIdShare,
   } = useApp();
@@ -158,28 +160,37 @@ export default function SettingsScreen() {
           <Button icon="backup" label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
           <Button icon="import" variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
         </Section>
+        <Section title={strings.settings.home}>
+          <SwitchRow
+            label={strings.settings.showStack}
+            hint={strings.settings.showStackHint}
+            value={showStack}
+            onChange={(on) => void setShowStack(on).catch(() => {})}
+            testID="show-stack-switch"
+          />
+          {FOLDERS_ENABLED && (
+            <>
+              <SwitchRow
+                label={strings.settings.folderFilter}
+                hint={strings.settings.folderFilterHint}
+                value={homeFolders.filter}
+                onChange={(filter) => void setHomeFolders({ ...homeFolders, filter }).catch(() => {})}
+                testID="home-folder-filter-switch"
+              />
+              <SwitchRow
+                label={strings.settings.manageShortcut}
+                hint={strings.settings.manageShortcutHint}
+                value={homeFolders.manage}
+                onChange={(manage) => void setHomeFolders({ ...homeFolders, manage }).catch(() => {})}
+                testID="home-manage-folders-switch"
+              />
+            </>
+          )}
+        </Section>
         {FOLDERS_ENABLED && (
-          <>
-          <Section title={strings.settings.home}>
-            <SwitchRow
-              label={strings.settings.folderFilter}
-              hint={strings.settings.folderFilterHint}
-              value={homeFolders.filter}
-              onChange={(filter) => void setHomeFolders({ ...homeFolders, filter }).catch(() => {})}
-              testID="home-folder-filter-switch"
-            />
-            <SwitchRow
-              label={strings.settings.manageShortcut}
-              hint={strings.settings.manageShortcutHint}
-              value={homeFolders.manage}
-              onChange={(manage) => void setHomeFolders({ ...homeFolders, manage }).catch(() => {})}
-              testID="home-manage-folders-switch"
-            />
-          </Section>
           <Section title={strings.folders.title}>
             <Button variant="secondary" label={strings.folders.manage} onPress={() => router.push('/folders')} testID="manage-folders" />
           </Section>
-          </>
         )}
         {canSelfUpdate && <UpdateSection />}
         <Section title={strings.report.title}>

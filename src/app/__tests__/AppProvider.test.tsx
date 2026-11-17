@@ -79,6 +79,25 @@ test('refresh keeps one identity while cards and unlock state change', async () 
   expect(mockSyncReminders).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'Gym' })]);
 });
 
+test('the stack is available by default and hiding it is remembered after restarting', async () => {
+  await renderApp();
+  await screen.findByText('cards:0');
+  expect(captured.at(-1)?.showStack).toBe(true);
+
+  await act(() => captured.at(-1)!.setShowStack(false));
+  expect(captured.at(-1)?.showStack).toBe(false);
+  await screen.unmount();
+  await renderApp();
+  await screen.findByText('cards:0');
+  expect(captured.at(-1)?.showStack).toBe(false);
+
+  await act(() => captured.at(-1)!.setShowStack(true));
+  await screen.unmount();
+  await renderApp();
+  await screen.findByText('cards:0');
+  expect(captured.at(-1)?.showStack).toBe(true);
+});
+
 test('a failed start shows localized copy and Retry, never the raw native error', async () => {
   const db = memoryDb();
   let calls = 0;

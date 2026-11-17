@@ -398,6 +398,8 @@ export const strings = {
     restoreNone: 'No previous purchase was found for this store account.',
     restored: 'Unlimited restored.',
     home: 'Home screen',
+    showStack: 'Show stack view',
+    showStackHint: 'Turn off to always use the gallery and hide the view selector.',
     folderFilter: 'Folder filter',
     folderFilterHint: 'Show your folders on the home screen to narrow the documents.',
     manageShortcut: 'Manage folders shortcut',
