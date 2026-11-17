@@ -64,7 +64,8 @@ test('list shows pinned first, searches bodies and titles, and distinguishes no 
   expect(screen.getByText(strings.notes.untitled)).toBeTruthy();
   await fireEvent.changeText(screen.getByTestId('notes-search'), 'missing');
   expect(screen.getByText(strings.notes.noResults)).toBeTruthy();
-  await fireEvent.changeText(screen.getByTestId('notes-search'), '');
+  await fireEvent.press(screen.getByText(strings.notes.clearSearch));
+  expect(screen.getByTestId('notes-search').props.value).toBe('');
   await fireEvent.press(screen.getByTestId('note-a'));
   expect(mockRouter.push).toHaveBeenCalledWith('/note/a');
 });

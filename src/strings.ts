@@ -503,6 +503,7 @@ export const strings = {
     search: 'Search notes',
     empty: 'Keep your important notes here.',
     noResults: 'No notes match your search.',
+    clearSearch: 'Clear search',
     pinned: 'Pinned',
     pin: 'Pin note',
     unpin: 'Unpin note',

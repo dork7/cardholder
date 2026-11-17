@@ -46,7 +46,10 @@ export default function NotesScreen() {
       ) : (
         <FlatList data={findNotes(notes, query)} keyExtractor={(note) => note.id} keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<LiveText style={[styles.empty, { color: theme.muted }]}>{notes.length ? strings.notes.noResults : strings.notes.empty}</LiveText>}
+          ListEmptyComponent={<View>
+            <LiveText style={[styles.empty, { color: theme.muted }]}>{query.trim() ? strings.notes.noResults : strings.notes.empty}</LiveText>
+            {!!query.trim() && <Button label={strings.notes.clearSearch} variant="secondary" onPress={() => setQuery('')} />}
+          </View>}
           renderItem={({ item }) => (
             <Pressable accessibilityRole="button" accessibilityLabel={item.title.trim() || strings.notes.untitled}
               onPress={() => router.push(`/note/${item.id}`)} testID={`note-${item.id}`}
