@@ -1,13 +1,20 @@
 import { ReactNode } from 'react';
 import { BlurView } from 'expo-blur';
 import { LayoutChangeEvent, Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import Animated, { Easing, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { RADIUS, SHADOW, useTheme } from './theme';
+
+const SCREEN_ENTER = FadeInDown.duration(400).easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+  .withInitialValues({ opacity: 0, transform: [{ translateY: 7 }] });
+
+export const screenEntrance = (reduceMotion: boolean) => reduceMotion ? undefined : SCREEN_ENTER;
 
 // The page every screen sits on.
 export function Screen({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
-  return <View style={[styles.screen, { backgroundColor: theme.bg }, style]}>
+  const reduceMotion = useReducedMotion();
+  return <View style={[styles.screen, { backgroundColor: theme.bg }]}>
     <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
       <Defs>
         <RadialGradient id="sky" cx="88%" cy="14%" rx="72%" ry="58%">
@@ -22,7 +29,9 @@ export function Screen({ children, style }: { children: ReactNode; style?: Style
       <Rect width="100%" height="100%" fill="url(#sky)" />
       <Rect width="100%" height="100%" fill="url(#lilac)" />
     </Svg>
-    {children}
+    <Animated.View testID="screen-content" entering={screenEntrance(reduceMotion)} style={[styles.screen, style]}>
+      {children}
+    </Animated.View>
   </View>;
 }
 
@@ -36,6 +45,15 @@ export function GlassSurface({ children, style, strong = false, testID }: {
       {children}
     </View>
   );
+}
+
+// Pinned editor actions sit on the page tint while the form scrolls behind them.
+export function ActionFooter({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const theme = useTheme();
+  return <View style={[styles.actionFooter, { backgroundColor: theme.footer, borderTopColor: theme.border }, style]}>
+    {Platform.OS === 'ios' && <BlurView pointerEvents="none" tint={theme.blurTint} intensity={18} style={StyleSheet.absoluteFill} />}
+    {children}
+  </View>;
 }
 
 interface PanelProps {
@@ -66,6 +84,7 @@ export function Panel({ children, style, radius = RADIUS.none, testID, onLayout 
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  panel: { borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden', ...SHADOW.medium },
+  panel: { borderWidth: 1, overflow: 'hidden', ...SHADOW.panel },
   glass: { borderWidth: 1, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOW.heavy },
+  actionFooter: { borderTopWidth: 1, overflow: 'hidden' },
 });

@@ -7,6 +7,7 @@ export interface Theme {
   surface: string;
   glass: string;
   glassStrong: string;
+  footer: string;
   text: string;
   muted: string;
   accent: string;
@@ -25,6 +26,7 @@ export interface Theme {
 const light: Theme = {
   bg: '#F1F3F9', surface: '#FFFFFF',
   glass: 'rgba(255, 255, 255, 0.64)', glassStrong: 'rgba(255, 255, 255, 0.82)',
+  footer: 'rgba(242, 244, 250, 0.85)',
   text: '#1C2433', muted: '#596273', accent: '#0960C5', onAccent: '#FFFFFF',
   ornament: '#8AA7D1', selection: '#0960C5', danger: '#B3263B',
   border: 'rgba(255, 255, 255, 0.85)', rosette: '#6E788B',
@@ -34,16 +36,18 @@ const light: Theme = {
 const dark: Theme = {
   bg: '#101827', surface: '#19253A',
   glass: 'rgba(35, 49, 73, 0.66)', glassStrong: 'rgba(35, 49, 73, 0.84)',
+  footer: 'rgba(16, 24, 39, 0.85)',
   text: '#F3F6FC', muted: '#B5C1D3', accent: '#80B8FF', onAccent: '#10243E',
   ornament: '#8AA7D1', selection: '#80B8FF', danger: '#FF8B9B',
   border: 'rgba(255, 255, 255, 0.18)', rosette: '#A5B3C8',
   bannerBg: '#26344B', bannerText: '#F3F6FC', photoDim: 'rgba(0, 0, 0, 0.12)', blurTint: 'dark',
 };
 
-export const TYPE = { caption: 12, secondary: 14, body: 16, section: 18, title: 28, display: 32 } as const;
+export const TYPE = { caption: 12, secondary: 14, body: 16, section: 18, title: 31, display: 32 } as const;
 export const TRACKING = { tight: -0.7, caps: 0.5 } as const;
-export const RADIUS = { none: 0, sm: 14, md: 20, lg: 28 } as const;
+export const RADIUS = { none: 0, sm: 14, primary: 17, md: 20, lg: 28 } as const;
 export const SHADOW = {
+  panel: { shadowColor: '#314570', shadowOpacity: 0.035, shadowRadius: 15, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
   medium: { shadowColor: '#314570', shadowOpacity: 0.09, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
   heavy: { shadowColor: '#314570', shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 9 }, elevation: 7 },
 } as const;
