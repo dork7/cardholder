@@ -16,9 +16,10 @@ interface Props {
 export function HomeActionBar({ gallery, onAddImage, onNotes, onToggleGallery }: Props) {
   const theme = useTheme();
   const actions = [
-    { key: 'add-card', label: strings.home.addImage, onPress: onAddImage, primary: true, icon: 'plus' },
     { key: 'open-notes', label: strings.notes.title, onPress: onNotes, primary: false, icon: 'note' },
     { key: 'gallery-toggle', label: gallery ? strings.home.stackLabel : strings.home.galleryLabel, onPress: onToggleGallery, primary: false, icon: 'gallery' },
+    // Last, so the primary action sits under the right thumb.
+    { key: 'add-card', label: strings.home.addImage, onPress: onAddImage, primary: true, icon: 'plus' },
   ];
   return (
     <GlassSurface testID="home-action-bar" style={styles.bar} strong>

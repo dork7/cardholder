@@ -36,7 +36,7 @@ export const strings = {
     searchPlaceholder: 'Search cards',
     searchLabel: "Search cards by name or by what's printed on them",
     allTags: 'All',
-    noResults: 'No cards match.',
+    noResults: 'No documents.',
     clearSearch: 'Clear search',
     settings: 'Settings',
     appearance: 'Appearance',

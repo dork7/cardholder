@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, BackHandler, Pressable, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -20,6 +20,7 @@ import { TagSheet } from '../src/ui/TagSheet';
 import { canReadText, readPhotoText } from '../src/analysis/readPhoto';
 import { rereadCards } from '../src/cards/readBackfill';
 import { CardStack } from '../src/ui/CardStack';
+import { stackGeometry } from '../src/ui/stackGeometry';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
@@ -38,6 +39,8 @@ import { SortSheet } from '../src/ui/SortSheet';
 const ENTER = 360;
 
 export default function Home() {
+  const { width: winWidth } = useWindowDimensions();
+  const stackHeight = useRef<number | null>(null);
   const { cards, folders, unlocked, openImportOnReady, clearOpenImport, homeFolders, services, refresh, stackVertical } =
     useApp();
   const router = useRouter();
@@ -243,9 +246,12 @@ export default function Home() {
               </Pressable>
             )}
             {shown.length === 0 ? (
-              <LiveText style={[styles.promise, { color: theme.muted }]}>
-                {strings.home.noResults}
-              </LiveText>
+              // Keeps the stack's height so the filters below don't jump up when nothing matches.
+              <View style={[styles.noResults, gallery !== 'gallery' && { height: stackHeight.current ?? stackGeometry(winWidth - 32, cards.length, stackVertical).height }]}>
+                <LiveText style={[styles.promise, { color: theme.muted }]}>
+                  {strings.home.noResults}
+                </LiveText>
+              </View>
             ) : gallery === 'gallery' ? (
               inGallery.length === 0 ? (
                 <LiveText style={[styles.promise, { color: theme.muted }]}>
@@ -261,6 +267,7 @@ export default function Home() {
               )
             ) : (
               // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
+              <View onLayout={(e) => { stackHeight.current = e.nativeEvent.layout.height; }}>
               <CardStack
                 key={`${tag ?? 'all'}|${folderId ?? 'all'}|${query.trim().toLowerCase()}|${stackVertical ? 'v' : 'h'}`}
                 cards={shown}
@@ -268,6 +275,7 @@ export default function Home() {
                 vertical={stackVertical}
                 onToggleBlur={(card) => void toggleBlur(card)}
               />
+              </View>
             )}
             {/* Which parts of the folder row show is chosen in settings. */}
             {FOLDERS_ENABLED && folders.length > 0 && (folderChips.length > 0 || homeFolders.manage) && (
@@ -510,4 +518,5 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 124, height: 124, borderRadius: RADIUS.lg, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight, textAlign: 'center' },
   promise: { fontSize: TYPE.body, textAlign: 'center' },
+  noResults: { alignItems: 'center', justifyContent: 'center' },
 });
