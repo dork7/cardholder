@@ -12,6 +12,7 @@ const mockRemoveFolder = jest.fn();
 const mockRefresh = jest.fn();
 const mockCards = [makeCard({ id: 'c1', folderId: 'f1' }), makeCard({ id: 'c2', folderId: 'f1' }), makeCard({ id: 'c3' })];
 
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     services: {

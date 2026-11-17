@@ -1,13 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../src/app/AppProvider';
 import { findNotes, Note } from '../src/notes/noteStore';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { Field, useInputStyle } from '../src/ui/Field';
 import { Screen } from '../src/ui/Surface';
+import { FloatingTabBar } from '../src/ui/FloatingTabBar';
 import { Text } from '../src/ui/Text';
 import { LiveText } from '../src/ui/LiveText';
 import { TRACKING, TYPE, useTheme } from '../src/ui/theme';
@@ -17,7 +17,6 @@ export default function NotesScreen() {
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
-  const insets = useSafeAreaInsets();
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -57,9 +56,10 @@ export default function NotesScreen() {
             </Pressable>
           )} />
       )}
-      <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={styles.actions}>
         <Button label={strings.notes.add} onPress={() => router.push('/note/new')} testID="add-note" />
       </View>
+      <FloatingTabBar active="notes" />
     </Screen>
   );
 }

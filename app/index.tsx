@@ -23,7 +23,8 @@ import { CardStack } from '../src/ui/CardStack';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
-import { HomeActionBar } from '../src/ui/HomeActionBar';
+import { FloatingTabBar, TAB_BAR_HEIGHT } from '../src/ui/FloatingTabBar';
+import { Fab } from '../src/ui/Fab';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { RetroIcon } from '../src/ui/RetroIcon';
@@ -208,7 +209,10 @@ export default function Home() {
             {strings.home.title}
           </Text>
           <AppearanceToggle />
-          <SettingsButton onPress={() => router.push('/settings')} />
+          <GalleryToggle gallery={gallery === 'gallery'} onPress={() => {
+            clearSelection();
+            setGallery(gallery === 'gallery' ? 'stack' : 'gallery');
+          }} />
         </Panel>
         {cards.length > 0 && <SearchField value={query} onChange={setQuery} />}
         {/* Pinned cards stay put while searching or filtering: they're the shortcut, the stack is the browse. */}
@@ -364,17 +368,10 @@ export default function Home() {
           />
         </View>
       ) : (
-        <View style={[styles.dock, { paddingBottom: insets.bottom + 16 }]}>
-          <HomeActionBar
-            gallery={gallery === 'gallery'}
-            onAddImage={addCard}
-            onNotes={() => router.push('/notes')}
-            onToggleGallery={() => {
-              clearSelection();
-              setGallery(gallery === 'gallery' ? 'stack' : 'gallery');
-            }}
-          />
-        </View>
+        <>
+          <Fab label={strings.home.addImage} onPress={addCard} testID="add-card" lift={TAB_BAR_HEIGHT} />
+          <FloatingTabBar active="home" />
+        </>
       )}
     </Screen>
   );
@@ -423,21 +420,25 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-function SettingsButton({ onPress }: { onPress: () => void }) {
+// Switches between the card stack and the gallery grid; it lives in the header now that the dock is navigation.
+function GalleryToggle({ gallery, onPress }: { gallery: boolean; onPress: () => void }) {
   const theme = useTheme();
-  const { ref, onLongPress, tooltip } = useTooltip(strings.home.settings);
+  const label = gallery ? strings.home.stackLabel : strings.home.galleryLabel;
+  const { ref, onLongPress, tooltip } = useTooltip(label);
   return (
     <Pressable
       ref={ref}
       onPress={onPress}
       onLongPress={onLongPress}
       hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={strings.home.settings}
-      testID="open-settings"
+      accessibilityRole="switch"
+      accessibilityLabel={gallery ? strings.home.stackView : strings.home.galleryView}
+      accessibilityHint={strings.home.galleryViewHint}
+      accessibilityState={{ checked: gallery }}
+      testID="gallery-toggle"
       style={({ pressed }) => [styles.round, { backgroundColor: theme.glassStrong, borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
     >
-      <RetroIcon name="settings" size={24} />
+      <RetroIcon name="gallery" size={24} color={gallery ? theme.accent : theme.text} />
       {tooltip}
     </Pressable>
   );
@@ -473,7 +474,6 @@ const styles = StyleSheet.create({
   sortChip: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderWidth: 1, borderRadius: RADIUS.sm },
   folderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderChoices: { flex: 1, minWidth: 0 },
-  dock: { paddingHorizontal: 16, paddingTop: 8 },
   selectionBar: { position: 'absolute', left: 8, right: 8, bottom: 8, gap: 10, paddingHorizontal: 16, paddingTop: 12, borderWidth: 1, borderRadius: RADIUS.lg },
   selectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   selectionActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },

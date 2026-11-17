@@ -13,6 +13,7 @@ let mockCards = [
 ];
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 // Folders are hidden in the app for now (FOLDERS_ENABLED); these tests cover both ways.
 let mockFoldersEnabled = true;
 jest.mock('../../config', () =>
@@ -30,7 +31,7 @@ jest.mock('expo-quick-actions/hooks', () => ({ useQuickActionCallback: () => {} 
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
-    useRouter: () => ({ push: mockPush }),
+    useRouter: () => ({ push: mockPush, replace: mockReplace }),
     // Home counts as focused for as long as it is mounted.
     useFocusEffect: (effect: () => void | (() => void)) => useEffect(effect, [effect]),
   };
@@ -259,10 +260,13 @@ test('there is no backup banner on the home screen, even before the first backup
   expect(screen.queryByTestId('backup-banner')).toBeNull();
 });
 
-test('settings opens from the header', async () => {
+test('the tab bar marks Documents and opens Settings and Notes', async () => {
   await renderHome();
-  await fireEvent.press(screen.getByRole('button', { name: strings.home.settings }));
-  expect(mockPush).toHaveBeenLastCalledWith('/settings');
+  expect(screen.getByTestId('tab-home').props.accessibilityState).toEqual({ selected: true });
+  await fireEvent.press(screen.getByTestId('tab-settings'));
+  expect(mockReplace).toHaveBeenLastCalledWith('/settings');
+  await fireEvent.press(screen.getByTestId('tab-notes'));
+  expect(mockReplace).toHaveBeenLastCalledWith('/notes');
 });
 
 test('with no cards, home shows the empty state without search or filters', async () => {
@@ -317,13 +321,11 @@ describe('gallery view', () => {
   test('shows every card in a grid instead of the stack, and remembers the choice', async () => {
     await renderHome();
     const toggle = screen.getByTestId('gallery-toggle');
-    expect(within(toggle).getByText(strings.home.galleryLabel)).toBeTruthy();
     expect(toggle.props.accessibilityRole).toBe('switch');
     expect(toggle.props.accessibilityLabel).toBe(strings.home.galleryView);
     expect(toggle.props.accessibilityState).toEqual({ checked: false });
     await act(async () => fireEvent.press(toggle));
     expect(screen.getByTestId('card-grid')).toBeTruthy();
-    expect(within(toggle).getByText(strings.home.stackLabel)).toBeTruthy();
     expect(toggle.props.accessibilityLabel).toBe(strings.home.stackView);
     expect(toggle.props.accessibilityState).toEqual({ checked: true });
     expect(screen.queryByTestId('card-stack')).toBeNull();

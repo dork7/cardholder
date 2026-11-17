@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RADIUS, SHADOW, useTheme } from './theme';
+import { SHADOW, useTheme } from './theme';
 import { useTooltip } from './Tooltip';
 import { RetroIcon } from './RetroIcon';
 
@@ -8,10 +8,12 @@ export interface FabProps {
   label: string;
   onPress: () => void;
   testID?: string;
+  // Extra space above the bottom edge, for the tab bar the button floats over.
+  lift?: number;
 }
 
-// Floating square "+" button pinned to the bottom-right corner, clear of the home indicator.
-export function Fab({ label, onPress, testID }: FabProps) {
+// Floating round "+" button at the bottom-right corner, above the tab bar and the home indicator.
+export function Fab({ label, onPress, testID, lift = 0 }: FabProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { ref, onLongPress, tooltip } = useTooltip(label);
@@ -26,7 +28,7 @@ export function Fab({ label, onPress, testID }: FabProps) {
       hitSlop={8}
       style={({ pressed }) => [
         styles.base,
-        { bottom: 24 + insets.bottom, backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
+        { bottom: 24 + insets.bottom + lift, backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
       ]}
     >
       <RetroIcon name="plus" color={theme.onAccent} />
@@ -41,7 +43,9 @@ const styles = StyleSheet.create({
     end: 24,
     width: 56,
     height: 56,
-    borderRadius: RADIUS.sm,
+    borderRadius: 28,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOW.heavy,

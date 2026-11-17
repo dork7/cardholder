@@ -296,6 +296,7 @@ export const strings = {
     confirmOn: 'Turn on app lock',
     confirmOff: 'Turn off app lock',
   },
+  tabs: { documents: 'Documents' },
   settings: {
     title: 'Settings',
     security: 'Security',
