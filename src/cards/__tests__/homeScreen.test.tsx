@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, AlertButton } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
+import { Note } from '../../notes/noteStore';
 import { Folder } from '../types';
 import Home from '../../../app/index';
 import { FREE_CARD_LIMIT } from '../../config';
@@ -11,6 +12,8 @@ let mockCards = [
   makeCard({ id: 'b', name: 'Health insurance', tags: ['Insurance'] }),
   makeCard({ id: 'c', name: 'Gym', tags: ['Membership'] }),
 ];
+
+let mockNotes: Note[] = [];
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -93,6 +96,7 @@ jest.mock('../../app/AppProvider', () => ({
     warnIdShare: mockWarnIdShare,
     setWarnIdShare: (on: boolean) => mockSetWarnIdShare(on),
     cards: mockCards,
+    notes: mockNotes,
     folders: mockFolders,
     unlocked: mockUnlocked,
     services: mockServices,
@@ -110,6 +114,7 @@ jest.mock('../../app/AppProvider', () => ({
 const mockUndo: import('../../app/undo').Undo = jest.requireActual('../../app/undo').createUndo();
 
 beforeEach(() => {
+  mockNotes = [];
   mockWarnIdShare = true;
   mockSetWarnIdShare.mockClear();
   mockPush.mockClear();
@@ -989,5 +994,41 @@ describe('Undo bar', () => {
     expect(alert).toHaveBeenCalledWith(strings.errors.actions.undo.title, strings.errors.actions.undo.body);
     alert.mockRestore();
     warn.mockRestore();
+  });
+});
+
+
+test.each(['list', 'stack', 'gallery'])('pinned notes show only titles beside pinned documents in %s view', async (view) => {
+  mockHomeView = view;
+  mockNotes = [
+    { id: 'note', title: 'Packing', body: 'PRIVATE NOTE BODY', pinned: true, createdAt: 1, updatedAt: 1 },
+    { id: 'blank-title', title: ' ', body: 'NEVER USE BODY AS TITLE', pinned: true, createdAt: 1, updatedAt: 1 },
+    { id: 'unpinned', title: 'Not pinned', body: 'Hidden', pinned: false, createdAt: 1, updatedAt: 1 },
+  ];
+  await withCards([makeCard({ id: 'doc', name: 'Passport', pinned: true })], async () => {
+    await render(<Home />);
+    expect(within(await screen.findByTestId('pinned-note-note')).getByText('Packing')).toBeTruthy();
+    expect(within(screen.getByTestId('pinned-note-blank-title')).getByText(strings.notes.untitled)).toBeTruthy();
+    expect(screen.getByTestId('pinned-doc')).toBeTruthy();
+    expect(screen.queryByTestId('pinned-note-unpinned')).toBeNull();
+    expect(JSON.stringify(screen.toJSON())).not.toContain('PRIVATE NOTE BODY');
+    expect(JSON.stringify(screen.toJSON())).not.toContain('NEVER USE BODY AS TITLE');
+    await fireEvent.changeText(screen.getByTestId('search'), 'missing');
+    await fireEvent.press(screen.getByTestId('pinned-note-note'));
+    expect(mockPush).toHaveBeenCalledWith('/note/note');
+    mockNotes = [];
+    await screen.rerender(<Home />);
+    expect(screen.queryByTestId('pinned-note-note')).toBeNull();
+  });
+});
+
+test('home offers pinned notes even when there are no documents', async () => {
+  mockNotes = [{ id: 'n', title: 'My note', body: 'Secret', pinned: true, createdAt: 1, updatedAt: 1 }];
+  await withCards([], async () => {
+    await render(<Home />);
+    expect(screen.getByTestId('pinned-note-n')).toBeTruthy();
+    expect(screen.queryByTestId('empty-state')).toBeNull();
+    await fireEvent.press(screen.getByTestId('pinned-note-n'));
+    expect(mockPush).toHaveBeenCalledWith('/note/n');
   });
 });

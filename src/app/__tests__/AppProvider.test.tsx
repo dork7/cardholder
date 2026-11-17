@@ -76,7 +76,7 @@ test('refresh keeps one identity while cards and unlock state change', async () 
 
   expect(captured.length).toBeGreaterThan(1);
   expect(new Set(captured.map((c) => c.refresh)).size).toBe(1);
-  expect(mockSyncReminders).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'Gym' })]);
+  expect(mockSyncReminders).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'Gym' })], expect.any(Date), []);
 });
 
 test('the stack is available by default and hiding it is remembered after restarting', async () => {
@@ -260,3 +260,16 @@ describe('Undo', () => {
 function flatten(style: unknown): { flexGrow?: number } {
   return (StyleSheet.flatten(style as never) ?? {}) as { flexGrow?: number };
 }
+
+test('refresh replans notes alongside documents, including removal', async () => {
+  await renderApp();
+  await screen.findByText('cards:0');
+  const app = captured.at(-1)!;
+  await app.services.notes.save('n', { title: 'Private', body: 'Secret' });
+  await app.services.notes.setReminder('n', 1900000123456);
+  await act(() => app.refresh());
+  await waitFor(() => expect(mockSyncReminders).toHaveBeenLastCalledWith([], expect.any(Date), [expect.objectContaining({ id: 'n', reminderAt: 1900000123456 })]));
+  await app.services.notes.remove('n');
+  await act(() => app.refresh());
+  await waitFor(() => expect(mockSyncReminders).toHaveBeenLastCalledWith([], expect.any(Date), []));
+});

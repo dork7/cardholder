@@ -12,6 +12,7 @@ test.each([false, true])('encrypted notes backup round trip, with documents: %s'
   await a.notes.save('a', { title: '', body: '  multiline\nnote  ' });
   await a.notes.save('b', { title: 'Title only', body: '' });
   await a.notes.setPinned('a', true);
+  await a.notes.setReminder('a', 1900000123456);
   const snapshot = await buildSnapshot(a.store, 42, a.notes);
   const encrypted = await encodeBackup(snapshot, secret, { iterations: 1_000 });
   expect(Buffer.from(encrypted).toString()).not.toContain('multiline');
@@ -151,4 +152,10 @@ test('merging backup notes into a phone with notes of its own counts as a change
   await b.notes.save('mine', { title: '', body: 'Not in that backup' });
   await applySnapshot(b.store, snapshot, 'merge', b.notes);
   expect(await b.notes.lastChangeAt()).toBeGreaterThan(snapshot.exportedAt);
+});
+
+
+test.each(['tomorrow', -1, Infinity, 9e15])('invalid reminder time is refused before restore: %s', (reminderAt) => {
+  const note = { id: 'a', title: '', body: 'A', pinned: false, createdAt: 1, updatedAt: 1, reminderAt };
+  expect(() => parseSnapshot({ ...backupSnapshot(), notes: [note] })).toThrow('invalid-contents');
 });

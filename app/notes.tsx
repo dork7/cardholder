@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
+import { NoteBody } from '../src/notes/NoteBody';
 import { findNotes, Note } from '../src/notes/noteStore';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
@@ -22,6 +23,8 @@ export default function NotesScreen() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const load = useCallback(async () => {
     setFailed(false);
     try { setNotes(await services.notes.list()); }
@@ -29,6 +32,15 @@ export default function NotesScreen() {
     finally { setLoading(false); }
   }, [services]);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
+  const toggleTask = async (note: Note, body: string) => {
+    setSaving(true);
+    setSaveFailed(false);
+    try {
+      await services.notes.save(note.id, { title: note.title, body });
+      setNotes(await services.notes.list());
+    } catch { setSaveFailed(true); }
+    finally { setSaving(false); }
+  };
   return (
     <Screen>
       <View style={styles.search}>
@@ -38,6 +50,7 @@ export default function NotesScreen() {
             autoCorrect={false} autoCapitalize="none" style={inputStyle} testID="notes-search" />
         </Field>
       </View>
+      {saveFailed && <LiveText style={{ color: theme.danger, padding: 16 }}>{strings.notes.failed}</LiveText>}
       {loading ? <ActivityIndicator color={theme.accent} /> : failed ? (
         <View style={styles.search}>
           <LiveText style={{ color: theme.danger }}>{strings.notes.loadFailed}</LiveText>
@@ -46,15 +59,20 @@ export default function NotesScreen() {
       ) : (
         <FlatList data={findNotes(notes, query)} keyExtractor={(note) => note.id} keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<LiveText style={[styles.empty, { color: theme.muted }]}>{notes.length ? strings.notes.noResults : strings.notes.empty}</LiveText>}
+          ListEmptyComponent={<View>
+            <LiveText style={[styles.empty, { color: theme.muted }]}>{query.trim() ? strings.notes.noResults : strings.notes.empty}</LiveText>
+            {!!query.trim() && <Button label={strings.notes.clearSearch} variant="secondary" onPress={() => setQuery('')} />}
+          </View>}
           renderItem={({ item }) => (
+            <View style={[styles.row, { borderColor: theme.border }]}>
             <Pressable accessibilityRole="button" accessibilityLabel={item.title.trim() || strings.notes.untitled}
               onPress={() => router.push(`/note/${item.id}`)} testID={`note-${item.id}`}
-              style={({ pressed }) => [styles.row, { borderColor: theme.border, backgroundColor: pressed ? theme.surface : theme.bg }]}>
+              style={({ pressed }) => [{ minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? theme.surface : theme.bg }]}>
               {item.pinned && <Text style={[styles.caption, { color: theme.muted }]}>{strings.notes.pinned}</Text>}
               <Text numberOfLines={2} style={[styles.title, { color: theme.text }]}>{item.title.trim() || strings.notes.untitled}</Text>
-              {!!item.body && <Text numberOfLines={3} style={[styles.body, { color: theme.muted }]}>{item.body}</Text>}
             </Pressable>
+            {!!item.body && <NoteBody body={item.body} disabled={saving} onChange={(body) => void toggleTask(item, body)} />}
+            </View>
           )} />
       )}
       <Fab label={strings.notes.add} onPress={() => router.push('/note/new')} testID="add-note" />

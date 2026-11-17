@@ -108,3 +108,18 @@ test('deleting a note is permanent across reopening and leaves documents and ima
   expect(await store.count()).toBe(1);
   expect(blobs.raw.size).toBe(before);
 });
+
+test('a reminder survives edits and reopening, stays encrypted, and can be cleared', async () => {
+  const { notes, db, aead } = await makeStore();
+  const original = await notes.save('a', { title: 'Private', body: 'Secret' });
+  const reminderAt = 1900000123456;
+  await notes.setReminder('a', reminderAt);
+  expect(await notes.get('a')).toMatchObject({ reminderAt, updatedAt: original.updatedAt });
+  await notes.save('a', { title: 'Changed', body: 'Secret' });
+  const reopened = createNoteStore({ db, aead });
+  expect(await reopened.get('a')).toMatchObject({ reminderAt, title: 'Changed' });
+  const raw = await db.getFirstAsync<{ payload: Uint8Array }>('SELECT payload FROM notes', []);
+  expect(Buffer.from(raw!.payload).toString()).not.toContain(String(reminderAt));
+  await reopened.setReminder('a', null);
+  expect((await reopened.get('a'))!.reminderAt).toBeUndefined();
+});

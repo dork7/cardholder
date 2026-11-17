@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { useQuickActionCallback } from 'expo-quick-actions/hooks';
 import { Href, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { reminderCardId } from '../reminders/scheduler';
+import { reminderCardId, reminderNoteId } from '../reminders/scheduler';
 import { useAppLocked } from '../security/AppLockGate';
 import { shortcutHref } from '../shortcuts/quickActions';
 
@@ -17,10 +17,12 @@ export function useLaunchLinks(): void {
   const handled = useRef<string | null>(null);
   useEffect(() => {
     const cardId = reminderCardId(response ?? null);
+    const noteId = reminderNoteId(response ?? null);
     const key = response?.notification.request.identifier ?? null;
-    if (!cardId || key === handled.current) return;
+    if ((!cardId && !noteId) || key === handled.current) return;
     handled.current = key;
-    router.push(`/card/${cardId}`);
+    if (noteId) router.push(`/note/${noteId}`);
+    else router.push(`/card/${cardId}`);
   }, [response, router]);
 
   // A stable callback keeps the library from replaying the cold-start action on every render.

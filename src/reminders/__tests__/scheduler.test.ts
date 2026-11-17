@@ -61,3 +61,36 @@ test('a reminder one day out reads "1 day", and on the day "today"', () => {
   expect(strings.reminders.title('Visa', 1)).toBe('Visa expires in 1 day');
   expect(strings.reminders.title('Visa', 0)).toBe('Visa expires today');
 });
+
+test('note reminders share the schedule, never expose note text, and disappear when cleared', async () => {
+  const notes = [{ id: 'n', title: 'Private title', body: 'Private body', pinned: false, createdAt: 1, updatedAt: 1, reminderAt: new Date(2027, 0, 2, 15, 30).getTime() }];
+  await syncReminders([], now, notes);
+  expect(mocked.scheduleNotificationAsync).toHaveBeenLastCalledWith({
+    identifier: 'note:n',
+    content: { title: strings.notes.reminderNotificationTitle, body: strings.notes.reminderNotificationBody, data: { noteId: 'n' } },
+    trigger: { type: 'date', date: new Date(2027, 0, 2, 15, 30), channelId: 'reminders' },
+  });
+  expect(JSON.stringify(mocked.scheduleNotificationAsync.mock.calls)).not.toContain('Private');
+  mocked.scheduleNotificationAsync.mockClear();
+  await syncReminders([], now, [{ ...notes[0], reminderAt: undefined }]);
+  expect(mocked.scheduleNotificationAsync).not.toHaveBeenCalled();
+});
+
+test('the nearest 60 reminders win across notes and documents; past notes are ignored', async () => {
+  const notes = Array.from({ length: 65 }, (_, i) => ({ id: `n${i}`, title: 'Secret', body: 'Secret', pinned: false, createdAt: 1, updatedAt: 1, reminderAt: now.getTime() + (i + 1) * 60_000 }));
+  notes.push({ ...notes[0], id: 'past', reminderAt: now.getTime() });
+  await syncReminders([makeCard({ expiresOn: '2027-06-30' })], now, notes);
+  expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(60);
+  expect(mocked.scheduleNotificationAsync.mock.calls[0][0].identifier).toBe('note:n0');
+  expect(mocked.scheduleNotificationAsync.mock.calls[59][0].identifier).toBe('note:n59');
+});
+
+test('note reminder taps resolve only safe note IDs and the default action', () => {
+  const { reminderNoteId } = require('../scheduler');
+  const response = (data: unknown, actionIdentifier = 'expo.modules.notifications.actions.DEFAULT') =>
+    ({ actionIdentifier, notification: { request: { identifier: 'note:n', content: { data } } } });
+  expect(reminderNoteId(response({ noteId: 'n' }))).toBe('n');
+  expect(reminderNoteId(response({ noteId: '../settings' }))).toBeNull();
+  expect(reminderNoteId(response({ noteId: 'n' }, 'dismiss'))).toBeNull();
+  expect(reminderNoteId(response({ cardId: 'c' }))).toBeNull();
+});

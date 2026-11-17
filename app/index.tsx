@@ -1,3 +1,4 @@
+import { PinnedNotes } from '../src/notes/PinnedNotes';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
@@ -49,6 +50,7 @@ export default function Home() {
   const stackHeight = useRef<number | null>(null);
   const {
     cards,
+    notes,
     folders,
     unlocked,
     openImportOnReady,
@@ -95,6 +97,7 @@ export default function Home() {
     : [];
   const shown = filterCards(cards, { query, tag, folderId });
   const { pinned } = splitPinned(cards);
+  const pinnedNotes = notes.filter((note) => note.pinned).map(({ id, title }) => ({ id, title }));
   const [savedView, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
   // Keep the saved choice so turning the stack back on restores the previous layout.
   const gallery = showStack ? savedView : 'gallery';
@@ -313,7 +316,7 @@ export default function Home() {
         )}
       </View>
 
-      {cards.length === 0 ? (
+      {cards.length === 0 && pinnedNotes.length === 0 ? (
         <View style={[styles.inset, styles.body]}>
           <View style={styles.empty} testID="empty-state">
             <View style={[styles.emptyIcon, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
@@ -326,28 +329,30 @@ export default function Home() {
             <Text style={[styles.promise, { color: theme.text }]}>{strings.home.emptyHint}</Text>
           </View>
         </View>
-      ) : listView ? (
+      ) : listView || cards.length === 0 ? (
         // The library: pinned panels, then every other document. Pinned ones stay put while searching or
         // filtering: they're the shortcut, the list is the browse.
         <ScrollView style={styles.fill} contentContainerStyle={[styles.inset, styles.library, { paddingBottom: clearance + 16 }]} testID="document-list">
-          {pinned.length > 0 && (
+          {(pinned.length > 0 || pinnedNotes.length > 0) && (
             <View style={styles.section} testID="pinned-section">
               <SectionHeading title={strings.home.pinnedForQuickAccess} icon="pin" />
               <PinnedPanels cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
+              <PinnedNotes notes={pinnedNotes} onOpen={(id) => router.push(`/note/${id}`)} />
             </View>
           )}
-          <View style={styles.section}>
+          {cards.length > 0 && <View style={styles.section}>
             <SectionHeading title={strings.home.allDocuments} count={strings.home.documentCount(rest.length)} />
             {rest.length === 0 ? (
               <LiveText style={[styles.promise, { color: theme.muted }]}>{strings.home.noResults}</LiveText>
             ) : (
               <DocumentRows cards={rest} onOpen={(card) => router.push(`/card/${card.id}`)} />
             )}
-          </View>
+          </View>}
         </ScrollView>
       ) : (
         <View style={[styles.inset, styles.body, { paddingBottom: clearance + 8 }]}>
           <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
+          <PinnedNotes notes={pinnedNotes} compact onOpen={(id) => router.push(`/note/${id}`)} />
           {shown.length === 0 ? (
             // Keeps the stack's height so nothing jumps when nothing matches.
             <View style={[styles.noResults, gallery !== 'gallery' && { height: stackHeight.current ?? stackGeometry(winWidth - 32, cards.length, stackVertical).height }]}>

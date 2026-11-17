@@ -1,8 +1,12 @@
+import * as Clipboard from 'expo-clipboard';
 import { Stack, useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Share, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
+import { NoteReminder } from '../../src/notes/NoteReminder';
+import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
+import { NoteBody } from '../../src/notes/NoteBody';
 import { NoteEditor } from '../../src/notes/noteEditors';
 import { isBlankNote, Note } from '../../src/notes/noteStore';
 import { strings } from '../../src/strings';
@@ -34,7 +38,7 @@ export default function NoteScreen() {
 }
 
 function Editor({ note }: { note: Note | null }) {
-  const { services } = useApp();
+  const { services, refresh } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
@@ -44,11 +48,34 @@ function Editor({ note }: { note: Note | null }) {
   const [editor] = useState<NoteEditor>(() => services.noteEditors.open(note));
   const [fields, setFields] = useState({ title: note?.title ?? '', body: note?.body ?? '' });
   const [status, setStatus] = useState(editor.status());
+  const [reminderAt, setReminderAt] = useState(note?.reminderAt);
   const [pinned, setPinned] = useState(note?.pinned ?? false);
   const [busy, setBusy] = useState(false);
   const [closed, setClosed] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [actionFailed, setActionFailed] = useState(false);
+  const [transferStatus, setTransferStatus] = useState<string | null>(null);
+  const transfer = (kind: 'share' | 'copy') => Alert.alert(
+    kind === 'share' ? strings.notes.shareTitle : strings.notes.copyTitle,
+    kind === 'share' ? strings.notes.shareWarning : strings.notes.copyWarning,
+    [
+      { text: strings.common.cancel, style: 'cancel' },
+      { text: kind === 'share' ? strings.notes.share : strings.notes.copy, onPress: async () => {
+        setBusy(true);
+        setTransferStatus(null);
+        try {
+          if (kind === 'share') {
+            const message = fields.title.trim() ? `${fields.title}\n\n${fields.body}` : fields.body;
+            await Share.share({ message });
+          } else {
+            await Clipboard.setStringAsync(fields.body);
+            setTransferStatus(strings.notes.copied);
+          }
+        } catch { setTransferStatus(strings.notes.transferFailed); }
+        finally { setBusy(false); }
+      } },
+    ],
+  );
 
   useEffect(() => editor.subscribe(() => setStatus(editor.status())), [editor]);
   useEffect(() => {
@@ -63,7 +90,7 @@ function Editor({ note }: { note: Note | null }) {
   usePreventRemove(!closed, ({ repeat }) => {
     if (busy) return;
     setBusy(true);
-    void editor.finish().then(() => { setClosed(true); repeat(); }).catch(() => {
+    void editor.finish().then(() => refresh().catch(() => console.warn('Refresh after note change failed'))).then(() => { setClosed(true); repeat(); }).catch(() => {
       setActionFailed(true);
     }).finally(() => setBusy(false));
   });
@@ -80,6 +107,7 @@ function Editor({ note }: { note: Note | null }) {
       await editor.flush();
       await services.notes.setPinned(editor.id, !pinned);
       setPinned(!pinned);
+      await refresh();
       setActionFailed(false);
     } catch { setActionFailed(true); }
     finally { setBusy(false); }
@@ -88,7 +116,7 @@ function Editor({ note }: { note: Note | null }) {
     { text: strings.common.cancel, style: 'cancel' },
     { text: strings.common.delete, style: 'destructive', onPress: () => {
       setBusy(true);
-      void editor.discard().then(() => { setClosed(true); setDeleted(true); }).catch(() => {
+      void editor.discard().then(() => refresh().catch(() => console.warn('Refresh after note change failed'))).then(() => { setClosed(true); setDeleted(true); }).catch(() => {
         setActionFailed(true);
         setBusy(false);
       });
@@ -110,9 +138,11 @@ function Editor({ note }: { note: Note | null }) {
               editable={!busy} accessibilityLabel={strings.notes.titleLabel} style={inputStyle} testID="note-title" />
           </Field>
           <Field label={strings.notes.bodyLabel}>
+            <LiveText style={{ color: theme.muted }}>{strings.notes.checklistHint}</LiveText>
             <TextInput value={fields.body} onChangeText={(value) => change('body', value)} multiline
               editable={!busy} accessibilityLabel={strings.notes.bodyLabel} style={[inputStyle, styles.body]} testID="note-body" />
           </Field>
+          <NoteBody body={fields.body} tasksOnly disabled={busy} onChange={(body) => change('body', body)} />
           <LiveText style={{ color: status === 'error' || actionFailed ? theme.danger : theme.muted }} testID="note-status">
             {status === 'error' || actionFailed ? strings.notes.failed : isBlankNote(fields) ? strings.notes.blank : status === 'saving' ? strings.notes.saving : strings.notes.saved}
           </LiveText>
@@ -120,7 +150,22 @@ function Editor({ note }: { note: Note | null }) {
             setActionFailed(false);
             void editor.flush().catch(() => {});
           }} />}
+          <NoteReminder value={reminderAt} disabled={busy || isBlankNote(fields)} onSave={async (at) => {
+            setBusy(true);
+            try {
+              if (at !== null && !(await requestReminderPermissionOnce())) throw new Error('permission-denied');
+              await editor.flush();
+              await services.notes.setReminder(editor.id, at);
+              setReminderAt(at ?? undefined);
+              await refresh();
+            } finally { setBusy(false); }
+          }} />
           <View style={styles.secondary}>
+            <Button variant="secondary" label={strings.notes.share} onPress={() => transfer('share')}
+              disabled={busy || isBlankNote(fields)} testID="note-share" />
+            <Button variant="secondary" label={strings.notes.copy} onPress={() => transfer('copy')}
+              disabled={busy || !fields.body} testID="note-copy" />
+            {transferStatus && <LiveText style={{ color: theme.muted }}>{transferStatus}</LiveText>}
             <Button variant="secondary" label={pinned ? strings.notes.unpin : strings.notes.pin} onPress={() => void pin()}
               disabled={busy || isBlankNote(fields)} testID="note-pin" />
             <Button variant="danger" label={strings.notes.remove} onPress={remove} disabled={busy} testID="note-delete" />

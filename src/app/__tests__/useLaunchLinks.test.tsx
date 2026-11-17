@@ -1,6 +1,7 @@
-import { act, renderHook, screen } from '@testing-library/react-native';
+import { act, render, renderHook, screen } from '@testing-library/react-native';
 import * as QuickActions from 'expo-quick-actions';
 import { ReactNode } from 'react';
+import { Text } from 'react-native';
 import { AppLockGate } from '../../security/AppLockGate';
 import { useLaunchLinks } from '../useLaunchLinks';
 
@@ -8,12 +9,17 @@ jest.mock('expo-quick-actions', () => ({
   initial: undefined,
   addListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
-jest.mock('expo-notifications', () => ({ useLastNotificationResponse: () => null }));
+let mockResponse: unknown = null;
+jest.mock('expo-notifications', () => ({
+  useLastNotificationResponse: () => mockResponse,
+  DEFAULT_ACTION_IDENTIFIER: 'tap',
+}));
 const mockRouter = { push: jest.fn() };
 jest.mock('expo-router', () => ({ useRouter: () => mockRouter }));
 const mockAuthenticate = jest.fn();
 jest.mock('../../security/deviceAuth', () => ({ authenticate: () => mockAuthenticate() }));
 jest.mock('react-native-screens', () => ({ FullWindowOverlay: ({ children }: { children: ReactNode }) => children }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 
 const action = (href: string): QuickActions.Action => ({ id: href, title: href, params: { href } });
 const launch = async (href: string) => {
@@ -23,6 +29,7 @@ const launch = async (href: string) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockResponse = null;
   jest.replaceProperty(QuickActions, 'initial', undefined);
   mockAuthenticate.mockResolvedValue('failed');
 });
@@ -56,4 +63,22 @@ test('warm shortcuts open the import editor or Show mode and reject unrelated de
   await launch('/card/id_1?show=1');
   await launch('/settings');
   expect(mockRouter.push.mock.calls).toEqual([['/edit/new'], ['/card/id_1?show=1']]);
+});
+
+function Home() { useLaunchLinks(); return <Text>Note screen</Text>; }
+
+test('a notification opens its note underneath the app lock and is handled once', async () => {
+  let unlock!: (result: string) => void;
+  mockAuthenticate.mockReturnValue(new Promise((resolve) => { unlock = resolve; }));
+  mockResponse = { actionIdentifier: 'tap', notification: { request: { identifier: 'note:n', content: { data: { noteId: 'n' } } } } };
+  const view = <AppLockGate enabled><Home /></AppLockGate>;
+  await render(view);
+  expect(mockRouter.push).toHaveBeenCalledWith('/note/n');
+  expect(screen.getByTestId('app-lock')).toBeTruthy();
+  expect(screen.queryByText('Note screen')).toBeNull();
+  await screen.rerender(view);
+  expect(mockRouter.push).toHaveBeenCalledTimes(1);
+  await act(async () => unlock('success'));
+  expect(screen.queryByTestId('app-lock')).toBeNull();
+  expect(screen.getByText('Note screen')).toBeTruthy();
 });

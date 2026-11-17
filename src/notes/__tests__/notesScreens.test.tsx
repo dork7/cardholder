@@ -1,5 +1,14 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert, AppState } from 'react-native';
+import { Alert, AppState, Share } from 'react-native';
+import { requestReminderPermissionOnce } from '../../reminders/scheduler';
+jest.mock('../../reminders/scheduler', () => ({ requestReminderPermissionOnce: jest.fn(async () => true) }));
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true, default: (props: unknown) => jest.requireActual('react').createElement(jest.requireActual('react-native').View, props),
+  DateTimePickerAndroid: { open: jest.fn() },
+}));
+const mockRefresh = jest.fn(async () => {});
+import * as Clipboard from 'expo-clipboard';
+jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }));
 import { makeStore } from '../../../test/fixtures';
 import NotesScreen from '../../../app/notes';
 import NoteScreen from '../../../app/note/[id]';
@@ -27,7 +36,7 @@ jest.mock('expo-router', () => {
 });
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 let mockServices: { notes: NoteStore; noteEditors: ReturnType<typeof createNoteEditors> };
-jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, cards: Array(10).fill({}), unlocked: false }) }));
+jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, refresh: mockRefresh, cards: Array(10).fill({}), unlocked: false }) }));
 const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 const appState = jest.spyOn(AppState, 'addEventListener');
 
@@ -64,7 +73,8 @@ test('list shows pinned first, searches bodies and titles, and distinguishes no 
   expect(screen.getByText(strings.notes.untitled)).toBeTruthy();
   await fireEvent.changeText(screen.getByTestId('notes-search'), 'missing');
   expect(screen.getByText(strings.notes.noResults)).toBeTruthy();
-  await fireEvent.changeText(screen.getByTestId('notes-search'), '');
+  await fireEvent.press(screen.getByText(strings.notes.clearSearch));
+  expect(screen.getByTestId('notes-search').props.value).toBe('');
   await fireEvent.press(screen.getByTestId('note-a'));
   expect(mockRouter.push).toHaveBeenCalledWith('/note/a');
 });
@@ -125,6 +135,7 @@ test('cancel deletion keeps the note; confirmed deletion removes it and leaves o
   expect(buttons[0].style).toBe('cancel');
   await act(async () => buttons[1].onPress!());
   expect(await mockServices.notes.get('a')).toBeNull();
+  expect(mockRefresh).toHaveBeenCalled();
   expect(mockBack).toHaveBeenCalledTimes(1);
 });
 
@@ -183,4 +194,94 @@ test('creating a note at the free document limit never opens the paywall', async
   await act(async () => fireEvent.press(screen.getByTestId('note-done')));
   expect(await mockServices.notes.list()).toHaveLength(1);
   expect(mockRouter.push).not.toHaveBeenCalledWith('/paywall');
+});
+
+const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
+
+test('share and copy require confirmation and use the current unsaved text', async () => {
+  await render(<NoteScreen />);
+  await write('My title', 'Private body');
+  expect(share).not.toHaveBeenCalled();
+  expect(Clipboard.setStringAsync).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByTestId('note-share'));
+  expect(share).not.toHaveBeenCalled();
+  await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
+  expect(share).toHaveBeenCalledWith({ message: 'My title\n\nPrivate body' });
+  await fireEvent.press(screen.getByTestId('note-copy'));
+  expect(Clipboard.setStringAsync).not.toHaveBeenCalled();
+  await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
+  expect(Clipboard.setStringAsync).toHaveBeenCalledWith('Private body');
+  expect(screen.getByText(strings.notes.copied)).toBeTruthy();
+});
+
+test('failed sharing keeps the note on screen with an actionable error', async () => {
+  share.mockRejectedValueOnce(new Error('Native failure'));
+  await render(<NoteScreen />);
+  await write('', 'Keep this');
+  await fireEvent.press(screen.getByTestId('note-share'));
+  await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
+  expect(screen.getByText(strings.notes.transferFailed)).toBeTruthy();
+  expect(screen.getByTestId('note-body').props.value).toBe('Keep this');
+});
+
+test('checklist boxes toggle from the list, preserving Markdown and ordinary text', async () => {
+  await mockServices.notes.save('a', { title: 'Packing', body: 'Remember\n- [ ] Passport\n- [x] Keys\nLast line' });
+  await render(<NotesScreen />);
+  const passport = await screen.findByRole('checkbox', { name: 'Passport' });
+  expect(passport.props.accessibilityState.checked).toBe(false);
+  expect(screen.getByRole('checkbox', { name: 'Keys' }).props.accessibilityState.checked).toBe(true);
+  await act(async () => fireEvent.press(passport));
+  expect((await mockServices.notes.get('a'))!.body).toBe('Remember\n- [x] Passport\n- [x] Keys\nLast line');
+  expect(mockRouter.push).not.toHaveBeenCalled();
+  await act(async () => fireEvent.press(screen.getByRole('checkbox', { name: 'Keys' })));
+  expect((await mockServices.notes.get('a'))!.body).toBe('Remember\n- [x] Passport\n- [ ] Keys\nLast line');
+});
+
+test('typed task markers can be toggled in the note and copied as readable Markdown', async () => {
+  await render(<NoteScreen />);
+  await write('', 'Before\r\n  - [ ] Passport\r\nAfter');
+  await fireEvent.press(screen.getByRole('checkbox', { name: 'Passport' }));
+  expect(screen.getByTestId('note-body').props.value).toBe('Before\r\n  - [x] Passport\r\nAfter');
+  await act(async () => mockServices.noteEditors.flushAll());
+  expect((await mockServices.notes.list())[0].body).toBe('Before\r\n  - [x] Passport\r\nAfter');
+  await fireEvent.press(screen.getByTestId('note-copy'));
+  await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
+  expect(Clipboard.setStringAsync).toHaveBeenCalledWith('Before\r\n  - [x] Passport\r\nAfter');
+});
+
+
+test('a chosen date and time schedules, updates and removes a note reminder', async () => {
+  await render(<NoteScreen />);
+  await write('Private', 'Secret');
+  await fireEvent.press(screen.getByText(strings.notes.remind));
+  const tomorrow = new Date(Date.now() + 86400000);
+  tomorrow.setHours(15, 30, 0, 0);
+  await fireEvent(screen.getByLabelText(strings.notes.reminderDate), 'onChange', { type: 'set' }, tomorrow);
+  await fireEvent(screen.getByLabelText(strings.notes.reminderTime), 'onChange', { type: 'set' }, tomorrow);
+  await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderSave)));
+  expect(requestReminderPermissionOnce).toHaveBeenCalledTimes(1);
+  expect((await mockServices.notes.list())[0]).toMatchObject({ reminderAt: tomorrow.getTime() });
+  expect(mockRefresh).toHaveBeenCalled();
+  await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderRemove)));
+  expect((await mockServices.notes.list())[0].reminderAt).toBeUndefined();
+});
+
+test('denied notifications show help without silently saving a reminder', async () => {
+  jest.mocked(requestReminderPermissionOnce).mockResolvedValueOnce(false);
+  await render(<NoteScreen />);
+  await write('', 'Secret');
+  await fireEvent.press(screen.getByText(strings.notes.remind));
+  await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderSave)));
+  expect(screen.getByText(strings.notes.reminderDenied)).toBeTruthy();
+  expect((await mockServices.notes.list())[0]?.reminderAt).toBeUndefined();
+});
+
+test('past reminder dates are rejected before permission is requested', async () => {
+  await render(<NoteScreen />);
+  await write('', 'Secret');
+  await fireEvent.press(screen.getByText(strings.notes.remind));
+  await fireEvent(screen.getByLabelText(strings.notes.reminderDate), 'onChange', { type: 'set' }, new Date(2020, 0, 1));
+  await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderSave)));
+  expect(screen.getByText(strings.notes.reminderInvalid)).toBeTruthy();
+  expect(requestReminderPermissionOnce).not.toHaveBeenCalled();
 });
