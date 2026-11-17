@@ -31,6 +31,8 @@ import { ChipRow } from '../../src/ui/ChipRow';
 import { EASE_OUT } from '../../src/ui/motion';
 import { strings } from '../../src/strings';
 import { LiveText } from '../../src/ui/LiveText';
+import { RouteSheet } from '../../src/ui/RouteSheet';
+import { DeleteSheet } from '../../src/ui/DeleteSheet';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,9 +50,11 @@ export default function CardView() {
   const [view, setView] = useState<'card' | 'details'>('card');
   const [tagging, setTagging] = useState(false);
   const [recreating, setRecreating] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  useMaxBrightness(cardBrightness);
-  useAllowLandscape();
+  useMaxBrightness(cardBrightness && staff);
+  useAllowLandscape(staff);
 
   useEffect(() => {
     if (!staff) return;
@@ -145,25 +149,21 @@ export default function CardView() {
       ]);
     });
 
-  const confirmDelete = () =>
-    Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await services.store.remove(card.id);
-          } catch (e) {
-            console.warn('Delete failed', e);
-            Alert.alert(strings.common.error);
-            return;
-          }
-          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
-          router.back();
-        },
-      },
-    ]);
+  const confirmDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await services.store.remove(card.id);
+    } catch (e) {
+      console.warn('Delete failed', e);
+      Alert.alert(strings.common.error);
+      setDeleting(false);
+      return;
+    }
+    setDeleteOpen(false);
+    await refresh().catch((e) => console.warn('Refresh after delete failed', e));
+    router.back();
+  };
 
   const togglePin = async () => {
     try {
@@ -295,7 +295,7 @@ export default function CardView() {
           variant="danger"
           label={strings.edit.deleteCard}
           caption={strings.card.captions.delete}
-          onPress={confirmDelete}
+          onPress={() => setDeleteOpen(true)}
           testID="delete-card"
         />
       </View>
@@ -303,11 +303,11 @@ export default function CardView() {
     </Panel>
   );
 
-  return (
+  const content = (
     <Screen
       style={{
-        paddingTop: insets.top + 8,
-        paddingBottom: insets.bottom + 8,
+        paddingTop: staff ? insets.top + 8 : 8,
+        paddingBottom: staff ? insets.bottom + 8 : 8,
         paddingLeft: insets.left,
         paddingRight: insets.right,
         gap: landscape ? 8 : 16,
@@ -410,8 +410,10 @@ export default function CardView() {
         onApply={addTagsToCard}
         onClose={() => setTagging(false)}
       />
+      <DeleteSheet visible={deleteOpen} onCancel={() => setDeleteOpen(false)} onDelete={() => void confirmDelete()} busy={deleting} />
     </Screen>
   );
+  return staff ? content : <RouteSheet title={displayName(card)} onClose={() => router.back()} testID="card-sheet">{content}</RouteSheet>;
 }
 
 const styles = StyleSheet.create({

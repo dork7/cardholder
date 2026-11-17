@@ -35,6 +35,7 @@ import { RADIUS, TRACKING, TYPE, useTheme } from '../src/ui/theme';
 import { useTooltip } from '../src/ui/Tooltip';
 import { LiveText } from '../src/ui/LiveText';
 import { SortSheet } from '../src/ui/SortSheet';
+import { DeleteSheet } from '../src/ui/DeleteSheet';
 
 // Panels settle in from just off their resting place; Reanimated skips this under Reduce Motion.
 const ENTER = 360;
@@ -82,6 +83,8 @@ export default function Home() {
   const [expiringChoice, setExpiringChoice] = useSavedChoice('galleryExpiring', (v): v is 'on' | 'off' => v === 'on' || v === 'off', 'off');
   const expiringOnly = expiringChoice === 'on';
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const now = new Date();
   // The gallery has its own order and an "Expiring soon" filter on top of search and tag.
   const inGallery = sortForGallery(expiringOnly ? shown.filter((c) => isExpiringSoon(c, now)) : shown, sort);
@@ -161,15 +164,16 @@ export default function Home() {
     );
   };
 
-  const deleteSelected = () =>
-    Alert.alert(strings.home.deleteSelectedTitle(selected.length), strings.home.deleteSelectedBody(selected.length), [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: () => onSelection((cards) => removeAll(services.store, cards)),
-      },
-    ]);
+  const deleteSelected = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteOpen(false);
+    try {
+      await onSelection((cards) => removeAll(services.store, cards));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // One PDF of every selected card. An ID is worth a second thought before an unencrypted copy leaves
   // the app, as on the card's own screen. Selection stays, so the same cards can be sent elsewhere.
@@ -366,7 +370,7 @@ export default function Home() {
                 icon="trash"
                 label={strings.home.deleteSelected}
                 caption={strings.home.deleteCaption}
-                onPress={deleteSelected}
+                onPress={() => setDeleteOpen(true)}
                 variant="danger"
                 testID="selection-delete"
               />
@@ -378,6 +382,14 @@ export default function Home() {
             existing={tagOptions(cards)}
             onApply={tagSelected}
             onClose={() => setChoosingTags(false)}
+          />
+          <DeleteSheet
+            visible={deleteOpen}
+            title={strings.home.deleteSelectedTitle(selected.length)}
+            body={strings.home.deleteSelectedBody(selected.length)}
+            onCancel={() => setDeleteOpen(false)}
+            onDelete={() => void deleteSelected()}
+            busy={deleting}
           />
         </View>
       ) : (

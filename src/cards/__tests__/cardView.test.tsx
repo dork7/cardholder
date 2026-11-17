@@ -112,9 +112,17 @@ describe('actions', () => {
 
   test('delete, share and edit are icon buttons named for screen readers, with Close below them', async () => {
     await render(<CardView />);
+    expect(screen.getByTestId('card-sheet')).toBeTruthy();
     for (const name of [strings.edit.deleteCard, strings.card.share, strings.card.edit, strings.common.close]) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
+  });
+
+  test('the details sheet dismisses from its backdrop without changing the card', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('card-sheet-backdrop', { includeHiddenElements: true }));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 
   test('Edit opens this card in the edit screen', async () => {
@@ -126,9 +134,9 @@ describe('actions', () => {
   test('Delete asks first; confirming removes the card and goes back', async () => {
     await render(<CardView />);
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    expect(alert).toHaveBeenCalledWith(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, expect.any(Array));
+    expect(screen.getByTestId('delete-sheet')).toBeTruthy();
     expect(mockRemove).not.toHaveBeenCalled();
-    await pressInAlert(strings.common.delete);
+    await fireEvent.press(screen.getByTestId('delete-confirm'));
     expect(mockRemove).toHaveBeenCalledWith('card1');
     expect(mockRefresh).toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();
@@ -158,7 +166,7 @@ describe('actions', () => {
   test('cancelling the delete keeps the card', async () => {
     await render(<CardView />);
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    await pressInAlert(strings.common.cancel);
+    await fireEvent.press(screen.getByTestId('delete-cancel'));
     expect(mockRemove).not.toHaveBeenCalled();
     expect(mockBack).not.toHaveBeenCalled();
   });
@@ -188,9 +196,11 @@ test('shows how close the expiry is', async () => {
   }
 });
 
-test('the card view may turn sideways; leaving it locks portrait again', async () => {
+test('Show to staff may turn sideways; leaving it locks portrait again', async () => {
   mockCards = [makeCard({ id: 'card1' })];
   await render(<CardView />);
+  expect(mockLockOrientation).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByTestId('show-to-staff'));
   expect(mockLockOrientation).toHaveBeenLastCalledWith(0);
   await screen.unmount();
   expect(mockLockOrientation).toHaveBeenLastCalledWith(3);

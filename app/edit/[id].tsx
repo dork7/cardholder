@@ -54,6 +54,8 @@ import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 import { useConfirmDiscard } from '../../src/ui/useConfirmDiscard';
 import { LiveText } from '../../src/ui/LiveText';
+import { RouteSheet } from '../../src/ui/RouteSheet';
+import { DeleteSheet } from '../../src/ui/DeleteSheet';
 
 export default function EditCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -91,6 +93,8 @@ export default function EditCard() {
   }, []);
   const [errors, setErrors] = useState<SaveError[]>([]);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   // What the screen is waiting on between the OS picker closing and the form changing: the photo
   // being cut around the card, or the PDF's pages being drawn. Null when nothing is.
   const [busy, setBusy] = useState<string | null>(null);
@@ -130,11 +134,11 @@ export default function EditCard() {
 
   if (!isNew && !existing) {
     return (
-      <Screen style={styles.content}>
+      <RouteSheet title={strings.edit.editTitle} onClose={() => router.back()} testID="edit-sheet"><Screen style={styles.content}>
         <Panel style={styles.group}>
           <Text style={{ color: theme.text, fontSize: 18 }}>{strings.edit.notFound}</Text>
         </Panel>
-      </Screen>
+      </Screen></RouteSheet>
     );
   }
 
@@ -363,27 +367,22 @@ export default function EditCard() {
     router.back();
   };
 
-  const confirmDelete = () =>
-    Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: async () => {
-          if (!existing) return;
-          try {
-            await services.store.remove(existing.id);
-          } catch (e) {
-            console.warn('Delete failed', e);
-            Alert.alert(strings.common.error);
-            return;
-          }
-          leave();
-          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
-          router.dismissAll();
-        },
-      },
-    ]);
+  const confirmDelete = async () => {
+    if (!existing || deleting) return;
+    setDeleting(true);
+    try {
+      await services.store.remove(existing.id);
+    } catch (e) {
+      console.warn('Delete failed', e);
+      Alert.alert(strings.common.error);
+      setDeleting(false);
+      return;
+    }
+    setDeleteOpen(false);
+    leave();
+    await refresh().catch((e) => console.warn('Refresh after delete failed', e));
+    router.dismissAll();
+  };
 
   const folderChips: Chip[] = [
     {
@@ -421,9 +420,9 @@ export default function EditCard() {
   const backUri = draft.back ? dataUri(draft.back.jpegBase64) : draft.removeBack ? null : existingBack;
 
   return (
-    <Screen>
+    <RouteSheet title={isNew ? strings.edit.newTitle : strings.edit.editTitle} onClose={() => router.back()} testID="edit-sheet"><Screen>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Stack.Screen options={{ title: isNew ? strings.edit.newTitle : strings.edit.editTitle }} />
+        <Stack.Screen options={{ gestureEnabled: true }} />
         <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Three panels, not one per field: photos, details, expiry. */}
           <Panel style={styles.group} onLayout={onPanelLayout('photos')}>
@@ -620,7 +619,7 @@ export default function EditCard() {
           {existing && (
             // Glides, rather than jumps, when a field above it appears or goes.
             <Animated.View layout={MOVE} style={styles.danger}>
-              <Button variant="danger" label={strings.edit.deleteCard} onPress={confirmDelete} />
+              <Button variant="danger" label={strings.edit.deleteCard} onPress={() => setDeleteOpen(true)} />
             </Animated.View>
           )}
         </ScrollView>
@@ -642,7 +641,8 @@ export default function EditCard() {
           </View>
         </ActionFooter>
       </KeyboardAvoidingView>
-    </Screen>
+      <DeleteSheet visible={deleteOpen} onCancel={() => setDeleteOpen(false)} onDelete={() => void confirmDelete()} busy={deleting} />
+    </Screen></RouteSheet>
   );
 }
 

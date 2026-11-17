@@ -57,8 +57,8 @@ function RootNavigator() {
         }}
       >
          <Stack.Screen name="index" options={{ title: strings.home.title, headerShown: false }} />
-         <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
-         <Stack.Screen name="card/[id]" options={{ presentation: 'transparentModal', headerShown: false }} />
+         <Stack.Screen name="edit/[id]" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', gestureDirection: 'vertical', headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
+         <Stack.Screen name="card/[id]" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', gestureDirection: 'vertical', headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
          <Stack.Screen name="notes" options={{ title: strings.notes.title }} />
          <Stack.Screen name="note/[id]" options={{ title: strings.notes.editTitle }} />
          <Stack.Screen name="settings" options={{ title: strings.settings.title }} />

@@ -393,16 +393,13 @@ describe('gallery view', () => {
     await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
     await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
     await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
-    expect(alert).toHaveBeenCalledWith(
-      strings.home.deleteSelectedTitle(2),
-      strings.home.deleteSelectedBody(2),
-      expect.any(Array),
-    );
-    await answer(strings.common.cancel);
+    expect(screen.getByTestId('delete-sheet')).toBeTruthy();
+    expect(screen.getByText(strings.home.deleteSelectedTitle(2))).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByTestId('delete-cancel')));
     expect(mockRemove).not.toHaveBeenCalled();
 
     await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
-    await answer(strings.common.delete);
+    await act(async () => fireEvent.press(screen.getByTestId('delete-confirm')));
     expect(mockRemove.mock.calls.map(([id]) => id)).toEqual(['a', 'c']);
     expect(mockRefresh).toHaveBeenCalled();
     expect(screen.queryByTestId('selection-bar')).toBeNull();
@@ -415,7 +412,7 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Insurance' })));
     expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
-    await answer(strings.common.delete);
+    await act(async () => fireEvent.press(screen.getByTestId('delete-confirm')));
     expect(mockRemove.mock.calls.map(([id]) => id)).toEqual(['b']);
   });
 

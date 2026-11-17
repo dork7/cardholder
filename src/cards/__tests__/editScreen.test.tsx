@@ -153,6 +153,27 @@ const discardButtons = () => alert.mock.calls.find(([title]) => title === string
 }[];
 
 describe('leaving with unsaved changes', () => {
+  test('add opens in a sheet; backdrop dismissal uses the discard guard', async () => {
+    await fillNewCard();
+    expect(screen.getByTestId('edit-sheet')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('edit-sheet-backdrop', { includeHiddenElements: true }));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockGuard.on).toBe(true);
+    await act(async () => mockGuard.onPrevented?.({ data: { action: { type: 'GO_BACK' } }, repeat: mockRepeat }));
+    expect(discardButtons()).toBeTruthy();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  test('edit opens in the same sheet and closes without changing an untouched card', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard()];
+    await render(<EditCard />);
+    expect(screen.getByTestId('edit-sheet')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('edit-sheet-close'));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   test('an untouched new card closes without asking', async () => {
     await render(<EditCard />);
     await tryToLeave();
@@ -207,8 +228,8 @@ describe('leaving with unsaved changes', () => {
     await render(<EditCard />);
     await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym pass');
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    const confirm = alert.mock.calls.find(([title]) => title === strings.edit.deleteConfirmTitle)?.[2];
-    await act(async () => confirm[1].onPress());
+    expect(screen.getByTestId('delete-sheet')).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByTestId('delete-confirm')));
     expect(mockDisablePrevention).toHaveBeenCalled();
     expect(mockDismissAll).toHaveBeenCalledTimes(1);
   });
@@ -490,15 +511,22 @@ describe("the card's tags", () => {
 });
 
 describe('deleting', () => {
+  test('cancelling the delete sheet keeps the edit sheet and card', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard()];
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    await fireEvent.press(screen.getByTestId('delete-cancel'));
+    expect(screen.getByTestId('edit-sheet')).toBeTruthy();
+    expect(mockRemove).not.toHaveBeenCalled();
+  });
   async function confirmDelete() {
     mockParams = { id: 'card1' };
     mockCards = [makeCard()];
     await render(<EditCard />);
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => Promise<void> }[];
-    const destructive = buttons.find((b) => b.text === strings.common.delete)!;
     alert.mockClear();
-    await act(async () => destructive.onPress!());
+    await act(async () => fireEvent.press(screen.getByTestId('delete-confirm')));
   }
 
   test('a failed removal shows the generic error and stays on the screen', async () => {

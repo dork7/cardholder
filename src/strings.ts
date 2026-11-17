@@ -10,6 +10,7 @@ export const strings = {
     close: 'Close',
     error: 'Something went wrong. Please try again.',
   },
+  sheet: { dismiss: 'Dismiss sheet', dismissHint: 'Dismiss this sheet' },
   boot: {
     loading: 'Opening your cards…',
     orphanedTitle: "These cards can't be opened",
