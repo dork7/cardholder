@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { NoteEditor } from '../../src/notes/noteEditors';
 import { isBlankNote, Note } from '../../src/notes/noteStore';
+import { takePendingNoteText } from '../../src/share/sharedIn';
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { Field, useInputStyle } from '../../src/ui/Field';
@@ -16,11 +17,11 @@ export default function NoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { services } = useApp();
   const theme = useTheme();
-  const [loaded, setLoaded] = useState<{ note: Note | null } | null>(null);
+  const [loaded, setLoaded] = useState<{ note: Note | null; initialBody?: string } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    if (id === 'new') { setLoaded({ note: null }); return; }
+    if (id === 'new') { setLoaded({ note: null, initialBody: takePendingNoteText() ?? '' }); return; }
     services.notes.get(id).then((note) => {
       if (!live) return;
       if (note) setLoaded({ note });
@@ -30,10 +31,10 @@ export default function NoteScreen() {
   }, [id, services]);
   if (problem) return <Screen><LiveText style={{ color: theme.danger, padding: 16 }}>{problem}</LiveText></Screen>;
   if (!loaded) return <Screen><ActivityIndicator color={theme.accent} /></Screen>;
-  return <Editor key={id} note={loaded.note} />;
+  return <Editor key={id} note={loaded.note} initialBody={loaded.initialBody} />;
 }
 
-function Editor({ note }: { note: Note | null }) {
+function Editor({ note, initialBody = '' }: { note: Note | null; initialBody?: string }) {
   const { services } = useApp();
   const router = useRouter();
   const theme = useTheme();
@@ -42,7 +43,7 @@ function Editor({ note }: { note: Note | null }) {
   const container = useRef<ComponentRef<typeof View>>(null);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [editor] = useState<NoteEditor>(() => services.noteEditors.open(note));
-  const [fields, setFields] = useState({ title: note?.title ?? '', body: note?.body ?? '' });
+  const [fields, setFields] = useState({ title: note?.title ?? '', body: note?.body ?? initialBody });
   const [status, setStatus] = useState(editor.status());
   const [pinned, setPinned] = useState(note?.pinned ?? false);
   const [busy, setBusy] = useState(false);
@@ -51,6 +52,10 @@ function Editor({ note }: { note: Note | null }) {
   const [actionFailed, setActionFailed] = useState(false);
 
   useEffect(() => editor.subscribe(() => setStatus(editor.status())), [editor]);
+  useEffect(() => {
+    if (!note && initialBody) editor.change({ title: '', body: initialBody });
+  }, [editor, note, initialBody]);
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') void editor.flush().catch(() => {});

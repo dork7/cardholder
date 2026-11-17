@@ -7,9 +7,9 @@ import { canAddCard } from '../purchases/limits';
 import { useAppLocked } from '../security/AppLockGate';
 import { strings } from '../strings';
 import { clearShared, copyShared, discardShared } from './sharedFiles';
-import { planShared, setPendingShared, SharedFile } from './sharedIn';
+import { planShared, setPendingShared, setPendingNoteText, SharedFile } from './sharedIn';
 
-// Listens for photos and PDFs shared to Doc Keeper and opens New document with them. Draws nothing.
+// Listens for text, photos and PDFs shared to Doc Keeper and opens a new note or document. Draws nothing.
 // With the app lock up, the share waits underneath until the phone's own lock says yes.
 export function ShareInReceiver() {
   const { cards, unlocked } = useApp();
@@ -18,14 +18,18 @@ export function ShareInReceiver() {
   // The unlock prompt sends the app to the background for a moment; the share must outlast that, so
   // it is taken into `received` here and the library's own copy cleared by hand.
   const { shareIntent, resetShareIntent, error } = useShareIntent({ resetOnBackground: false });
-  const [received, setReceived] = useState<SharedFile[] | null>(null);
+  const [received, setReceived] = useState<{ files: SharedFile[]; text: string | null } | null>(null);
 
   useEffect(() => clearShared(), []);
 
   useEffect(() => {
     const files = shareIntent.files;
-    if (!files || files.length === 0) return;
-    setReceived(files.map((f) => ({ path: f.path, mimeType: f.mimeType ?? '', fileName: f.fileName })));
+    const text = shareIntent.text;
+    if (!files?.length && text == null) return;
+    setReceived({
+      files: (files ?? []).map((f) => ({ path: f.path, mimeType: f.mimeType ?? '', fileName: f.fileName })),
+      text: text ?? null,
+    });
     resetShareIntent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareIntent]);
@@ -37,8 +41,16 @@ export function ShareInReceiver() {
   useEffect(() => {
     if (!received || locked) return;
     setReceived(null);
-    const plan = planShared(received);
-    const handedOver = received.map((f) => f.path);
+    // File shares can carry captions too; preserve the existing document import in that case.
+    if (received.files.length === 0) {
+      if (received.text?.trim()) {
+        setPendingNoteText(received.text);
+        router.push('/note/new');
+      }
+      return;
+    }
+    const plan = planShared(received.files);
+    const handedOver = received.files.map((f) => f.path);
     if (!plan) {
       discardShared(handedOver);
       Alert.alert(strings.shareIn.tooMany);
@@ -50,7 +62,7 @@ export function ShareInReceiver() {
       router.push('/paywall');
       return;
     }
-    copyShared(received)
+    copyShared(received.files)
       .then((copies) => {
         const ours = planShared(copies);
         if (!ours) return discardShared(copies.map((c) => c.path));

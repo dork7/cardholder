@@ -54,6 +54,7 @@
         }
       ],
       "./plugins/withSmallerApk",
+      "./plugins/withProcessText",
       "react-native-quick-crypto",
       "expo-notifications",
       "expo-quick-actions",
@@ -78,6 +79,7 @@
         "expo-share-intent",
         {
           "androidIntentFilters": [
+            "text/plain",
             "image/*",
             "application/pdf"
           ],
