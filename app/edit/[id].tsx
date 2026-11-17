@@ -49,7 +49,7 @@ import { Field, useInputStyle } from '../../src/ui/Field';
 import { FolderNameInput } from '../../src/ui/FolderNameInput';
 import { ImageField } from '../../src/ui/ImageField';
 import { PdfPagePicker } from '../../src/ui/PdfPagePicker';
-import { Panel, Screen } from '../../src/ui/Surface';
+import { ActionFooter, Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 import { useConfirmDiscard } from '../../src/ui/useConfirmDiscard';
@@ -626,8 +626,8 @@ export default function EditCard() {
         </ScrollView>
         {/* Pinned below the scroll so both actions are always in thumb reach and ride above the keyboard;
             Close on the left, the primary action last on the right. */}
-        <View style={[styles.inset, { paddingBottom: 8 + insets.bottom }]}>
-          <Panel style={styles.bar}>
+        <ActionFooter style={[styles.inset, { paddingBottom: 8 + insets.bottom }]} testID="edit-footer">
+          <View style={styles.bar}>
             <View style={styles.action}>
               <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} testID="close-edit" />
             </View>
@@ -639,8 +639,8 @@ export default function EditCard() {
                 testID="save-card"
               />
             </View>
-          </Panel>
-        </View>
+          </View>
+        </ActionFooter>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -659,6 +659,6 @@ const styles = StyleSheet.create({
   danger: { marginTop: 28 },
   offer: { gap: 8, padding: 16 },
   inset: { paddingHorizontal: 16, paddingTop: 8 },
-  bar: { flexDirection: 'row', gap: 12, padding: 8 },
+  bar: { flexDirection: 'row', gap: 12 },
   action: { flex: 1 },
 });
