@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import { Panel, Screen } from '../Surface';
+import { Panel, Screen, screenEntrance } from '../Surface';
 import { Text } from '../Text';
 
 let mockScheme: 'light' | 'dark' = 'light';
@@ -10,6 +10,11 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
 }));
 
 const panelStyle = () => StyleSheet.flatten(screen.getByTestId('panel').props.style);
+
+test('screen entrance is omitted under Reduce Motion', () => {
+  expect(screenEntrance(true)).toBeUndefined();
+  expect(screenEntrance(false)).toBeDefined();
+});
 
 test.each([
   ['light', 'rgba(255, 255, 255, 0.82)'],
@@ -25,5 +30,8 @@ test.each([
   );
   expect(panelStyle().backgroundColor).toBe(surface);
   expect(panelStyle().borderRadius).toBe(20);
+  expect(panelStyle().borderWidth).toBe(1);
+  expect(panelStyle().shadowOpacity).toBe(0.035);
+  expect(panelStyle().shadowRadius).toBe(15);
   expect(screen.getByText('Inside')).toBeTruthy();
 });

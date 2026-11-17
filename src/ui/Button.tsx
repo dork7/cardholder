@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Text } from './Text';
 import { RADIUS, TYPE, useTheme } from './theme';
@@ -55,10 +55,12 @@ export function Button({ icon, label, onPress, onLongPress, variant = 'primary',
         {
           backgroundColor: primary ? theme.accent : theme.glassStrong,
           borderColor: outline,
+          borderRadius: primary ? RADIUS.primary : RADIUS.sm,
           opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
         },
       ]}
     >
+      {primary && <View pointerEvents="none" style={styles.topHighlight} />}
       {onLongPress && <Animated.View style={[styles.fill, { backgroundColor: fillColor }, fill]} pointerEvents="none" testID={testID && `${testID}-fill`} />}
       {icon && <RetroIcon name={icon} size={24} color={primary ? labelColor : undefined} />}
       <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
@@ -80,6 +82,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden', // clips the hold fill to the button
   },
   fill: { position: 'absolute', top: 0, bottom: 0, start: 0, opacity: 0.45 },
+  topHighlight: { position: 'absolute', top: 1, left: 1, right: 1, height: 1, backgroundColor: 'rgba(255, 255, 255, 0.21)' },
   // Sentence case at body size, semibold: weight, not capitals, sets a label apart from content.
   label: { flexShrink: 1, fontSize: TYPE.body, fontWeight: '600', textAlign: 'center' },
 });

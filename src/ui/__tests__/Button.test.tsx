@@ -32,7 +32,7 @@ test('a button has fluid corners and a sentence-case label', async () => {
   mockScheme = 'light';
   await render(<Button label="Save card" onPress={() => {}} />);
   const style = StyleSheet.flatten(screen.getByRole('button', { name: 'Save card' }).props.style);
-  expect(style.borderRadius).toBe(14);
+  expect(style.borderRadius).toBe(17);
   const label = StyleSheet.flatten(screen.getByText('Save card').props.style);
   expect(label.textTransform).toBeUndefined();
 });

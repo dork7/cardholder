@@ -9,7 +9,7 @@ import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { Field, useInputStyle } from '../../src/ui/Field';
 import { LiveText } from '../../src/ui/LiveText';
-import { Screen } from '../../src/ui/Surface';
+import { ActionFooter, Screen } from '../../src/ui/Surface';
 import { TYPE, useTheme } from '../../src/ui/theme';
 
 export default function NoteScreen() {
@@ -126,9 +126,9 @@ function Editor({ note }: { note: Note | null }) {
             <Button variant="danger" label={strings.notes.remove} onPress={remove} disabled={busy} testID="note-delete" />
           </View>
         </ScrollView>
-        <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
+        <ActionFooter style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
           <Button label={strings.notes.done} onPress={() => router.back()} disabled={busy} testID="note-done" />
-        </View>
+        </ActionFooter>
       </KeyboardAvoidingView>
       </View>
     </Screen>
