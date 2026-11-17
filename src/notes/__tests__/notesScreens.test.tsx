@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert, AppState } from 'react-native';
+import { Alert, AppState, Share } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }));
 import { makeStore } from '../../../test/fixtures';
 import NotesScreen from '../../../app/notes';
 import NoteScreen from '../../../app/note/[id]';
@@ -184,4 +186,32 @@ test('creating a note at the free document limit never opens the paywall', async
   await act(async () => fireEvent.press(screen.getByTestId('note-done')));
   expect(await mockServices.notes.list()).toHaveLength(1);
   expect(mockRouter.push).not.toHaveBeenCalledWith('/paywall');
+});
+
+const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
+
+test('share and copy require confirmation and use the current unsaved text', async () => {
+  await render(<NoteScreen />);
+  await write('My title', 'Private body');
+  expect(share).not.toHaveBeenCalled();
+  expect(Clipboard.setStringAsync).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByTestId('note-share'));
+  expect(share).not.toHaveBeenCalled();
+  await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
+  expect(share).toHaveBeenCalledWith({ message: 'My title\n\nPrivate body' });
+  await fireEvent.press(screen.getByTestId('note-copy'));
+  expect(Clipboard.setStringAsync).not.toHaveBeenCalled();
+  await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
+  expect(Clipboard.setStringAsync).toHaveBeenCalledWith('Private body');
+  expect(screen.getByText(strings.notes.copied)).toBeTruthy();
+});
+
+test('failed sharing keeps the note on screen with an actionable error', async () => {
+  share.mockRejectedValueOnce(new Error('Native failure'));
+  await render(<NoteScreen />);
+  await write('', 'Keep this');
+  await fireEvent.press(screen.getByTestId('note-share'));
+  await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
+  expect(screen.getByText(strings.notes.transferFailed)).toBeTruthy();
+  expect(screen.getByTestId('note-body').props.value).toBe('Keep this');
 });

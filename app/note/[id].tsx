@@ -1,6 +1,7 @@
+import * as Clipboard from 'expo-clipboard';
 import { Stack, useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Share, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { NoteEditor } from '../../src/notes/noteEditors';
@@ -49,6 +50,28 @@ function Editor({ note }: { note: Note | null }) {
   const [closed, setClosed] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [actionFailed, setActionFailed] = useState(false);
+  const [transferStatus, setTransferStatus] = useState<string | null>(null);
+  const transfer = (kind: 'share' | 'copy') => Alert.alert(
+    kind === 'share' ? strings.notes.shareTitle : strings.notes.copyTitle,
+    kind === 'share' ? strings.notes.shareWarning : strings.notes.copyWarning,
+    [
+      { text: strings.common.cancel, style: 'cancel' },
+      { text: kind === 'share' ? strings.notes.share : strings.notes.copy, onPress: async () => {
+        setBusy(true);
+        setTransferStatus(null);
+        try {
+          if (kind === 'share') {
+            const message = fields.title.trim() ? `${fields.title}\n\n${fields.body}` : fields.body;
+            await Share.share({ message });
+          } else {
+            await Clipboard.setStringAsync(fields.body);
+            setTransferStatus(strings.notes.copied);
+          }
+        } catch { setTransferStatus(strings.notes.transferFailed); }
+        finally { setBusy(false); }
+      } },
+    ],
+  );
 
   useEffect(() => editor.subscribe(() => setStatus(editor.status())), [editor]);
   useEffect(() => {
@@ -121,6 +144,11 @@ function Editor({ note }: { note: Note | null }) {
             void editor.flush().catch(() => {});
           }} />}
           <View style={styles.secondary}>
+            <Button variant="secondary" label={strings.notes.share} onPress={() => transfer('share')}
+              disabled={busy || isBlankNote(fields)} testID="note-share" />
+            <Button variant="secondary" label={strings.notes.copy} onPress={() => transfer('copy')}
+              disabled={busy || !fields.body} testID="note-copy" />
+            {transferStatus && <LiveText style={{ color: theme.muted }}>{transferStatus}</LiveText>}
             <Button variant="secondary" label={pinned ? strings.notes.unpin : strings.notes.pin} onPress={() => void pin()}
               disabled={busy || isBlankNote(fields)} testID="note-pin" />
             <Button variant="danger" label={strings.notes.remove} onPress={remove} disabled={busy} testID="note-delete" />
