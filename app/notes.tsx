@@ -1,13 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../src/app/AppProvider';
 import { findNotes, Note } from '../src/notes/noteStore';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { Field, useInputStyle } from '../src/ui/Field';
 import { Screen } from '../src/ui/Surface';
+import { Fab } from '../src/ui/Fab';
+import { TabBar } from '../src/ui/TabBar';
 import { Text } from '../src/ui/Text';
 import { LiveText } from '../src/ui/LiveText';
 import { TRACKING, TYPE, useTheme } from '../src/ui/theme';
@@ -17,7 +18,6 @@ export default function NotesScreen() {
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
-  const insets = useSafeAreaInsets();
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -57,20 +57,18 @@ export default function NotesScreen() {
             </Pressable>
           )} />
       )}
-      <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
-        <Button label={strings.notes.add} onPress={() => router.push('/note/new')} testID="add-note" />
-      </View>
+      <Fab label={strings.notes.add} onPress={() => router.push('/note/new')} testID="add-note" />
+      <TabBar active="notes" />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   search: { padding: 16, gap: 12 },
-  list: { paddingHorizontal: 16, flexGrow: 1 },
+  list: { paddingHorizontal: 16, paddingBottom: 88, flexGrow: 1 }, // clear of the + button
   row: { paddingVertical: 16, minHeight: 64, borderBottomWidth: StyleSheet.hairlineWidth, gap: 8 },
   title: { fontSize: TYPE.section, fontWeight: '700', letterSpacing: TRACKING.tight },
   body: { fontSize: TYPE.body },
   caption: { fontSize: TYPE.caption },
   empty: { fontSize: TYPE.body, textAlign: 'center', paddingVertical: 32 },
-  actions: { padding: 16 },
 });

@@ -20,6 +20,7 @@ import {
 } from '../src/update/updateStore';
 import { Button } from '../src/ui/Button';
 import { Panel, Screen } from '../src/ui/Surface';
+import { TabBar } from '../src/ui/TabBar';
 import { Text } from '../src/ui/Text';
 import { TRACKING, TYPE, useTheme } from '../src/ui/theme';
 import { LiveText } from '../src/ui/LiveText';
@@ -157,6 +158,7 @@ export default function SettingsScreen() {
           </Text>
         </Section>
       </ScrollView>
+      <TabBar active="settings" />
     </Screen>
   );
 }

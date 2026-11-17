@@ -59,11 +59,11 @@ function RootNavigator() {
          <Stack.Screen name="index" options={{ title: strings.home.title, headerShown: false }} />
          <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
          <Stack.Screen name="card/[id]" options={{ presentation: 'transparentModal', headerShown: false }} />
-         <Stack.Screen name="notes" options={{ title: strings.notes.title }} />
+         <Stack.Screen name="notes" options={{ title: strings.notes.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="note/[id]" options={{ title: strings.notes.editTitle }} />
-         <Stack.Screen name="settings" options={{ title: strings.settings.title }} />
+         <Stack.Screen name="settings" options={{ title: strings.settings.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="paywall" options={{ title: strings.paywall.title, presentation: 'modal' }} />
-         <Stack.Screen name="folders" options={{ title: strings.folders.title }} />
+         <Stack.Screen name="folders" options={{ title: strings.folders.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="tags" options={{ title: strings.tagsScreen.title }} />
          <Stack.Screen name="export" options={{ title: strings.export.title, presentation: 'modal' }} />
          <Stack.Screen name="import" options={{ title: strings.import.title, presentation: 'modal' }} />

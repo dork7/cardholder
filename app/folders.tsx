@@ -6,6 +6,7 @@ import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { FolderNameInput } from '../src/ui/FolderNameInput';
 import { Panel, Screen } from '../src/ui/Surface';
+import { TabBar } from '../src/ui/TabBar';
 import { Text } from '../src/ui/Text';
 import { TRACKING, TYPE, useTheme } from '../src/ui/theme';
 
@@ -106,6 +107,7 @@ export default function FoldersScreen() {
           ))
         )}
       </ScrollView>
+      <TabBar active="folders" />
     </Screen>
   );
 }
