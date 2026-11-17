@@ -215,3 +215,28 @@ test('failed sharing keeps the note on screen with an actionable error', async (
   expect(screen.getByText(strings.notes.transferFailed)).toBeTruthy();
   expect(screen.getByTestId('note-body').props.value).toBe('Keep this');
 });
+
+test('checklist boxes toggle from the list, preserving Markdown and ordinary text', async () => {
+  await mockServices.notes.save('a', { title: 'Packing', body: 'Remember\n- [ ] Passport\n- [x] Keys\nLast line' });
+  await render(<NotesScreen />);
+  const passport = await screen.findByRole('checkbox', { name: 'Passport' });
+  expect(passport.props.accessibilityState.checked).toBe(false);
+  expect(screen.getByRole('checkbox', { name: 'Keys' }).props.accessibilityState.checked).toBe(true);
+  await act(async () => fireEvent.press(passport));
+  expect((await mockServices.notes.get('a'))!.body).toBe('Remember\n- [x] Passport\n- [x] Keys\nLast line');
+  expect(mockRouter.push).not.toHaveBeenCalled();
+  await act(async () => fireEvent.press(screen.getByRole('checkbox', { name: 'Keys' })));
+  expect((await mockServices.notes.get('a'))!.body).toBe('Remember\n- [x] Passport\n- [ ] Keys\nLast line');
+});
+
+test('typed task markers can be toggled in the note and copied as readable Markdown', async () => {
+  await render(<NoteScreen />);
+  await write('', 'Before\r\n  - [ ] Passport\r\nAfter');
+  await fireEvent.press(screen.getByRole('checkbox', { name: 'Passport' }));
+  expect(screen.getByTestId('note-body').props.value).toBe('Before\r\n  - [x] Passport\r\nAfter');
+  await act(async () => mockServices.noteEditors.flushAll());
+  expect((await mockServices.notes.list())[0].body).toBe('Before\r\n  - [x] Passport\r\nAfter');
+  await fireEvent.press(screen.getByTestId('note-copy'));
+  await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
+  expect(Clipboard.setStringAsync).toHaveBeenCalledWith('Before\r\n  - [x] Passport\r\nAfter');
+});

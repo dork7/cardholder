@@ -499,6 +499,8 @@ export const strings = {
     editTitle: 'Edit note',
     titleLabel: 'Title (optional)',
     bodyLabel: 'Note',
+    checklistHint: 'For a checklist, start a line with - [ ].',
+    checklistItem: 'Checklist item',
     untitled: 'Untitled note',
     search: 'Search notes',
     empty: 'Keep your important notes here.',

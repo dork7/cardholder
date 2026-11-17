@@ -4,6 +4,7 @@ import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Share, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
+import { NoteBody } from '../../src/notes/NoteBody';
 import { NoteEditor } from '../../src/notes/noteEditors';
 import { isBlankNote, Note } from '../../src/notes/noteStore';
 import { strings } from '../../src/strings';
@@ -133,9 +134,11 @@ function Editor({ note }: { note: Note | null }) {
               editable={!busy} accessibilityLabel={strings.notes.titleLabel} style={inputStyle} testID="note-title" />
           </Field>
           <Field label={strings.notes.bodyLabel}>
+            <LiveText style={{ color: theme.muted }}>{strings.notes.checklistHint}</LiveText>
             <TextInput value={fields.body} onChangeText={(value) => change('body', value)} multiline
               editable={!busy} accessibilityLabel={strings.notes.bodyLabel} style={[inputStyle, styles.body]} testID="note-body" />
           </Field>
+          <NoteBody body={fields.body} tasksOnly disabled={busy} onChange={(body) => change('body', body)} />
           <LiveText style={{ color: status === 'error' || actionFailed ? theme.danger : theme.muted }} testID="note-status">
             {status === 'error' || actionFailed ? strings.notes.failed : isBlankNote(fields) ? strings.notes.blank : status === 'saving' ? strings.notes.saving : strings.notes.saved}
           </LiveText>
