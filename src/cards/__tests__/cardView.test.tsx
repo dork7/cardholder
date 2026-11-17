@@ -126,9 +126,10 @@ describe('actions', () => {
   test('Delete asks first; confirming removes the card and goes back', async () => {
     await render(<CardView />);
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    expect(alert).toHaveBeenCalledWith(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, expect.any(Array));
+    expect(screen.getByTestId('confirm-sheet')).toBeTruthy();
+    expect(screen.getByText(strings.edit.deleteConfirmBody)).toBeTruthy();
     expect(mockRemove).not.toHaveBeenCalled();
-    await pressInAlert(strings.common.delete);
+    await fireEvent.press(screen.getByTestId('confirm-action'));
     expect(mockRemove).toHaveBeenCalledWith('card1');
     expect(mockRefresh).toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();
@@ -158,9 +159,18 @@ describe('actions', () => {
   test('cancelling the delete keeps the card', async () => {
     await render(<CardView />);
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    await pressInAlert(strings.common.cancel);
+    await fireEvent.press(screen.getByTestId('confirm-cancel'));
+    expect(screen.queryByTestId('confirm-sheet')).toBeNull();
     expect(mockRemove).not.toHaveBeenCalled();
     expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  test('the backdrop closes the delete sheet without deleting', async () => {
+    await render(<CardView />);
+    await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
+    await fireEvent.press(screen.getByTestId('confirm-sheet-backdrop', { includeHiddenElements: true }));
+    expect(screen.queryByTestId('confirm-sheet')).toBeNull();
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 });
 

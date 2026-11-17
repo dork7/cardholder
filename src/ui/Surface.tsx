@@ -11,7 +11,11 @@ import { RADIUS, SHADOW, useTheme } from './theme';
 export function Screen({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
-  return <View style={[styles.screen, { backgroundColor: theme.bg }, style]}>
+  // Children sit in the entrance wrapper, so the layout of a screen's own children (gap, direction,
+  // alignment) applies there; spacing and everything else stays on the page.
+  const { gap, rowGap, columnGap, flexDirection, alignItems, justifyContent, ...page } = StyleSheet.flatten(style) ?? {};
+  const layout = { gap, rowGap, columnGap, flexDirection, alignItems, justifyContent };
+  return <View style={[styles.screen, { backgroundColor: theme.bg }, page]}>
     <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
       <Defs>
         <RadialGradient id="sky" cx="88%" cy="14%" rx="72%" ry="58%">
@@ -26,7 +30,7 @@ export function Screen({ children, style }: { children: ReactNode; style?: Style
       <Rect width="100%" height="100%" fill="url(#sky)" />
       <Rect width="100%" height="100%" fill="url(#lilac)" />
     </Svg>
-    <Animated.View testID="screen-content" entering={reduceMotion ? undefined : ENTRANCE} style={styles.content}>{children}</Animated.View>
+    <Animated.View testID="screen-content" entering={reduceMotion ? undefined : ENTRANCE} style={[styles.content, layout]}>{children}</Animated.View>
   </View>;
 }
 

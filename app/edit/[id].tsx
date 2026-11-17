@@ -53,6 +53,7 @@ import { ActionFooter, Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 import { useConfirmDiscard } from '../../src/ui/useConfirmDiscard';
+import { ConfirmSheet } from '../../src/ui/ConfirmSheet';
 import { LiveText } from '../../src/ui/LiveText';
 
 export default function EditCard() {
@@ -363,27 +364,23 @@ export default function EditCard() {
     router.back();
   };
 
-  const confirmDelete = () =>
-    Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: async () => {
-          if (!existing) return;
-          try {
-            await services.store.remove(existing.id);
-          } catch (e) {
-            console.warn('Delete failed', e);
-            Alert.alert(strings.common.error);
-            return;
-          }
-          leave();
-          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
-          router.dismissAll();
-        },
-      },
-    ]);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const confirmDelete = () => setConfirmingDelete(true);
+  const deleteCard = async () => {
+    if (!existing) return;
+    try {
+      await services.store.remove(existing.id);
+    } catch (e) {
+      console.warn('Delete failed', e);
+      setConfirmingDelete(false);
+      Alert.alert(strings.common.error);
+      return;
+    }
+    leave();
+    await refresh().catch((e) => console.warn('Refresh after delete failed', e));
+    setConfirmingDelete(false);
+    router.dismissAll();
+  };
 
   const folderChips: Chip[] = [
     {
@@ -642,6 +639,14 @@ export default function EditCard() {
           </View>
         </ActionFooter>
       </KeyboardAvoidingView>
+      <ConfirmSheet
+        visible={confirmingDelete}
+        title={strings.edit.deleteConfirmTitle}
+        body={strings.edit.deleteConfirmBody}
+        confirmLabel={strings.common.delete}
+        onConfirm={() => void deleteCard()}
+        onCancel={() => setConfirmingDelete(false)}
+      />
     </Screen>
   );
 }

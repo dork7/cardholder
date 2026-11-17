@@ -31,6 +31,7 @@ import { ChipRow } from '../../src/ui/ChipRow';
 import { EASE_OUT } from '../../src/ui/motion';
 import { strings } from '../../src/strings';
 import { LiveText } from '../../src/ui/LiveText';
+import { ConfirmSheet } from '../../src/ui/ConfirmSheet';
 
 export default function CardView() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -145,25 +146,21 @@ export default function CardView() {
       ]);
     });
 
-  const confirmDelete = () =>
-    Alert.alert(strings.edit.deleteConfirmTitle, strings.edit.deleteConfirmBody, [
-      { text: strings.common.cancel, style: 'cancel' },
-      {
-        text: strings.common.delete,
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await services.store.remove(card.id);
-          } catch (e) {
-            console.warn('Delete failed', e);
-            Alert.alert(strings.common.error);
-            return;
-          }
-          await refresh().catch((e) => console.warn('Refresh after delete failed', e));
-          router.back();
-        },
-      },
-    ]);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const confirmDelete = () => setConfirmingDelete(true);
+  const deleteCard = async () => {
+    try {
+      await services.store.remove(card.id);
+    } catch (e) {
+      console.warn('Delete failed', e);
+      setConfirmingDelete(false);
+      Alert.alert(strings.common.error);
+      return;
+    }
+    await refresh().catch((e) => console.warn('Refresh after delete failed', e));
+    setConfirmingDelete(false);
+    router.back();
+  };
 
   const togglePin = async () => {
     try {
@@ -409,6 +406,14 @@ export default function CardView() {
         existing={tagOptions(cards).filter((t) => !hasTag(card, t))}
         onApply={addTagsToCard}
         onClose={() => setTagging(false)}
+      />
+      <ConfirmSheet
+        visible={confirmingDelete}
+        title={strings.edit.deleteConfirmTitle}
+        body={strings.edit.deleteConfirmBody}
+        confirmLabel={strings.common.delete}
+        onConfirm={() => void deleteCard()}
+        onCancel={() => setConfirmingDelete(false)}
       />
     </Screen>
   );

@@ -57,8 +57,8 @@ function RootNavigator() {
         }}
       >
          <Stack.Screen name="index" options={{ title: strings.home.title, headerShown: false }} />
-         <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
-         <Stack.Screen name="card/[id]" options={{ presentation: 'transparentModal', headerShown: false }} />
+         <Stack.Screen name="edit/[id]" options={{ presentation: 'formSheet', sheetGrabberVisible: true, sheetAllowedDetents: [0.92], sheetCornerRadius: 28 }} />
+         <Stack.Screen name="card/[id]" options={{ presentation: 'formSheet', headerShown: false, sheetGrabberVisible: true, sheetAllowedDetents: [0.65, 0.95], sheetInitialDetentIndex: 1, sheetCornerRadius: 28 }} />
          <Stack.Screen name="notes" options={{ title: strings.notes.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="note/[id]" options={{ title: strings.notes.editTitle }} />
          <Stack.Screen name="settings" options={{ title: strings.settings.title, headerBackVisible: false, animation: 'fade' }} />

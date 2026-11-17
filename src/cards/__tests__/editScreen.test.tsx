@@ -207,8 +207,7 @@ describe('leaving with unsaved changes', () => {
     await render(<EditCard />);
     await fireEvent.changeText(screen.getByTestId('card-name'), 'Gym pass');
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    const confirm = alert.mock.calls.find(([title]) => title === strings.edit.deleteConfirmTitle)?.[2];
-    await act(async () => confirm[1].onPress());
+    await fireEvent.press(screen.getByTestId('confirm-action'));
     expect(mockDisablePrevention).toHaveBeenCalled();
     expect(mockDismissAll).toHaveBeenCalledTimes(1);
   });
@@ -495,10 +494,9 @@ describe('deleting', () => {
     mockCards = [makeCard()];
     await render(<EditCard />);
     await fireEvent.press(screen.getByRole('button', { name: strings.edit.deleteCard }));
-    const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => Promise<void> }[];
-    const destructive = buttons.find((b) => b.text === strings.common.delete)!;
+    expect(screen.getByTestId('confirm-sheet')).toBeTruthy();
     alert.mockClear();
-    await act(async () => destructive.onPress!());
+    await fireEvent.press(screen.getByTestId('confirm-action'));
   }
 
   test('a failed removal shows the generic error and stays on the screen', async () => {
