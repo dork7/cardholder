@@ -494,6 +494,9 @@ export const strings = {
     deleteConfirmBody: (n: number) =>
       `It is taken off ${n} ${plural(n, 'document', 'documents')}. The ${plural(n, 'document itself is', 'documents themselves are')} kept.`,
   },
+  shortcuts: {
+    show: (name: string) => `Show ${name}`,
+  },
   notes: {
     title: 'Notes',
     add: 'Write a note',

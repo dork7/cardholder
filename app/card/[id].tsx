@@ -40,7 +40,7 @@ import { LiveText } from '../../src/ui/LiveText';
 import { UndoBar } from '../../src/ui/UndoBar';
 
 export default function CardView() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, show } = useLocalSearchParams<{ id: string; show?: string }>();
   const { cards, folders, services, refresh, undo, cardBrightness } = useApp();
   const confirmIdShare = useConfirmIdShare();
   const router = useRouter();
@@ -50,7 +50,7 @@ export default function CardView() {
   const landscape = width > height;
   // Show to staff: the phone is handed over, so nothing on screen may lead anywhere else until the
   // owner holds the finish button. Back, swipe-to-dismiss and every action are off.
-  const [staff, setStaff] = useState(false);
+  const [staff, setStaff] = useState(show === '1');
   const [staffSide, setStaffSide] = useState<'front' | 'back'>('front');
   const [pdfPage, setPdfPage] = useState(0);
   const [holdHint, setHoldHint] = useState(false);
