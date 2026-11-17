@@ -1,3 +1,4 @@
+import '../src/backup/androidAutoBackup';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -61,6 +62,7 @@ function RootNavigator() {
          <Stack.Screen name="card/[id]" options={{ presentation: 'formSheet', headerShown: false, sheetGrabberVisible: true, sheetAllowedDetents: [0.65, 0.95], sheetInitialDetentIndex: 1, sheetCornerRadius: 28 }} />
          <Stack.Screen name="notes" options={{ title: strings.notes.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="note/[id]" options={{ title: strings.notes.editTitle }} />
+         <Stack.Screen name="auto-backup" options={{ title: strings.autoBackup.title }} />
          <Stack.Screen name="settings" options={{ title: strings.settings.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="paywall" options={{ title: strings.paywall.title, presentation: 'modal' }} />
          <Stack.Screen name="folders" options={{ title: strings.folders.title, headerBackVisible: false, animation: 'fade' }} />

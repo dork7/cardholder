@@ -91,7 +91,10 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
   - **Merge** — cards already on the device (same internal ID) are skipped, the rest are added.
   - **Replace** — wipes the device's cards first, behind a confirmation.
 - Imported cards are never locked by the free limit.
-- No backup reminder on the home screen. Settings shows "Last backup: <relative time>".
+- Settings shows "Last backup: <relative time>" and a gentle reminder when it is more than 30 days old and documents or notes changed since. With no saved backup, any documents or notes count as unprotected. The reminder stays in Settings.
+- Android offers automatic backup: off (default), daily or weekly, to a SAF folder picked once with persistent permission. Setup saves the first backup before reporting success. It uses the same passphrase-encrypted format; the user may reuse their manual export passphrase or choose another, stored with device-only SecureStore protection until turned off. The latest seven automatic files in that setup's folder are kept, including across off/on; only recorded automatic files are pruned, after a successful new write. Changing folders leaves the old folder's files alone. Manual exports are never pruned.
+- Android's WorkManager schedule is best effort (Expo also requires network availability, though backup itself makes no network request). Launch and foreground return catch up due backups. Failed writes do not advance the saved-backup date; Settings reports the failure. A new native build is needed for the background-task packages.
+- iOS offers the reminder and manual export only: the OS chooses background runtime, so a daily/weekly backup cannot be promised. No iOS background processing capability is enabled.
 
 ## Monetization
 
