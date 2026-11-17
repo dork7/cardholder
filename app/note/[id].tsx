@@ -107,6 +107,7 @@ function Editor({ note }: { note: Note | null }) {
       await editor.flush();
       await services.notes.setPinned(editor.id, !pinned);
       setPinned(!pinned);
+      await refresh();
       setActionFailed(false);
     } catch { setActionFailed(true); }
     finally { setBusy(false); }
