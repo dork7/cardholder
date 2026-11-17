@@ -19,10 +19,12 @@ export interface Theme {
   bannerBg: string;
   bannerText: string;
   photoDim: string;
+  counterBg: string;
   blurTint: 'light' | 'dark';
 }
 
 const light: Theme = {
+  counterBg: '#000000',
   bg: '#F1F3F9', surface: '#FFFFFF',
   glass: 'rgba(255, 255, 255, 0.64)', glassStrong: 'rgba(255, 255, 255, 0.82)',
   text: '#1C2433', muted: '#596273', accent: '#0960C5', onAccent: '#FFFFFF',
@@ -32,6 +34,7 @@ const light: Theme = {
 };
 
 const dark: Theme = {
+  counterBg: '#000000',
   bg: '#101827', surface: '#19253A',
   glass: 'rgba(35, 49, 73, 0.66)', glassStrong: 'rgba(35, 49, 73, 0.84)',
   text: '#F3F6FC', muted: '#B5C1D3', accent: '#80B8FF', onAccent: '#10243E',

@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, BackHandler, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, BackHandler, Modal, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
@@ -12,7 +13,7 @@ import { IconButton } from '../../src/ui/IconButton';
 import { ActionSheet } from '../../src/ui/ActionSheet';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
-import { RADIUS, TRACKING, TYPE, useTheme } from '../../src/ui/theme';
+import { TRACKING, TYPE, useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { PdfPager } from '../../src/ui/PdfPager';
@@ -50,6 +51,8 @@ export default function CardView() {
   // Show to staff: the phone is handed over, so nothing on screen may lead anywhere else until the
   // owner holds the finish button. Back, swipe-to-dismiss and every action are off.
   const [staff, setStaff] = useState(false);
+  const [staffSide, setStaffSide] = useState<'front' | 'back'>('front');
+  const [pdfPage, setPdfPage] = useState(0);
   const [holdHint, setHoldHint] = useState(false);
   // The photos, or the card's details and scanned text as the Markdown file it can be saved as.
   const [view, setView] = useState<'card' | 'details'>('card');
@@ -57,7 +60,7 @@ export default function CardView() {
   const [more, setMore] = useState(false);
   const [recreating, setRecreating] = useState(false);
 
-  useMaxBrightness(cardBrightness);
+  useMaxBrightness(staff || cardBrightness);
   useAllowLandscape();
 
   useEffect(() => {
@@ -212,40 +215,70 @@ export default function CardView() {
     setHoldHint(false);
   };
 
-  const footer = staff ? (
-    <Panel style={styles.footer}>
-      {holdHint && (
-        <LiveText style={[styles.hint, { color: theme.muted }]}>
-          {strings.card.staffHoldReminder}
-        </LiveText>
-      )}
-      <Button
-        variant="secondary"
-        label={strings.card.staffDone}
-        accessibilityHint={strings.card.staffDoneHint}
-        onPress={() => setHoldHint(true)}
-        onLongPress={finishStaff}
-        testID="finish-staff"
-      />
-    </Panel>
-  ) : landscape ? (
+  if (staff) {
+    return (
+      <>
+        <Stack.Screen options={{ gestureEnabled: false }} />
+        <StatusBar hidden />
+        <Modal
+          testID="staff-modal"
+          visible
+          presentationStyle="fullScreen"
+          supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
+          statusBarTranslucent
+          navigationBarTranslucent
+          onRequestClose={() => { /* Only holding Finish may leave staff mode. */ }}
+        >
+          <View style={[styles.staff, { backgroundColor: theme.counterBg }]} testID="staff-view">
+            {card.pdf ? (
+              <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} initialPage={pdfPage} onPageChange={setPdfPage} showPageNumber={false} />
+            ) : (
+              <ZoomableImage
+                key={staffSide}
+                uri={staffSide === 'back' ? backUri : frontUri}
+                accessibilityLabel={strings.card.imageLabel(displayName(card), strings.card[staffSide])}
+              />
+            )}
+            <View pointerEvents="box-none" style={[styles.staffOverlay, { bottom: insets.bottom + 8, start: insets.left + 8, end: insets.right + 8 }]}>
+              {holdHint && (
+                <LiveText style={[styles.hint, { color: theme.text, backgroundColor: theme.surface }]}>
+                  {strings.card.staffHoldReminder}
+                </LiveText>
+              )}
+              <View style={styles.staffControls}>
+                {!card.pdf && card.hasBack && (
+                  <Button
+                    variant="secondary"
+                    label={strings.card.flip}
+                    onPress={() => setStaffSide((side) => side === 'front' ? 'back' : 'front')}
+                    testID="flip-card"
+                  />
+                )}
+                <Button
+                  variant="secondary"
+                  label={strings.card.staffDone}
+                  accessibilityHint={strings.card.staffDoneHint}
+                  onPress={() => setHoldHint(true)}
+                  onLongPress={finishStaff}
+                  testID="finish-staff"
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </>
+    );
+  }
+
+  const footer = landscape ? (
     // Sideways there's room for the photos or the actions, not both: only Close stays.
     <Panel style={styles.footer}>
       <Button label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
   ) : (
-    /* The actions in the thumb zone as captioned icons in a row: the one for the counter first,
-       then the two used often, and More for the rarer PDF, Edit and Delete. Close is in the header. */
-    <Panel style={styles.footer}>
+    // Show is the primary counter action; Close stays below it in the thumb zone.
+    <Panel style={styles.footer} testID="card-footer">
       <View style={styles.actions} testID="card-actions">
-        <IconButton
-          icon="present"
-          label={strings.card.showToStaff}
-          caption={strings.card.captions.show}
-          hint={strings.card.staffHint}
-          onPress={startStaff}
-          testID="show-to-staff"
-        />
         <IconButton
           icon="share"
           label={strings.card.share}
@@ -271,6 +304,13 @@ export default function CardView() {
           testID="more-card"
         />
       </View>
+      <Button
+        label={strings.card.showToStaff}
+        accessibilityHint={strings.card.staffHint}
+        onPress={startStaff}
+        testID="show-to-staff"
+      />
+      <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
   );
 
@@ -284,7 +324,8 @@ export default function CardView() {
         gap: landscape ? 8 : 16,
       }}
     >
-      <Stack.Screen options={{ gestureEnabled: !staff }} />
+      <Stack.Screen options={{ gestureEnabled: true }} />
+      <StatusBar hidden={false} />
       {/* Sideways, the photos get the height; the name and details come back upright. */}
       {!landscape && (
         <View style={[styles.inset, styles.top]}>
@@ -293,19 +334,6 @@ export default function CardView() {
               <Text style={[styles.title, styles.flex, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
                 {displayName(card)}
               </Text>
-              {/* Back does the same; this is for leaving without reaching for the gesture. Gone while shown to staff. */}
-              {!staff && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={strings.common.close}
-                  onPress={() => router.back()}
-                  hitSlop={4}
-                  testID="close-card"
-                  style={({ pressed }) => [styles.close, { borderColor: theme.rosette, opacity: pressed ? 0.7 : 1 }]}
-                >
-                  <Text style={[styles.closeText, { color: theme.text }]}>{strings.common.close}</Text>
-                </Pressable>
-              )}
             </View>
             <View style={styles.expiryRow}>
               {needsExpiryAlert(card, now) && <ExpiryAlert size={18} pop testID="card-expiry-alert" />}
@@ -342,7 +370,7 @@ export default function CardView() {
 
       {/* The photos sit straight on the page: the card is the card, panels are only the chrome.
           In landscape the front and back sit side by side, for staff who need to see both. */}
-      {view === 'details' && !landscape && !staff ? (
+      {view === 'details' && !landscape ? (
         <Animated.View key="details" entering={FadeIn.duration(180).easing(EASE_OUT)} style={[styles.inset, styles.sides]}>
           <Panel style={styles.details}>
             <ScrollView contentContainerStyle={styles.detailsText}>
@@ -376,7 +404,7 @@ export default function CardView() {
       ) : (
         <View style={[styles.inset, styles.sides, landscape && styles.sidesRow]} testID="card-sides">
           {card.pdf ? (
-            <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} />
+            <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} initialPage={pdfPage} onPageChange={setPdfPage} />
           ) : sides.map((side) => (
             <View key={side.label} style={styles.side}>
               <Text style={{ fontSize: 14, color: theme.muted, textAlign: 'center' }}>{side.label}</Text>
@@ -389,12 +417,12 @@ export default function CardView() {
       )}
 
       <View style={styles.inset}>
-        {/* The same Undo offer home shows, e.g. after a tag is removed. Not while shown to staff. */}
-        {!staff && <UndoBar undo={undo} />}
+        {/* The same Undo offer home shows, e.g. after a tag is removed. */}
+        <UndoBar undo={undo} />
         {footer}
       </View>
       <ActionSheet
-        visible={more && !staff}
+        visible={more}
         title={strings.card.moreTitle}
         onClose={() => setMore(false)}
         testID="card-more-sheet"
@@ -416,6 +444,9 @@ export default function CardView() {
 }
 
 const styles = StyleSheet.create({
+  staff: { flex: 1, padding: 0, overflow: 'hidden' },
+  staffControls: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
+  staffOverlay: { position: 'absolute', alignItems: 'flex-end', gap: 8 },
   padded: { padding: 16, gap: 12 },
   inset: { paddingHorizontal: 16 },
   header: { paddingHorizontal: 20, paddingVertical: 12, gap: 6 },
@@ -436,10 +467,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   // Shown as the file it saves as: monospaced, so the Markdown reads as written.
   markdown: { fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }), fontSize: 13, lineHeight: 19 },
-  // Four captioned icon buttons, about 80 pt wide each on a 375 pt phone.
+  // Share, Pin and More keep their compact captioned actions.
   actions: { flexDirection: 'row', gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  close: { minHeight: 44, minWidth: 44, paddingHorizontal: 12, borderRadius: RADIUS.sm, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  closeText: { fontSize: TYPE.secondary, fontWeight: '700' },
   hint: { fontSize: TYPE.secondary, textAlign: 'center' },
 });

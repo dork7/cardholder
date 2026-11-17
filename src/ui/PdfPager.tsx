@@ -3,7 +3,6 @@ import { ActivityIndicator, FlatList, LayoutChangeEvent, NativeScrollEvent, Nati
 import { IMAGE_MAX_EDGE } from '../config';
 import { usePdfPages } from '../hooks/usePdf';
 import { strings } from '../strings';
-import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 import { ZoomableImage } from './ZoomableImage';
 import { LiveText } from './LiveText';
@@ -12,27 +11,39 @@ interface Props {
   pdfBase64: string | null; // null while the stored PDF is loading
   pageCount: number;
   name: string;
+  initialPage?: number;
+  onPageChange?: (page: number) => void;
+  showPageNumber?: boolean;
 }
 
 // The whole PDF, one page per screen: swipe sideways between pages, pinch to zoom into one.
-export function PdfPager({ pdfBase64, pageCount, name }: Props) {
+export function PdfPager({ pdfBase64, pageCount, name, initialPage = 0, onPageChange, showPageNumber = true }: Props) {
   const theme = useTheme();
   const pages = usePdfPages(pdfBase64, pageCount, IMAGE_MAX_EDGE);
   const [width, setWidth] = useState(0);
-  const [current, setCurrent] = useState(0);
+  const [current, setCurrent] = useState(initialPage);
 
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (width > 0) setCurrent(Math.round(e.nativeEvent.contentOffset.x / width));
+    if (width > 0) {
+      const page = Math.max(0, Math.min(pageCount - 1, Math.round(e.nativeEvent.contentOffset.x / width)));
+      setCurrent(page);
+      onPageChange?.(page);
+    }
   };
 
   return (
-    <View style={styles.fill}>
-      <LiveText style={{ fontSize: TYPE.secondary, color: theme.muted, textAlign: 'center' }}>
-        {strings.card.page(current + 1, pageCount)}
-      </LiveText>
+    <View style={[styles.fill, !showPageNumber && { gap: 0 }]}>
+      {showPageNumber && (
+        <LiveText style={{ fontSize: TYPE.secondary, color: theme.muted, textAlign: 'center' }}>
+          {strings.card.page(current + 1, pageCount)}
+        </LiveText>
+      )}
       <View style={styles.fill} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)} testID="pdf-pager">
         {width > 0 && (
           <FlatList
+            key={width}
+            testID="pdf-pages"
+            initialScrollIndex={current}
             data={Array.from({ length: pageCount }, (_, i) => i)}
             keyExtractor={(i) => String(i)}
             extraData={pages}
