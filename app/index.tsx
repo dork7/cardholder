@@ -58,6 +58,7 @@ export default function Home() {
     refresh,
     undo,
     stackVertical,
+    showStack,
   } = useApp();
   const confirmIdShare = useConfirmIdShare();
   const router = useRouter();
@@ -94,7 +95,9 @@ export default function Home() {
     : [];
   const shown = filterCards(cards, { query, tag, folderId });
   const { pinned } = splitPinned(cards);
-  const [gallery, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
+  const [savedView, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
+  // Keep the saved choice so turning the stack back on restores the previous layout.
+  const gallery = showStack ? savedView : 'gallery';
   const [sort, setSort] = useSavedChoice('gallerySort', isGallerySort, 'name');
   const [expiringChoice, setExpiringChoice] = useSavedChoice('galleryExpiring', (v): v is 'on' | 'off' => v === 'on' || v === 'off', 'off');
   const expiringOnly = expiringChoice === 'on';
@@ -270,28 +273,30 @@ export default function Home() {
         )}
         {cards.length > 0 && (
           <View style={styles.viewRow}>
-            <View accessibilityLabel={strings.home.viewLabel} style={[styles.segments, { backgroundColor: theme.glass, borderColor: theme.border }]}>
-              {viewOptions.map((option) => {
-                const on = gallery === option.key;
-                return (
-                  <Pressable
-                    key={option.key}
-                    testID={`view-${option.key}`}
-                    onPress={() => {
-                      clearSelection();
-                      setGallery(option.key);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={option.label}
-                    accessibilityHint={strings.home.viewLabel}
-                    accessibilityState={{ selected: on }}
-                    style={[styles.segment, on && { backgroundColor: theme.accent }]}
-                  >
-                    <Text style={{ color: on ? theme.onAccent : theme.text, fontSize: TYPE.secondary, fontWeight: '600' }}>{option.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            {showStack && (
+              <View accessibilityLabel={strings.home.viewLabel} style={[styles.segments, { backgroundColor: theme.glass, borderColor: theme.border }]}>
+                {viewOptions.map((option) => {
+                  const on = gallery === option.key;
+                  return (
+                    <Pressable
+                      key={option.key}
+                      testID={`view-${option.key}`}
+                      onPress={() => {
+                        clearSelection();
+                        setGallery(option.key);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={option.label}
+                      accessibilityHint={strings.home.viewLabel}
+                      accessibilityState={{ selected: on }}
+                      style={[styles.segment, on && { backgroundColor: theme.accent }]}
+                    >
+                      <Text style={{ color: on ? theme.onAccent : theme.text, fontSize: TYPE.secondary, fontWeight: '600' }}>{option.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
             {gallery === 'gallery' && shown.length > 0 && (
               <Pressable
                 onPress={() => setSortSheetOpen(true)}

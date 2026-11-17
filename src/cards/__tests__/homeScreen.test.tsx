@@ -52,6 +52,7 @@ const mockSettingsSet = jest.fn(() => Promise.resolve());
 let mockHomeView: string | null = null;
 let mockSeenTips: string | null = null;
 let mockStackVertical = false;
+let mockShowStack = true;
 let mockGallerySort: string | null = null;
 let mockGalleryExpiring: string | null = null;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
@@ -102,6 +103,7 @@ jest.mock('../../app/AppProvider', () => ({
     homeFolders: mockHomeFolders,
     refresh: mockRefresh,
     stackVertical: mockStackVertical,
+    showStack: mockShowStack,
     undo: mockUndo,
   }),
 }));
@@ -122,6 +124,7 @@ beforeEach(() => {
   // Most tests are about other things, so the gesture tips count as seen unless a test says otherwise.
   mockSeenTips = 'stack,gallery';
   mockStackVertical = false;
+  mockShowStack = true;
   mockGallerySort = null;
   mockGalleryExpiring = null;
   mockUnlocked = false;
@@ -153,6 +156,33 @@ async function renderHome() {
   await render(<Home />);
   if (mockCards.length > 0) await layoutStack();
 }
+
+test.each([null, 'list', 'stack', 'gallery'])('hiding the stack uses only the gallery with saved view %s', async (saved) => {
+  mockHomeView = saved;
+  mockShowStack = false;
+  await render(<Home />);
+  expect(await screen.findByTestId('card-grid')).toBeTruthy();
+  expect(screen.queryByTestId('document-list')).toBeNull();
+  expect(screen.queryByTestId('card-stack')).toBeNull();
+  for (const view of ['list', 'stack', 'gallery']) {
+    expect(screen.queryByTestId(`view-${view}`)).toBeNull();
+  }
+  expect(screen.getByTestId('sort-chip')).toBeTruthy();
+});
+
+test('hiding the stack updates a mounted Home and restoring it preserves the saved view', async () => {
+  const view = await render(<Home />);
+  expect(screen.getByTestId('view-stack').props.accessibilityState).toEqual({ selected: true });
+  mockShowStack = false;
+  await view.rerender(<Home />);
+  expect(screen.getByTestId('card-grid')).toBeTruthy();
+  expect(screen.queryByTestId('view-stack')).toBeNull();
+  mockShowStack = true;
+  await view.rerender(<Home />);
+  expect(screen.getByTestId('view-stack').props.accessibilityState).toEqual({ selected: true });
+  expect(screen.queryByTestId('card-grid')).toBeNull();
+  expect(mockSettingsSet).not.toHaveBeenCalledWith('homeView', 'gallery');
+});
 
 test('the stack shows every card until a tag is chosen', async () => {
   await renderHome();
