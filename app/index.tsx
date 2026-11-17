@@ -25,6 +25,7 @@ import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
 import { FloatingTabBar, TAB_BAR_HEIGHT } from '../src/ui/FloatingTabBar';
 import { Fab } from '../src/ui/Fab';
+import { DocumentList } from '../src/ui/DocumentList';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { RetroIcon } from '../src/ui/RetroIcon';
@@ -75,7 +76,8 @@ export default function Home() {
     : [];
   const shown = filterCards(cards, { query, tag, folderId });
   const { pinned } = splitPinned(cards);
-  const [gallery, setGallery] = useSavedChoice('homeView', (v): v is 'gallery' | 'stack' => v === 'gallery' || v === 'stack', 'stack');
+  // The library list is the default; the wallet stack and the gallery grid are the alternatives.
+  const [view, setView] = useSavedChoice('homeView', (v): v is HomeView => v === 'list' || v === 'gallery' || v === 'stack', 'list');
   const [sort, setSort] = useSavedChoice('gallerySort', isGallerySort, 'name');
   const [expiringChoice, setExpiringChoice] = useSavedChoice('galleryExpiring', (v): v is 'on' | 'off' => v === 'on' || v === 'off', 'off');
   const expiringOnly = expiringChoice === 'on';
@@ -89,7 +91,7 @@ export default function Home() {
   const [choosingTags, setChoosingTags] = useState(false);
   // While the selection is being read again: how many are done, out of how many.
   const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
-  const selecting = gallery === 'gallery' && selected.length > 0;
+  const selecting = view === 'gallery' && selected.length > 0;
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
   // The blur button on the stack's front card: saved straight away, like the choice on the edit screen.
   const toggleBlur = async (card: Card) => {
@@ -205,18 +207,22 @@ export default function Home() {
     <Screen style={{ paddingTop: insets.top + 8, paddingBottom: 0 }}>
       <Animated.View entering={FadeInDown.duration(ENTER)} style={[styles.inset, styles.top]}>
         <Panel style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
-            {strings.home.title}
-          </Text>
+          <View style={styles.heading}>
+            <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
+              {strings.home.heading}
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.muted }]}>{strings.home.subtitle}</Text>
+          </View>
           <AppearanceToggle />
-          <GalleryToggle gallery={gallery === 'gallery'} onPress={() => {
+          <ViewToggle view={view} onPress={() => {
             clearSelection();
-            setGallery(gallery === 'gallery' ? 'stack' : 'gallery');
+            setView(nextView(view));
           }} />
         </Panel>
         {cards.length > 0 && <SearchField value={query} onChange={setQuery} />}
+        {cards.length > 0 && present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
         {/* Pinned cards stay put while searching or filtering: they're the shortcut, the stack is the browse. */}
-        <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
+        {view !== 'list' && <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />}
       </Animated.View>
 
       {/* The stack and filters use the space above the floating action bar. */}
@@ -234,7 +240,7 @@ export default function Home() {
           </View>
         ) : (
           <>
-            {gallery === 'gallery' && shown.length > 0 && (
+            {view === 'gallery' && shown.length > 0 && (
               <Pressable
                 onPress={() => setSortSheetOpen(true)}
                 accessibilityRole="button"
@@ -250,7 +256,7 @@ export default function Home() {
               <LiveText style={[styles.promise, { color: theme.muted }]}>
                 {strings.home.noResults}
               </LiveText>
-            ) : gallery === 'gallery' ? (
+            ) : view === 'gallery' ? (
               inGallery.length === 0 ? (
                 <LiveText style={[styles.promise, { color: theme.muted }]}>
                   {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
@@ -263,6 +269,14 @@ export default function Home() {
                   onToggle={toggleSelected}
                 />
               )
+            ) : view === 'list' ? (
+              <DocumentList
+                cards={shown}
+                pinned={pinned.filter((c) => shown.some((s) => s.id === c.id))}
+                filtering={query.trim() !== '' || tag !== null || folderId !== null}
+                heading={query.trim() !== '' ? strings.home.results : tag ?? strings.home.results}
+                onOpen={(card) => router.push(`/card/${card.id}`)}
+              />
             ) : (
               // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
               <CardStack
@@ -284,7 +298,6 @@ export default function Home() {
                 {homeFolders.manage && <Button variant="secondary" label={strings.folders.manage} onPress={() => router.push('/folders')} />}
               </View>
             )}
-            {present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
           </>
         )}
       </View>
@@ -420,25 +433,30 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-// Switches between the card stack and the gallery grid; it lives in the header now that the dock is navigation.
-function GalleryToggle({ gallery, onPress }: { gallery: boolean; onPress: () => void }) {
+type HomeView = 'list' | 'stack' | 'gallery';
+const VIEWS: HomeView[] = ['list', 'stack', 'gallery'];
+const nextView = (view: HomeView): HomeView => VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
+const viewName = (view: HomeView) =>
+  view === 'list' ? strings.home.listLabel : view === 'stack' ? strings.home.stackLabel : strings.home.galleryLabel;
+
+// Cycles the library list, the wallet stack and the gallery grid; it lives in the header now that the dock is navigation.
+function ViewToggle({ view, onPress }: { view: HomeView; onPress: () => void }) {
   const theme = useTheme();
-  const label = gallery ? strings.home.stackLabel : strings.home.galleryLabel;
-  const { ref, onLongPress, tooltip } = useTooltip(label);
+  const next = viewName(nextView(view));
+  const { ref, onLongPress, tooltip } = useTooltip(next);
   return (
     <Pressable
       ref={ref}
       onPress={onPress}
       onLongPress={onLongPress}
       hitSlop={8}
-      accessibilityRole="switch"
-      accessibilityLabel={gallery ? strings.home.stackView : strings.home.galleryView}
-      accessibilityHint={strings.home.galleryViewHint}
-      accessibilityState={{ checked: gallery }}
-      testID="gallery-toggle"
+      accessibilityRole="button"
+      accessibilityLabel={strings.home.switchView(next)}
+      accessibilityValue={{ text: viewName(view) }}
+      testID="view-toggle"
       style={({ pressed }) => [styles.round, { backgroundColor: theme.glassStrong, borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
     >
-      <RetroIcon name="gallery" size={24} color={gallery ? theme.accent : theme.text} />
+      <RetroIcon name={view === 'gallery' ? 'gallery' : view === 'stack' ? 'documents' : 'note'} size={24} color={theme.text} />
       {tooltip}
     </Pressable>
   );
@@ -483,7 +501,9 @@ const styles = StyleSheet.create({
   inset: { paddingHorizontal: 16 },
   top: { gap: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20, paddingRight: 10, paddingVertical: 10 },
-  title: { flex: 1, fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight },
+  heading: { flex: 1, gap: 2 },
+  subtitle: { fontSize: TYPE.secondary },
+  title: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight },
   round: {
     width: 44,
     height: 44,

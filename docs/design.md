@@ -51,7 +51,7 @@ The complete feature specification and delivery tickets are in GitHub issue #2.
 
 ## Speed at the counter (≤ 2 taps from an unlocked home screen)
 
-**Home screen** (the app opens straight to it):
+**Home screen** (the app opens straight to it). Its header reads **Documents** with the line "Everything you need, kept close.", and the search field and tag chips sit directly under it. A header button cycles three views, remembered: the **library list** (default, from the fluid glass prototype, decided 2026-11-17 in #26), the **wallet stack** and the **gallery**. In the list, pinned documents are large panels under "Pinned for quick access", then "All documents" (with a count) are rows with the tag and expiry ("ID · Expires in 9 days"); while searching or filtering, one flat list of matches replaces both. The stack and gallery keep the pinned strip above them:
 
 1. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New cards are pinned by default (appended to the end).
 2. Search field and tag filter (All, then every tag some card has; a card shows under each of its tags). Search matches the name and the text read off the card's photos (kept sealed with the card, carried in backups; numbers match whatever spaces or dashes are typed). Cards saved before the text was kept are read once, in the background, after the app opens; so is any card saved before one of its photos had been read, so no side is left unsearchable and no old photo's text outlives it.

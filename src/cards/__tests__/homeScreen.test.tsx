@@ -97,7 +97,7 @@ beforeEach(() => {
   mockSetPinned.mockClear();
   mockUpdate.mockClear();
   mockRefresh.mockClear();
-  mockHomeView = null;
+  mockHomeView = 'stack';
   mockGallerySort = null;
   mockGalleryExpiring = null;
   mockUnlocked = false;
@@ -315,29 +315,30 @@ describe('gallery view', () => {
   };
   const showGallery = async () => {
     await renderHome();
-    await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+    await act(async () => fireEvent.press(screen.getByTestId('view-toggle')));
   };
 
-  test('shows every card in a grid instead of the stack, and remembers the choice', async () => {
-    await renderHome();
-    const toggle = screen.getByTestId('gallery-toggle');
-    expect(toggle.props.accessibilityRole).toBe('switch');
-    expect(toggle.props.accessibilityLabel).toBe(strings.home.galleryView);
-    expect(toggle.props.accessibilityState).toEqual({ checked: false });
+  test('the header button cycles list, stack and gallery, and remembers the choice', async () => {
+    mockHomeView = 'list';
+    await render(<Home />);
+    expect(await screen.findByTestId('document-list')).toBeTruthy();
+    const toggle = screen.getByTestId('view-toggle');
+    expect(toggle.props.accessibilityLabel).toBe(strings.home.switchView(strings.home.stackLabel));
+    await act(async () => fireEvent.press(toggle));
+    expect(await screen.findByTestId('card-stack-frame')).toBeTruthy();
+    expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'stack');
+    expect(toggle.props.accessibilityLabel).toBe(strings.home.switchView(strings.home.galleryLabel));
     await act(async () => fireEvent.press(toggle));
     expect(screen.getByTestId('card-grid')).toBeTruthy();
-    expect(toggle.props.accessibilityLabel).toBe(strings.home.stackView);
-    expect(toggle.props.accessibilityState).toEqual({ checked: true });
     expect(screen.queryByTestId('card-stack')).toBeNull();
     for (const id of ['a', 'b', 'c']) expect(screen.getByTestId(`grid-${id}`)).toBeTruthy();
     // Each tile has the card's name and its tags.
     expect(within(screen.getByTestId('grid-b')).getByText('Health insurance')).toBeTruthy();
     expect(within(screen.getByTestId('grid-b')).getByText('Insurance')).toBeTruthy();
-    expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'gallery');
-
-    await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+    expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'gallery');
+    await act(async () => fireEvent.press(toggle));
     expect(screen.queryByTestId('card-grid')).toBeNull();
-    expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'stack');
+    expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'list');
   });
 
   test('opens in the gallery when that was the last choice', async () => {
@@ -574,5 +575,33 @@ test('a purchased unlock allows adding past ten documents', async () => {
     await renderHome();
     await fireEvent.press(screen.getByTestId('add-card'));
     expect(mockPush).toHaveBeenLastCalledWith('/edit/new');
+  });
+});
+
+describe('library list', () => {
+  test('is the default: pinned documents first, then the rest with a count', async () => {
+    mockHomeView = null;
+    await render(<Home />);
+    expect(await screen.findByTestId('document-list')).toBeTruthy();
+    expect(screen.getByText(strings.home.subtitle)).toBeTruthy();
+    expect(screen.getByText(strings.home.allDocuments)).toBeTruthy();
+    expect(screen.queryByTestId('pinned-strip')).toBeNull();
+  });
+
+  test('a tag or search shows one flat list of the matches', async () => {
+    mockHomeView = 'list';
+    await render(<Home />);
+    await screen.findByTestId('document-list');
+    await fireEvent.press(screen.getByTestId('tag-chip-Insurance'));
+    expect(screen.getByText(/^1 document$/)).toBeTruthy();
+    expect(screen.queryByText(strings.home.allDocuments)).toBeNull();
+  });
+
+  test('opens a document on tap', async () => {
+    mockHomeView = 'list';
+    await render(<Home />);
+    await screen.findByTestId('document-list');
+    await fireEvent.press(screen.getByTestId('doc-row-b'));
+    expect(mockPush).toHaveBeenLastCalledWith('/card/b');
   });
 });
