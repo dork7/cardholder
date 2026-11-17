@@ -21,10 +21,11 @@ jest.mock('expo-router', () => {
 const mockSettings = new Map<string, string>();
 const mockRefresh = jest.fn(() => Promise.resolve());
 const mockSteps: string[] = [];
+let mockDocumentChangedAt: number | null = null;
 let mockNoteCount = 0;
 let mockNotesChangedAt: number | null = null;
 const mockServices = {
-  store: { listRecentlyDeleted: async () => [] },
+  store: { listRecentlyDeleted: async () => [], lastChangeAt: async () => mockDocumentChangedAt },
   notes: { list: async () => Array.from({ length: mockNoteCount }, () => ({})), lastChangeAt: async () => mockNotesChangedAt },
   noteEditors: { flushAll: async () => void mockSteps.push('flush') },
   settings: {
@@ -79,6 +80,7 @@ const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 beforeEach(() => {
   jest.clearAllMocks();
   mockSettings.clear();
+  mockDocumentChangedAt = null;
   mockNoteCount = 0;
   mockNotesChangedAt = null;
   mockDeleted.length = 0;
@@ -231,6 +233,13 @@ describe('import', () => {
 });
 
 describe('settings', () => {
+  test('prompts for a stale backup only when documents changed since the save', async () => {
+    mockSettings.set('lastExportAt', String(Date.now() - 31 * 86_400_000));
+    mockDocumentChangedAt = Date.now();
+    await render(<SettingsScreen />);
+    expect(await screen.findByText(strings.autoBackup.stale)).toBeTruthy();
+  });
+
   test('shows when notes have changed since the last backup', async () => {
     mockSettings.set('lastExportAt', '1000');
     mockNotesChangedAt = 2000;

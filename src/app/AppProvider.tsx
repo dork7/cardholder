@@ -1,4 +1,5 @@
 import { Note } from '../notes/noteStore';
+import { syncAutoBackup } from '../backup/androidAutoBackup';
 import { AppState } from 'react-native';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { canReadText, readPhotoText } from '../analysis/readPhoto';
@@ -70,7 +71,7 @@ const BootContext = createContext<BootContextValue | null>(null);
 const AppContext = createContext<AppContextValue | null>(null);
 
 // Erases what has waited 30 days in Recently deleted. Run on start and on coming back to the
-// foreground: the app does no background work. A failure only means it is tried again next time.
+// foreground. A failure only means it is tried again next time.
 const purgeRecentlyDeleted = (services: Services): Promise<number> =>
   services.store.purgeRecentlyDeleted().catch((e) => {
     console.warn('Erasing old deleted cards failed', e);
@@ -198,8 +199,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!services) return;
+    const syncBackup = () => void syncAutoBackup(services).catch(() => console.warn('Automatic backup sync failed'));
+    syncBackup();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void purgeRecentlyDeleted(services).then(() => refresh()).catch(() => console.warn('Refresh on return failed'));
+      if (state === 'active') {
+        void purgeRecentlyDeleted(services).then(() => refresh()).catch(() => console.warn('Refresh on return failed'));
+        syncBackup();
+      }
       // Leaving the app makes the last removal final: Undo is no longer offered when it comes back.
       if (state === 'background') undo.end();
     });

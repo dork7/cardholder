@@ -1,7 +1,8 @@
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { Alert, AppState, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, AppState, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { backupIsStale } from '../src/backup/autoBackup';
 import { useApp } from '../src/app/AppProvider';
 import { FREE_CARD_LIMIT, FOLDERS_ENABLED } from '../src/config';
 import { ProblemsSettings } from '../src/diagnostics/ProblemsSettings';
@@ -51,10 +52,14 @@ export default function SettingsScreen() {
 
   const [notesChangedAt, setNotesChangedAt] = useState<number | null>(null);
   const [deletedCount, setDeletedCount] = useState(0);
+  const [staleBackup, setStaleBackup] = useState(false);
+  const [backupFailed, setBackupFailed] = useState(false);
 
   // Re-read on focus, so coming back from an export shows the new date.
   useFocusEffect(
     useCallback(() => {
+      backupIsStale(services.settings, services.store, services.notes).then(setStaleBackup).catch(() => {});
+      services.settings.getNumber('autoBackupError').then((value) => setBackupFailed(value === 1)).catch(() => {});
       services.settings.getNumber('lastExportAt').then(setLastExportAt).catch(() => {});
       services.notes?.lastChangeAt().then(setNotesChangedAt).catch(() => {});
       services.store
@@ -157,8 +162,12 @@ export default function SettingsScreen() {
           {lastExportAt !== null && notesChangedAt !== null && notesChangedAt > lastExportAt && (
             <Text style={[styles.caption, { color: theme.muted }]}>{strings.notes.changesSinceBackup}</Text>
           )}
+          {staleBackup && <Text style={[styles.body, { color: theme.text }]}>{strings.autoBackup.stale}</Text>}
+          {backupFailed && <Text style={[styles.body, { color: theme.text }]}>{strings.autoBackup.runFailed}</Text>}
+          {Platform.OS === 'ios' && <Text style={[styles.caption, { color: theme.muted }]}>{strings.autoBackup.ios}</Text>}
           <Button icon="backup" label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
           <Button icon="import" variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
+          {Platform.OS === 'android' && <Button variant="secondary" label={strings.autoBackup.title} onPress={() => router.push('/auto-backup')} />}
         </Section>
         <Section title={strings.settings.home}>
           <SwitchRow

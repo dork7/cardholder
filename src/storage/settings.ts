@@ -4,6 +4,8 @@ export type SettingKey =
   | 'keyCheck'
   | 'unlocked'
   | 'lastExportAt'
+  | 'autoBackup'
+  | 'autoBackupError'
   | 'appearance'
   | 'homeView'
   | 'showStack'

@@ -241,7 +241,7 @@ export function createCardStore({
     },
 
     async lastChangeAt() {
-      return (await db.getFirstAsync<{ t: number | null }>('SELECT MAX(updated_at) AS t FROM cards', []))?.t ?? null;
+      return (await db.getFirstAsync<{ t: number | null }>("SELECT MAX(t) AS t FROM (SELECT MAX(updated_at) AS t FROM cards UNION ALL SELECT CAST(value AS INTEGER) AS t FROM settings WHERE key = 'documentsChangedAt')", []))?.t ?? null;
     },
 
     loadImage: load,
@@ -304,7 +304,13 @@ export function createCardStore({
     },
 
     async moveToRecentlyDeleted(id) {
-      await db.runAsync(`UPDATE cards SET deleted_at = ? WHERE id = ? AND ${CURRENT}`, [now(), id]);
+      await db.withTransactionAsync(async () => {
+        const row = await getRow(id);
+        if (!row || row.deleted_at !== null) return;
+        const at = now();
+        await db.runAsync(`UPDATE cards SET deleted_at = ? WHERE id = ? AND ${CURRENT}`, [at, id]);
+        await db.runAsync("INSERT INTO settings (key, value) VALUES ('documentsChangedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(at)]);
+      });
     },
 
     listRecentlyDeleted: async () =>
@@ -316,7 +322,12 @@ export function createCardStore({
       ).sort((a, b) => b.deletedAt - a.deletedAt || a.id.localeCompare(b.id)),
 
     async restore(id) {
-      await db.runAsync('UPDATE cards SET deleted_at = NULL WHERE id = ?', [id]);
+      await db.withTransactionAsync(async () => {
+        const row = await db.getFirstAsync<Row>('SELECT * FROM cards WHERE id = ?', [id]);
+        if (!row || row.deleted_at === null) return;
+        await db.runAsync('UPDATE cards SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL', [id]);
+        await db.runAsync("INSERT INTO settings (key, value) VALUES ('documentsChangedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(now())]);
+      });
     },
 
     async erase(id) {
