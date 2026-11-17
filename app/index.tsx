@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   inset: { paddingHorizontal: 16 },
   top: { gap: 12 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
-  title: { flex: 1, fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight },
+  title: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight },
   round: {
     width: 44,
     height: 44,
