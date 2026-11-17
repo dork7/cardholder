@@ -139,11 +139,10 @@ describe('actions', () => {
     expect(screen.queryByTestId('card-more-sheet')).toBeNull();
   };
 
-  test('the action row holds only Show, Share, Pin and More', async () => {
+  test('the action row holds only Share, Pin and More', async () => {
     await render(<CardView />);
     const row = within(screen.getByTestId('card-actions'));
     expect(row.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual([
-      strings.card.showToStaff,
       strings.card.share,
       strings.card.pin,
       strings.card.more,
@@ -174,12 +173,21 @@ describe('actions', () => {
     expect(screen.queryByTestId('card-more-sheet')).toBeNull();
   });
 
-  test('Close sits in the header and goes back home', async () => {
+  test('the footer stacks full-width primary Show above secondary Close', async () => {
     await render(<CardView />);
-    const close = within(screen.getByTestId('card-header')).getByRole('button', { name: strings.common.close });
+    const footer = within(screen.getByTestId('card-footer'));
+    expect(footer.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual([
+      strings.card.share, strings.card.pin, strings.card.more, strings.card.showToStaff, strings.common.close,
+    ]);
+    expect(within(screen.getByTestId('card-header')).queryByTestId('close-card')).toBeNull();
+    const show = screen.getByTestId('show-to-staff');
+    const close = screen.getByTestId('close-card');
+    expect(show.parent).toBe(close.parent);
+    expect(StyleSheet.flatten(show.parent?.props.style).flexDirection).not.toBe('row');
+    expect(StyleSheet.flatten(show.props.style).minHeight).toBeGreaterThanOrEqual(48);
+    expect(StyleSheet.flatten(show.props.style).backgroundColor).not.toBe(StyleSheet.flatten(close.props.style).backgroundColor);
     await fireEvent.press(close);
     expect(mockBack).toHaveBeenCalled();
-    expect(within(screen.getByTestId('card-actions')).queryByRole('button', { name: strings.common.close })).toBeNull();
   });
 
   test('Edit opens this card in the edit screen', async () => {

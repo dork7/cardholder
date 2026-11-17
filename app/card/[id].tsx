@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, BackHandler, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, BackHandler, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
@@ -12,7 +12,7 @@ import { IconButton } from '../../src/ui/IconButton';
 import { ActionSheet } from '../../src/ui/ActionSheet';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
-import { RADIUS, TRACKING, TYPE, useTheme } from '../../src/ui/theme';
+import { TRACKING, TYPE, useTheme } from '../../src/ui/theme';
 import { useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { PdfPager } from '../../src/ui/PdfPager';
@@ -234,18 +234,9 @@ export default function CardView() {
       <Button label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
   ) : (
-    /* The actions in the thumb zone as captioned icons in a row: the one for the counter first,
-       then the two used often, and More for the rarer PDF, Edit and Delete. Close is in the header. */
-    <Panel style={styles.footer}>
+    // Show is the primary counter action; Close stays below it in the thumb zone.
+    <Panel style={styles.footer} testID="card-footer">
       <View style={styles.actions} testID="card-actions">
-        <IconButton
-          icon="present"
-          label={strings.card.showToStaff}
-          caption={strings.card.captions.show}
-          hint={strings.card.staffHint}
-          onPress={startStaff}
-          testID="show-to-staff"
-        />
         <IconButton
           icon="share"
           label={strings.card.share}
@@ -271,6 +262,13 @@ export default function CardView() {
           testID="more-card"
         />
       </View>
+      <Button
+        label={strings.card.showToStaff}
+        accessibilityHint={strings.card.staffHint}
+        onPress={startStaff}
+        testID="show-to-staff"
+      />
+      <Button variant="secondary" label={strings.common.close} onPress={() => router.back()} testID="close-card" />
     </Panel>
   );
 
@@ -293,19 +291,6 @@ export default function CardView() {
               <Text style={[styles.title, styles.flex, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
                 {displayName(card)}
               </Text>
-              {/* Back does the same; this is for leaving without reaching for the gesture. Gone while shown to staff. */}
-              {!staff && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={strings.common.close}
-                  onPress={() => router.back()}
-                  hitSlop={4}
-                  testID="close-card"
-                  style={({ pressed }) => [styles.close, { borderColor: theme.rosette, opacity: pressed ? 0.7 : 1 }]}
-                >
-                  <Text style={[styles.closeText, { color: theme.text }]}>{strings.common.close}</Text>
-                </Pressable>
-              )}
             </View>
             <View style={styles.expiryRow}>
               {needsExpiryAlert(card, now) && <ExpiryAlert size={18} pop testID="card-expiry-alert" />}
@@ -436,10 +421,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   // Shown as the file it saves as: monospaced, so the Markdown reads as written.
   markdown: { fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }), fontSize: 13, lineHeight: 19 },
-  // Four captioned icon buttons, about 80 pt wide each on a 375 pt phone.
+  // Share, Pin and More keep their compact captioned actions.
   actions: { flexDirection: 'row', gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  close: { minHeight: 44, minWidth: 44, paddingHorizontal: 12, borderRadius: RADIUS.sm, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  closeText: { fontSize: TYPE.secondary, fontWeight: '700' },
   hint: { fontSize: TYPE.secondary, textAlign: 'center' },
 });
