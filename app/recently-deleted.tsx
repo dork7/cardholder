@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { displayName } from '../src/cards/display';
 import { daysLeft } from '../src/cards/recentlyDeleted';
@@ -10,6 +10,7 @@ import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { showError } from '../src/ui/errorAlert';
+import { ConfirmSheet } from '../src/ui/ConfirmSheet';
 import { CardPicture } from '../src/ui/CardPicture';
 import { CARD_RADIUS, ID1_RATIO } from '../src/ui/stackGeometry';
 import { Panel, Screen } from '../src/ui/Surface';
@@ -75,20 +76,27 @@ export default function RecentlyDeletedScreen() {
     }
   };
 
+  // One confirmation sheet for both erasing steps; Cancel, the backdrop and hardware back keep everything.
+  const [confirming, setConfirming] = useState<{ title: string; body: string; label: string; go: () => void } | null>(null);
+
   const confirmDeleteNow = (card: DeletedCard) => {
     if (busy) return;
-    Alert.alert(strings.recentlyDeleted.deleteNowTitle(displayName(card)), strings.recentlyDeleted.deleteNowBody, [
-      { text: strings.common.cancel, style: 'cancel' },
-      { text: strings.recentlyDeleted.deleteNow, style: 'destructive', onPress: () => erase('erase', () => services.store.erase(card.id)) },
-    ]);
+    setConfirming({
+      title: strings.recentlyDeleted.deleteNowTitle(displayName(card)),
+      body: strings.recentlyDeleted.deleteNowBody,
+      label: strings.recentlyDeleted.deleteNow,
+      go: () => void erase('erase', () => services.store.erase(card.id)),
+    });
   };
 
   const confirmEmpty = () => {
     if (busy || !deleted?.length) return;
-    Alert.alert(strings.recentlyDeleted.emptyTitle, strings.recentlyDeleted.emptyBody(deleted.length), [
-      { text: strings.common.cancel, style: 'cancel' },
-      { text: strings.recentlyDeleted.emptyAction, style: 'destructive', onPress: () => erase('emptyRecentlyDeleted', () => services.store.eraseRecentlyDeleted()) },
-    ]);
+    setConfirming({
+      title: strings.recentlyDeleted.emptyTitle,
+      body: strings.recentlyDeleted.emptyBody(deleted.length),
+      label: strings.recentlyDeleted.emptyAction,
+      go: () => void erase('emptyRecentlyDeleted', () => services.store.eraseRecentlyDeleted()),
+    });
   };
 
   const now = Date.now();
@@ -123,6 +131,18 @@ export default function RecentlyDeletedScreen() {
           />
         ) : null}
       </ScrollView>
+      <ConfirmSheet
+        visible={confirming !== null}
+        title={confirming?.title ?? ''}
+        body={confirming?.body ?? ''}
+        confirmLabel={confirming?.label ?? ''}
+        onConfirm={() => {
+          const go = confirming?.go;
+          setConfirming(null);
+          go?.();
+        }}
+        onCancel={() => setConfirming(null)}
+      />
     </Screen>
   );
 }

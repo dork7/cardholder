@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
@@ -22,27 +21,32 @@ import { TagSheet } from '../src/ui/TagSheet';
 import { canReadText, readPhotoText } from '../src/analysis/readPhoto';
 import { rereadCards } from '../src/cards/readBackfill';
 import { CardStack } from '../src/ui/CardStack';
+import { stackGeometry } from '../src/ui/stackGeometry';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
-import { HomeActionBar } from '../src/ui/HomeActionBar';
+import { Fab } from '../src/ui/Fab';
+import { TabBar, useTabBarClearance } from '../src/ui/TabBar';
+import { PinnedPanels, DocumentRows, SectionHeading } from '../src/ui/DocumentList';
 import { UndoBar } from '../src/ui/UndoBar';
 import { deleteAllWithUndo } from '../src/cards/deleteWithUndo';
 import { IconButton } from '../src/ui/IconButton';
 import { Card } from '../src/cards/types';
 import { RetroIcon } from '../src/ui/RetroIcon';
 import { PinnedStrip } from '../src/ui/PinnedStrip';
-import { Panel, Screen } from '../src/ui/Surface';
+import { Screen } from '../src/ui/Surface';
 import { RADIUS, TRACKING, TYPE, useTheme } from '../src/ui/theme';
 import { useTooltip } from '../src/ui/Tooltip';
 import { LiveText } from '../src/ui/LiveText';
 import { GestureTip, GestureTipName, useGestureTips } from '../src/ui/GestureTip';
 import { SortSheet } from '../src/ui/SortSheet';
 
-// Panels settle in from just off their resting place; Reanimated skips this under Reduce Motion.
-const ENTER = 360;
+type HomeView = 'list' | 'stack' | 'gallery';
+const isHomeView = (v: unknown): v is HomeView => v === 'list' || v === 'stack' || v === 'gallery';
 
 export default function Home() {
+  const { width: winWidth } = useWindowDimensions();
+  const stackHeight = useRef<number | null>(null);
   const {
     cards,
     folders,
@@ -90,7 +94,7 @@ export default function Home() {
     : [];
   const shown = filterCards(cards, { query, tag, folderId });
   const { pinned } = splitPinned(cards);
-  const [gallery, setGallery] = useSavedChoice('homeView', (v): v is 'gallery' | 'stack' => v === 'gallery' || v === 'stack', 'stack');
+  const [gallery, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
   const [sort, setSort] = useSavedChoice('gallerySort', isGallerySort, 'name');
   const [expiringChoice, setExpiringChoice] = useSavedChoice('galleryExpiring', (v): v is 'on' | 'off' => v === 'on' || v === 'off', 'off');
   const expiringOnly = expiringChoice === 'on';
@@ -227,37 +231,67 @@ export default function Home() {
   // At the free limit, adding leads to the one-time purchase instead (Task 16).
   const addCard = () => router.push(canAddCard(cards.length, unlocked) ? '/edit/new' : '/paywall');
 
-  // A plain View: the screen fits without scrolling, so nothing competes with the stack for swipes.
+  const listView = gallery === 'list';
+  // Pinned documents lead the list view; everything else follows under "All documents".
+  const rest = shown.filter((c) => !c.pinned);
+  const clearance = useTabBarClearance();
+  const viewOptions: { key: HomeView; label: string }[] = [
+    { key: 'list', label: strings.home.listLabel },
+    { key: 'stack', label: strings.home.stackLabel },
+    { key: 'gallery', label: strings.home.galleryLabel },
+  ];
+
   return (
     <Screen style={{ paddingTop: insets.top + 8, paddingBottom: 0 }}>
-      <Animated.View entering={FadeInDown.duration(ENTER)} style={[styles.inset, styles.top]}>
-        <Panel style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
-            {strings.home.title}
-          </Text>
+      <View style={[styles.inset, styles.top]}>
+        <View style={styles.header}>
+          <View style={styles.titles}>
+            <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
+              {strings.home.title}
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.muted }]}>{strings.home.subtitle}</Text>
+          </View>
           <AppearanceToggle />
           <SettingsButton onPress={() => router.push('/settings')} />
-        </Panel>
+        </View>
         {cards.length > 0 && <SearchField value={query} onChange={setQuery} />}
-        {/* Pinned cards stay put while searching or filtering: they're the shortcut, the stack is the browse. */}
-        <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
-      </Animated.View>
-
-      {/* The stack and filters use the space above the floating action bar. */}
-      <View style={[styles.inset, styles.body]}>
-        {cards.length === 0 ? (
-          <View style={styles.empty} testID="empty-state">
-            <View style={[styles.emptyIcon, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
-              <RetroIcon name="folder" size={64} color={theme.accent} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: theme.text }]} accessibilityRole="header">
-              {strings.home.emptyTitle}
-            </Text>
-            <Text style={[styles.promise, { color: theme.muted }]}>{strings.promise}</Text>
-            <Text style={[styles.promise, { color: theme.text }]}>{strings.home.emptyHint}</Text>
+        {/* Filters sit directly under search, above whatever they filter. */}
+        {cards.length > 0 && present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
+        {/* Which parts of the folder row show is chosen in settings. */}
+        {cards.length > 0 && FOLDERS_ENABLED && folders.length > 0 && (folderChips.length > 0 || homeFolders.manage) && (
+          <View style={styles.folderRow}>
+            {folderChips.length > 0 && (
+              <View style={styles.folderChoices}>
+                <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} testID="folder-filter-choices" />
+              </View>
+            )}
+            {homeFolders.manage && <Button variant="secondary" label={strings.folders.manage} onPress={() => router.replace('/folders')} />}
           </View>
-        ) : (
-          <>
+        )}
+        {cards.length > 0 && (
+          <View style={styles.viewRow}>
+            <View accessibilityLabel={strings.home.viewLabel} style={[styles.segments, { backgroundColor: theme.glass, borderColor: theme.border }]}>
+              {viewOptions.map((option) => {
+                const on = gallery === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    testID={`view-${option.key}`}
+                    onPress={() => {
+                      clearSelection();
+                      setGallery(option.key);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={option.label}
+                    accessibilityHint={strings.home.viewLabel}
+                    accessibilityState={{ selected: on }}
+                    style={[styles.segment, on && { backgroundColor: theme.accent }]}
+                  >
+                    <Text style={{ color: on ? theme.onAccent : theme.text, fontSize: TYPE.secondary, fontWeight: '600' }}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             {gallery === 'gallery' && shown.length > 0 && (
               <Pressable
                 onPress={() => setSortSheetOpen(true)}
@@ -270,28 +304,71 @@ export default function Home() {
                 <Text style={{ color: theme.text, fontSize: TYPE.secondary, fontWeight: '700' }}>{strings.home.sortChip(sortName)}</Text>
               </Pressable>
             )}
-            {shown.length === 0 ? (
+          </View>
+        )}
+      </View>
+
+      {cards.length === 0 ? (
+        <View style={[styles.inset, styles.body]}>
+          <View style={styles.empty} testID="empty-state">
+            <View style={[styles.emptyIcon, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
+              <RetroIcon name="folder" size={64} color={theme.accent} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: theme.text }]} accessibilityRole="header">
+              {strings.home.emptyTitle}
+            </Text>
+            <Text style={[styles.promise, { color: theme.muted }]}>{strings.promise}</Text>
+            <Text style={[styles.promise, { color: theme.text }]}>{strings.home.emptyHint}</Text>
+          </View>
+        </View>
+      ) : listView ? (
+        // The library: pinned panels, then every other document. Pinned ones stay put while searching or
+        // filtering: they're the shortcut, the list is the browse.
+        <ScrollView style={styles.fill} contentContainerStyle={[styles.inset, styles.library, { paddingBottom: clearance + 16 }]} testID="document-list">
+          {pinned.length > 0 && (
+            <View style={styles.section} testID="pinned-section">
+              <SectionHeading title={strings.home.pinnedForQuickAccess} icon="pin" />
+              <PinnedPanels cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
+            </View>
+          )}
+          <View style={styles.section}>
+            <SectionHeading title={strings.home.allDocuments} count={strings.home.documentCount(rest.length)} />
+            {rest.length === 0 ? (
+              <LiveText style={[styles.promise, { color: theme.muted }]}>{strings.home.noResults}</LiveText>
+            ) : (
+              <DocumentRows cards={rest} onOpen={(card) => router.push(`/card/${card.id}`)} />
+            )}
+          </View>
+        </ScrollView>
+      ) : (
+        <View style={[styles.inset, styles.body, { paddingBottom: clearance + 8 }]}>
+          <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
+          {shown.length === 0 ? (
+            // Keeps the stack's height so nothing jumps when nothing matches.
+            <View style={[styles.noResults, gallery !== 'gallery' && { height: stackHeight.current ?? stackGeometry(winWidth - 32, cards.length, stackVertical).height }]}>
               <LiveText style={[styles.promise, { color: theme.muted }]}>
                 {strings.home.noResults}
               </LiveText>
-            ) : gallery === 'gallery' ? (
-              inGallery.length === 0 ? (
-                <LiveText style={[styles.promise, { color: theme.muted }]}>
-                  {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
-                </LiveText>
-              ) : (
-                <>
-                  {!selecting && tipBar('gallery', strings.home.galleryTip)}
-                  <CardGrid
-                    cards={inGallery}
-                    selected={selectedIds}
-                    onOpen={(card) => router.push(`/card/${card.id}`)}
-                    onToggle={toggleSelected}
-                  />
-                </>
-              )
+            </View>
+          ) : gallery === 'gallery' ? (
+            inGallery.length === 0 ? (
+              <LiveText style={[styles.promise, { color: theme.muted }]}>
+                {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
+              </LiveText>
             ) : (
-              // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
+              <>
+                {!selecting && tipBar('gallery', strings.home.galleryTip)}
+                <CardGrid
+                  cards={inGallery}
+                  selected={selectedIds}
+                  onOpen={(card) => router.push(`/card/${card.id}`)}
+                  onToggle={toggleSelected}
+                />
+              </>
+            )
+          ) : (
+            // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
+            <View onLayout={(e) => { stackHeight.current = e.nativeEvent.layout.height; }}>
               <CardStack
                 key={`${tag ?? 'all'}|${folderId ?? 'all'}|${query.trim().toLowerCase()}|${stackVertical ? 'v' : 'h'}`}
                 cards={shown}
@@ -300,25 +377,13 @@ export default function Home() {
                 onToggleBlur={(card) => void toggleBlur(card)}
                 onMove={() => tips.done('stack')}
               />
-            )}
-            {gallery === 'stack' &&
-              shown.length > 1 &&
-              tipBar('stack', stackVertical ? strings.home.stackTipVertical : strings.home.stackTip)}
-            {/* Which parts of the folder row show is chosen in settings. */}
-            {FOLDERS_ENABLED && folders.length > 0 && (folderChips.length > 0 || homeFolders.manage) && (
-              <View style={styles.folderRow}>
-                {folderChips.length > 0 && (
-                  <View style={styles.folderChoices}>
-                    <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} testID="folder-filter-choices" />
-                  </View>
-                )}
-                {homeFolders.manage && <Button variant="secondary" label={strings.folders.manage} onPress={() => router.push('/folders')} />}
-              </View>
-            )}
-            {present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
-          </>
-        )}
-      </View>
+            </View>
+          )}
+          {gallery === 'stack' &&
+            shown.length > 1 &&
+            tipBar('stack', stackVertical ? strings.home.stackTipVertical : strings.home.stackTip)}
+        </View>
+      )}
 
       <SortSheet
         visible={sortSheetOpen}
@@ -399,18 +464,14 @@ export default function Home() {
           />
         </View>
       ) : (
-        <View style={[styles.dock, { paddingBottom: insets.bottom + 16 }]}>
-          <UndoBar undo={undo} />
-          <HomeActionBar
-            gallery={gallery === 'gallery'}
-            onAddImage={addCard}
-            onNotes={() => router.push('/notes')}
-            onToggleGallery={() => {
-              clearSelection();
-              setGallery(gallery === 'gallery' ? 'stack' : 'gallery');
-            }}
-          />
-        </View>
+        <>
+          {/* Floats just above the tab bar, beside the + button, while a removal can be undone. */}
+          <View pointerEvents="box-none" style={[styles.undoDock, { bottom: clearance }]}>
+            <UndoBar undo={undo} />
+          </View>
+          <Fab label={strings.home.addImage} onPress={addCard} testID="add-card" />
+          <TabBar active="documents" />
+        </>
       )}
     </Screen>
   );
@@ -509,7 +570,16 @@ const styles = StyleSheet.create({
   sortChip: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderWidth: 1, borderRadius: RADIUS.sm },
   folderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderChoices: { flex: 1, minWidth: 0 },
-  dock: { paddingHorizontal: 16, paddingTop: 8 },
+  fill: { flex: 1 },
+  // Clear of the + button at the end (20 pt inset, 56 pt wide).
+  undoDock: { position: 'absolute', start: 16, end: 88 },
+  library: { paddingTop: 12, gap: 24 },
+  section: { gap: 12 },
+  viewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  segments: { flexDirection: 'row', borderWidth: 1, borderRadius: RADIUS.md, padding: 3 },
+  segment: { minHeight: 44, paddingHorizontal: 14, borderRadius: RADIUS.md - 3, justifyContent: 'center' },
+  titles: { flex: 1 },
+  subtitle: { fontSize: TYPE.secondary, marginTop: 2 },
   selectionBar: { position: 'absolute', left: 8, right: 8, bottom: 8, gap: 10, paddingHorizontal: 16, paddingTop: 12, borderWidth: 1, borderRadius: RADIUS.lg },
   selectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   selectionActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
@@ -517,8 +587,8 @@ const styles = StyleSheet.create({
   selectionCount: { flex: 1, fontSize: TYPE.secondary, fontWeight: '700' },
   selectionAction: { minWidth: 112 },
   inset: { paddingHorizontal: 16 },
-  top: { gap: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20, paddingRight: 10, paddingVertical: 10 },
+  top: { gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   title: { flex: 1, fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight },
   round: {
     width: 44,
@@ -541,9 +611,10 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, minHeight: 48, fontSize: TYPE.body, fontFamily: FONT.regular },
   clear: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  body: { flex: 1, justifyContent: 'center', paddingVertical: 20, gap: 20 },
+  body: { flex: 1, justifyContent: 'center', paddingVertical: 12, gap: 16 },
   empty: { alignItems: 'center', gap: 12 },
   emptyIcon: { width: 124, height: 124, borderRadius: RADIUS.lg, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight, textAlign: 'center' },
   promise: { fontSize: TYPE.body, textAlign: 'center' },
+  noResults: { alignItems: 'center', justifyContent: 'center' },
 });

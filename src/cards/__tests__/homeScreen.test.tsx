@@ -13,6 +13,7 @@ let mockCards = [
 ];
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 // Folders are hidden in the app for now (FOLDERS_ENABLED); these tests cover both ways.
 let mockFoldersEnabled = true;
 jest.mock('../../config', () =>
@@ -30,7 +31,7 @@ jest.mock('expo-quick-actions/hooks', () => ({ useQuickActionCallback: () => {} 
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
-    useRouter: () => ({ push: mockPush }),
+    useRouter: () => ({ push: mockPush, replace: mockReplace }),
     // Home counts as focused for as long as it is mounted.
     useFocusEffect: (effect: () => void | (() => void)) => useEffect(effect, [effect]),
   };
@@ -117,7 +118,7 @@ beforeEach(() => {
   mockSetPinned.mockClear();
   mockUpdate.mockClear();
   mockRefresh.mockClear();
-  mockHomeView = null;
+  mockHomeView = 'stack'; // most tests exercise the stack; the list is the default and has its own tests
   // Most tests are about other things, so the gesture tips count as seen unless a test says otherwise.
   mockSeenTips = 'stack,gallery';
   mockStackVertical = false;
@@ -196,7 +197,7 @@ test('choosing a folder narrows the stack to its cards', async () => {
   expect(stack.props.accessibilityLabel).toBe('Health insurance');
   expect(stack.props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 1) });
   await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.folders.manage })));
-  expect(mockPush).toHaveBeenCalledWith('/folders');
+  expect(mockReplace).toHaveBeenCalledWith('/folders');
 });
 
 test('folder choices are radios in a group; Manage is a button outside it', async () => {
@@ -345,6 +346,61 @@ test('nothing pinned, no pinned section', async () => {
   expect(screen.queryByTestId('pinned-strip')).toBeNull();
 });
 
+describe('document library (the default view)', () => {
+  const cards = [
+    makeCard({ id: 'a', name: 'Emirates ID', tags: ['ID'], pinned: true }),
+    makeCard({ id: 'b', name: 'Gym', tags: ['Membership'] }),
+    makeCard({ id: 'c', name: 'Car insurance', tags: ['Insurance'] }),
+  ];
+  beforeEach(() => {
+    mockHomeView = null;
+  });
+
+  test('shows the subtitle, pinned panels and every other document with a count, as headings', async () => {
+    await withCards(cards, async () => {
+      await render(<Home />);
+      expect(screen.getByText(strings.home.subtitle)).toBeTruthy();
+      expect(screen.getByRole('header', { name: strings.home.pinnedForQuickAccess })).toBeTruthy();
+      expect(screen.getByRole('header', { name: strings.home.allDocuments })).toBeTruthy();
+      expect(screen.getByText(strings.home.documentCount(2))).toBeTruthy();
+      expect(screen.getByTestId('pinned-a')).toBeTruthy();
+      expect(screen.getByTestId('row-b')).toBeTruthy();
+      expect(screen.queryByTestId('row-a')).toBeNull();
+      expect(screen.queryByTestId('card-stack')).toBeNull();
+      await fireEvent.press(screen.getByTestId('row-b'));
+      expect(mockPush).toHaveBeenCalledWith('/card/b');
+    });
+  });
+
+  test('tag chips sit above the list and narrow it; search keeps pinned panels in place', async () => {
+    await withCards(cards, async () => {
+      await render(<Home />);
+      await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Insurance' })));
+      expect(screen.getByTestId('row-c')).toBeTruthy();
+      expect(screen.queryByTestId('row-b')).toBeNull();
+      expect(screen.getByText(strings.home.documentCount(1))).toBeTruthy();
+      expect(screen.getByTestId('pinned-a')).toBeTruthy();
+    });
+  });
+
+  test('switching view to the stack is remembered', async () => {
+    await withCards(cards, async () => {
+      await render(<Home />);
+      await act(async () => fireEvent.press(screen.getByTestId('view-stack')));
+      expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'stack');
+      expect(screen.queryByTestId('document-list')).toBeNull();
+    });
+  });
+
+  test('the tab bar marks Documents as the current tab and + adds a document', async () => {
+    await render(<Home />);
+    expect(screen.getByTestId('tab-documents').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('tab-notes').props.accessibilityState).toEqual({ selected: false });
+    await fireEvent.press(screen.getByTestId('add-card'));
+    expect(mockPush).toHaveBeenCalledWith('/edit/new');
+  });
+});
+
 describe('gallery view', () => {
   let alert: jest.SpyInstance;
   beforeEach(() => {
@@ -358,21 +414,17 @@ describe('gallery view', () => {
   };
   const showGallery = async () => {
     await renderHome();
-    await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+    await act(async () => fireEvent.press(screen.getByTestId('view-gallery')));
   };
 
   test('shows every card in a grid instead of the stack, and remembers the choice', async () => {
     await renderHome();
-    const toggle = screen.getByTestId('gallery-toggle');
-    expect(within(toggle).getByText(strings.home.galleryLabel)).toBeTruthy();
-    expect(toggle.props.accessibilityRole).toBe('switch');
-    expect(toggle.props.accessibilityLabel).toBe(strings.home.galleryView);
-    expect(toggle.props.accessibilityState).toEqual({ checked: false });
-    await act(async () => fireEvent.press(toggle));
+    const gallery = screen.getByTestId('view-gallery');
+    expect(gallery.props.accessibilityRole).toBe('button');
+    expect(gallery.props.accessibilityState).toEqual({ selected: false });
+    await act(async () => fireEvent.press(gallery));
     expect(screen.getByTestId('card-grid')).toBeTruthy();
-    expect(within(toggle).getByText(strings.home.stackLabel)).toBeTruthy();
-    expect(toggle.props.accessibilityLabel).toBe(strings.home.galleryView);
-    expect(toggle.props.accessibilityState).toEqual({ checked: true });
+    expect(screen.getByTestId('view-gallery').props.accessibilityState).toEqual({ selected: true });
     expect(screen.queryByTestId('card-stack')).toBeNull();
     for (const id of ['a', 'b', 'c']) expect(screen.getByTestId(`grid-${id}`)).toBeTruthy();
     // Each tile has the card's name and its tags.
@@ -380,24 +432,9 @@ describe('gallery view', () => {
     expect(within(screen.getByTestId('grid-b')).getByText('Insurance')).toBeTruthy();
     expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'gallery');
 
-    await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+    await act(async () => fireEvent.press(screen.getByTestId('view-stack')));
     expect(screen.queryByTestId('card-grid')).toBeNull();
     expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'stack');
-  });
-
-  test('the view toggle names the view it switches to; a screen reader hears one Gallery view switch', async () => {
-    await renderHome();
-    const toggle = () => screen.getByTestId('gallery-toggle');
-    expect(within(toggle()).getByText('Gallery')).toBeTruthy();
-    expect(toggle().props.accessibilityRole).toBe('switch');
-    expect(toggle().props.accessibilityLabel).toBe('Gallery view');
-    expect(toggle().props.accessibilityState).toEqual({ checked: false });
-
-    await act(async () => fireEvent.press(toggle()));
-    expect(within(toggle()).getByText('Stack')).toBeTruthy();
-    expect(within(toggle()).queryByText('Gallery')).toBeNull();
-    expect(toggle().props.accessibilityLabel).toBe('Gallery view');
-    expect(toggle().props.accessibilityState).toEqual({ checked: true });
   });
 
   test('opens in the gallery when that was the last choice', async () => {
@@ -843,7 +880,7 @@ describe('gesture tips', () => {
   describe('in the gallery', () => {
     const showGallery = async () => {
       await renderHome();
-      await act(async () => fireEvent.press(screen.getByTestId('gallery-toggle')));
+      await act(async () => fireEvent.press(screen.getByTestId('view-gallery')));
     };
 
     test('the first gallery shows a tip on selecting', async () => {

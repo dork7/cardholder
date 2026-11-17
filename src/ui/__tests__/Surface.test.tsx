@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import { Panel, Screen } from '../Surface';
+import { ActionFooter, Panel, Screen } from '../Surface';
+import { TYPE } from '../theme';
 import { Text } from '../Text';
 
 let mockScheme: 'light' | 'dark' = 'light';
@@ -26,4 +27,24 @@ test.each([
   expect(panelStyle().backgroundColor).toBe(surface);
   expect(panelStyle().borderRadius).toBe(20);
   expect(screen.getByText('Inside')).toBeTruthy();
+});
+
+test('a panel has the prototype white 1 px border and soft shadow', async () => {
+  mockScheme = 'light';
+  await render(<Screen><Panel testID="panel"><Text>x</Text></Panel></Screen>);
+  expect(panelStyle().borderWidth).toBe(1);
+  expect(panelStyle().shadowOpacity).toBeLessThan(0.05);
+});
+
+test('screen content sits in an entrance wrapper and the title is 31', async () => {
+  mockScheme = 'light';
+  await render(<Screen><Text>Inside</Text></Screen>);
+  expect(screen.getByTestId('screen-content')).toBeTruthy();
+  expect(TYPE.title).toBe(31);
+});
+
+test('an action footer is a translucent page-coloured bar', async () => {
+  mockScheme = 'dark';
+  await render(<Screen><ActionFooter testID="footer"><Text>Save</Text></ActionFooter></Screen>);
+  expect(StyleSheet.flatten(screen.getByTestId('footer').props.style).backgroundColor).toBe('rgba(16, 24, 39, 0.82)');
 });

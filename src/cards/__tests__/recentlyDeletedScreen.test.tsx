@@ -128,35 +128,30 @@ test('says so when nothing has been deleted', async () => {
 });
 
 describe('erasing for good', () => {
-  let alert: jest.SpyInstance;
-  beforeEach(() => {
-    alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  });
-
-  // Alert.alert(title, body, buttons): press the button with this label.
-  const pressInAlert = async (label: string) => {
-    const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => unknown }[];
-    await buttons.find((b) => b.text === label)?.onPress?.();
-  };
+  // The confirmation is a bottom sheet: press its action or its Cancel.
+  const confirm = () => fireEvent.press(screen.getByTestId('confirm-action'));
 
   test('Delete now asks first, then erases that document only', async () => {
     await render(<RecentlyDeletedScreen />);
     await fireEvent.press(await screen.findByTestId('delete-now-a'));
-    expect(alert).toHaveBeenCalledWith(strings.recentlyDeleted.deleteNowTitle('Passport'), strings.recentlyDeleted.deleteNowBody, expect.any(Array));
+    expect(screen.getByText(strings.recentlyDeleted.deleteNowTitle('Passport'))).toBeTruthy();
+    expect(screen.getByText(strings.recentlyDeleted.deleteNowBody)).toBeTruthy();
     expect(mockErase).not.toHaveBeenCalled();
-    await pressInAlert(strings.recentlyDeleted.deleteNow);
+    await confirm();
     expect(mockErase).toHaveBeenCalledWith('a');
     expect(mockEraseAll).not.toHaveBeenCalled();
     expect(await screen.findByText('Gym')).toBeTruthy();
     expect(screen.queryByText('Passport')).toBeNull();
+    expect(screen.queryByTestId('confirm-sheet')).toBeNull();
   });
 
   test('Empty asks first, then erases every deleted document', async () => {
     await render(<RecentlyDeletedScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: strings.recentlyDeleted.emptyLabel }));
-    expect(alert).toHaveBeenCalledWith(strings.recentlyDeleted.emptyTitle, strings.recentlyDeleted.emptyBody(2), expect.any(Array));
+    expect(screen.getByText(strings.recentlyDeleted.emptyTitle)).toBeTruthy();
+    expect(screen.getByText(strings.recentlyDeleted.emptyBody(2))).toBeTruthy();
     expect(mockEraseAll).not.toHaveBeenCalled();
-    await pressInAlert(strings.recentlyDeleted.emptyAction);
+    await confirm();
     expect(mockEraseAll).toHaveBeenCalled();
     expect(await screen.findByText(strings.recentlyDeleted.empty)).toBeTruthy();
     expect(screen.queryByRole('button', { name: strings.recentlyDeleted.emptyLabel })).toBeNull();
@@ -168,7 +163,8 @@ describe('erasing for good', () => {
   ])('cancelling %s leaves everything as it was', async (_, find) => {
     await render(<RecentlyDeletedScreen />);
     await fireEvent.press(await find());
-    await pressInAlert(strings.common.cancel);
+    await fireEvent.press(screen.getByTestId('confirm-cancel'));
+    expect(screen.queryByTestId('confirm-sheet')).toBeNull();
     expect(mockErase).not.toHaveBeenCalled();
     expect(mockEraseAll).not.toHaveBeenCalled();
     expect(screen.getByText('Passport')).toBeTruthy();

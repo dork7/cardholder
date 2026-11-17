@@ -192,6 +192,7 @@ describe('actions', () => {
     await render(<CardView />);
     await pressInMore(strings.edit.deleteCard);
     expect(alert).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('confirm-sheet')).toBeNull();
     expect(mockRemove).toHaveBeenCalledWith('card1');
     expect(mockRefresh).toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();

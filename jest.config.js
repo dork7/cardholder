@@ -5,5 +5,6 @@ module.exports = {
   moduleNameMapper: {
     '^react-native-quick-crypto$': '<rootDir>/test/nodeCrypto.ts',
   },
+  setupFiles: ['<rootDir>/test/setupSafeArea.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
 };
