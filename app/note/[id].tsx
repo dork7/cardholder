@@ -4,6 +4,8 @@ import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Share, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
+import { NoteReminder } from '../../src/notes/NoteReminder';
+import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { NoteBody } from '../../src/notes/NoteBody';
 import { NoteEditor } from '../../src/notes/noteEditors';
 import { isBlankNote, Note } from '../../src/notes/noteStore';
@@ -36,7 +38,7 @@ export default function NoteScreen() {
 }
 
 function Editor({ note }: { note: Note | null }) {
-  const { services } = useApp();
+  const { services, refresh } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
@@ -46,6 +48,7 @@ function Editor({ note }: { note: Note | null }) {
   const [editor] = useState<NoteEditor>(() => services.noteEditors.open(note));
   const [fields, setFields] = useState({ title: note?.title ?? '', body: note?.body ?? '' });
   const [status, setStatus] = useState(editor.status());
+  const [reminderAt, setReminderAt] = useState(note?.reminderAt);
   const [pinned, setPinned] = useState(note?.pinned ?? false);
   const [busy, setBusy] = useState(false);
   const [closed, setClosed] = useState(false);
@@ -87,7 +90,7 @@ function Editor({ note }: { note: Note | null }) {
   usePreventRemove(!closed, ({ repeat }) => {
     if (busy) return;
     setBusy(true);
-    void editor.finish().then(() => { setClosed(true); repeat(); }).catch(() => {
+    void editor.finish().then(() => refresh().catch(() => console.warn('Refresh after note change failed'))).then(() => { setClosed(true); repeat(); }).catch(() => {
       setActionFailed(true);
     }).finally(() => setBusy(false));
   });
@@ -112,7 +115,7 @@ function Editor({ note }: { note: Note | null }) {
     { text: strings.common.cancel, style: 'cancel' },
     { text: strings.common.delete, style: 'destructive', onPress: () => {
       setBusy(true);
-      void editor.discard().then(() => { setClosed(true); setDeleted(true); }).catch(() => {
+      void editor.discard().then(() => refresh().catch(() => console.warn('Refresh after note change failed'))).then(() => { setClosed(true); setDeleted(true); }).catch(() => {
         setActionFailed(true);
         setBusy(false);
       });
@@ -146,6 +149,16 @@ function Editor({ note }: { note: Note | null }) {
             setActionFailed(false);
             void editor.flush().catch(() => {});
           }} />}
+          <NoteReminder value={reminderAt} disabled={busy || isBlankNote(fields)} onSave={async (at) => {
+            setBusy(true);
+            try {
+              if (at !== null && !(await requestReminderPermissionOnce())) throw new Error('permission-denied');
+              await editor.flush();
+              await services.notes.setReminder(editor.id, at);
+              setReminderAt(at ?? undefined);
+              await refresh();
+            } finally { setBusy(false); }
+          }} />
           <View style={styles.secondary}>
             <Button variant="secondary" label={strings.notes.share} onPress={() => transfer('share')}
               disabled={busy || isBlankNote(fields)} testID="note-share" />

@@ -1,5 +1,12 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, AppState, Share } from 'react-native';
+import { requestReminderPermissionOnce } from '../../reminders/scheduler';
+jest.mock('../../reminders/scheduler', () => ({ requestReminderPermissionOnce: jest.fn(async () => true) }));
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true, default: (props: unknown) => jest.requireActual('react').createElement(jest.requireActual('react-native').View, props),
+  DateTimePickerAndroid: { open: jest.fn() },
+}));
+const mockRefresh = jest.fn(async () => {});
 import * as Clipboard from 'expo-clipboard';
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }));
 import { makeStore } from '../../../test/fixtures';
@@ -29,7 +36,7 @@ jest.mock('expo-router', () => {
 });
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 let mockServices: { notes: NoteStore; noteEditors: ReturnType<typeof createNoteEditors> };
-jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, cards: Array(10).fill({}), unlocked: false }) }));
+jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, refresh: mockRefresh, cards: Array(10).fill({}), unlocked: false }) }));
 const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 const appState = jest.spyOn(AppState, 'addEventListener');
 
@@ -128,6 +135,7 @@ test('cancel deletion keeps the note; confirmed deletion removes it and leaves o
   expect(buttons[0].style).toBe('cancel');
   await act(async () => buttons[1].onPress!());
   expect(await mockServices.notes.get('a')).toBeNull();
+  expect(mockRefresh).toHaveBeenCalled();
   expect(mockBack).toHaveBeenCalledTimes(1);
 });
 
@@ -239,4 +247,41 @@ test('typed task markers can be toggled in the note and copied as readable Markd
   await fireEvent.press(screen.getByTestId('note-copy'));
   await act(async () => alert.mock.calls.at(-1)![2]![1].onPress!());
   expect(Clipboard.setStringAsync).toHaveBeenCalledWith('Before\r\n  - [x] Passport\r\nAfter');
+});
+
+
+test('a chosen date and time schedules, updates and removes a note reminder', async () => {
+  await render(<NoteScreen />);
+  await write('Private', 'Secret');
+  await fireEvent.press(screen.getByText(strings.notes.remind));
+  const tomorrow = new Date(Date.now() + 86400000);
+  tomorrow.setHours(15, 30, 0, 0);
+  await fireEvent(screen.getByLabelText(strings.notes.reminderDate), 'onChange', { type: 'set' }, tomorrow);
+  await fireEvent(screen.getByLabelText(strings.notes.reminderTime), 'onChange', { type: 'set' }, tomorrow);
+  await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderSave)));
+  expect(requestReminderPermissionOnce).toHaveBeenCalledTimes(1);
+  expect((await mockServices.notes.list())[0]).toMatchObject({ reminderAt: tomorrow.getTime() });
+  expect(mockRefresh).toHaveBeenCalled();
+  await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderRemove)));
+  expect((await mockServices.notes.list())[0].reminderAt).toBeUndefined();
+});
+
+test('denied notifications show help without silently saving a reminder', async () => {
+  jest.mocked(requestReminderPermissionOnce).mockResolvedValueOnce(false);
+  await render(<NoteScreen />);
+  await write('', 'Secret');
+  await fireEvent.press(screen.getByText(strings.notes.remind));
+  await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderSave)));
+  expect(screen.getByText(strings.notes.reminderDenied)).toBeTruthy();
+  expect((await mockServices.notes.list())[0]?.reminderAt).toBeUndefined();
+});
+
+test('past reminder dates are rejected before permission is requested', async () => {
+  await render(<NoteScreen />);
+  await write('', 'Secret');
+  await fireEvent.press(screen.getByText(strings.notes.remind));
+  await fireEvent(screen.getByLabelText(strings.notes.reminderDate), 'onChange', { type: 'set' }, new Date(2020, 0, 1));
+  await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderSave)));
+  expect(screen.getByText(strings.notes.reminderInvalid)).toBeTruthy();
+  expect(requestReminderPermissionOnce).not.toHaveBeenCalled();
 });

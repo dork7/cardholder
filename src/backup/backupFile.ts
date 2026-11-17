@@ -167,7 +167,8 @@ function parseNote(value: unknown, seen: Set<string>): Note {
   if (!isObject(value) || typeof value.id !== 'string' || !ID_PATTERN.test(value.id) ||
       typeof value.title !== 'string' || typeof value.body !== 'string' ||
       typeof value.pinned !== 'boolean' || !isNumber(value.createdAt) || !isNumber(value.updatedAt)) invalid();
-  const note: Note = { id: value.id, title: value.title, body: value.body, pinned: value.pinned,
+  if (value.reminderAt !== undefined && (typeof value.reminderAt !== 'number' || !Number.isSafeInteger(value.reminderAt) || value.reminderAt <= 0 || value.reminderAt > 8.64e15)) invalid();
+  const note: Note = { ...(value.reminderAt !== undefined && { reminderAt: value.reminderAt as number }), id: value.id, title: value.title, body: value.body, pinned: value.pinned,
     createdAt: value.createdAt, updatedAt: value.updatedAt };
   if (isBlankNote(note) || seen.has(note.id.toLowerCase())) invalid();
   seen.add(note.id.toLowerCase());

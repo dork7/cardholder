@@ -11,6 +11,7 @@ export interface NoteFields {
 export interface Note extends NoteFields {
   id: string;
   pinned: boolean;
+  reminderAt?: number; // Date and time, sealed with the content.
   createdAt: number;
   updatedAt: number; // Content edits only; pinning does not reorder peers.
 }
@@ -38,12 +39,13 @@ export interface NoteStore {
   save(id: string, fields: NoteFields): Promise<Note>;
   remove(id: string): Promise<void>;
   setPinned(id: string, pinned: boolean): Promise<void>;
+  setReminder(id: string, at: number | null): Promise<void>;
   lastChangeAt(): Promise<number | null>;
   newId(): string;
 }
 
 const INSERT = 'INSERT INTO notes (id, pinned, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?)';
-const seal = (aead: Aead, fields: NoteFields) => aead.seal(utf8.encode(JSON.stringify({ title: fields.title, body: fields.body })));
+const seal = (aead: Aead, fields: NoteFields & { reminderAt?: number }) => aead.seal(utf8.encode(JSON.stringify({ title: fields.title, body: fields.body, ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }) })));
 
 async function changed(db: SqlDb, at: number) {
   // A deletion must count as a change too, even if there are no notes left.
@@ -72,8 +74,8 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
   newId?: () => string;
 }): NoteStore {
   const decode = (row: Row): Note => {
-    const fields = JSON.parse(utf8.decode(aead.open(row.payload))) as NoteFields;
-    return { id: row.id, title: fields.title, body: fields.body, pinned: row.pinned === 1, createdAt: row.created_at, updatedAt: row.updated_at };
+    const fields = JSON.parse(utf8.decode(aead.open(row.payload))) as NoteFields & { reminderAt?: number };
+    return { ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), id: row.id, title: fields.title, body: fields.body, pinned: row.pinned === 1, createdAt: row.created_at, updatedAt: row.updated_at };
   };
   const get = async (id: string) => {
     const row = await db.getFirstAsync<Row>('SELECT * FROM notes WHERE id = ?', [id]);
@@ -99,12 +101,12 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
       const previous = await get(id);
       if (previous && previous.title === fields.title && previous.body === fields.body) return previous;
       const at = Math.max(now(), (previous?.updatedAt ?? 0) + 1);
-      const note: Note = { ...fields, id, pinned: previous?.pinned ?? false, createdAt: previous?.createdAt ?? at, updatedAt: at };
+      const note: Note = { ...fields, ...(previous?.reminderAt !== undefined && { reminderAt: previous.reminderAt }), id, pinned: previous?.pinned ?? false, createdAt: previous?.createdAt ?? at, updatedAt: at };
       await db.withTransactionAsync(async () => {
         if (previous) {
-          await db.runAsync('UPDATE notes SET payload = ?, updated_at = ? WHERE id = ?', [seal(aead, fields), at, id]);
+          await db.runAsync('UPDATE notes SET payload = ?, updated_at = ? WHERE id = ?', [seal(aead, note), at, id]);
         } else {
-          await db.runAsync(INSERT, [id, 0, seal(aead, fields), at, at]);
+          await db.runAsync(INSERT, [id, 0, seal(aead, note), at, at]);
         }
         await changed(db, at);
       });
@@ -123,6 +125,18 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
       if (note.pinned === pinned) return;
       await db.withTransactionAsync(async () => {
         await db.runAsync('UPDATE notes SET pinned = ? WHERE id = ?', [pinned ? 1 : 0, id]);
+        await changed(db, now());
+      });
+    }),
+    setReminder: (id, at) => write(async () => {
+      if (at !== null && (!Number.isSafeInteger(at) || at <= 0 || at > 8.64e15)) throw new Error('Invalid reminder date');
+      const note = await get(id);
+      if (!note) throw new Error('Note not found');
+      if (note.reminderAt === (at ?? undefined)) return;
+      if (at === null) delete note.reminderAt;
+      else note.reminderAt = at;
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('UPDATE notes SET payload = ? WHERE id = ?', [seal(aead, note), id]);
         await changed(db, now());
       });
     }),

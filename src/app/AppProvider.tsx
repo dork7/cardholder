@@ -1,3 +1,4 @@
+import { Note } from '../notes/noteStore';
 import { AppState } from 'react-native';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { canReadText, readPhotoText } from '../analysis/readPhoto';
@@ -36,6 +37,7 @@ interface BootContextValue {
 export interface AppContextValue {
   services: Services;
   cards: Card[];
+  notes: Note[];
   folders: Folder[];
   unlocked: boolean;
   refresh(): Promise<void>;
@@ -73,16 +75,18 @@ const purgeRecentlyDeleted = (services: Services): Promise<number> =>
   });
 
 async function readSnapshot(services: Services): Promise<AppSnapshot> {
-  const [cards, folders, unlocked] = await Promise.all([
+  const [cards, folders, unlocked, notes] = await Promise.all([
     services.store.list(),
     services.store.listFolders(),
     isUnlocked(services.settings),
+    services.notes.list(),
   ]);
-  return { cards, folders, unlocked };
+  return { cards, folders, unlocked, notes };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<BootPhase>({ status: 'loading' });
+  const [notes, setNotes] = useState<Note[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [unlocked, setUnlocked] = useState(false);
@@ -104,13 +108,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createRefreshCoordinator({
       apply: (snapshot) => {
         setCards(snapshot.cards);
+        setNotes(snapshot.notes);
         setFolders(snapshot.folders);
         setUnlocked(snapshot.unlocked);
       },
       // Shortcuts follow the cards too; a failure there must not stop reminders being scheduled.
-      syncReminders: async (cards) => {
+      syncReminders: async (cards, notes) => {
         await syncShortcuts(cards).catch((e) => console.warn('Shortcut sync failed', e));
-        await syncReminders(cards);
+        await syncReminders(cards, new Date(), notes);
       },
       onSyncError: (e) => console.warn('Reminder sync failed', e),
     }),
@@ -189,12 +194,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!services) return;
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void purgeRecentlyDeleted(services);
+      if (state === 'active') void purgeRecentlyDeleted(services).then(() => refresh()).catch(() => console.warn('Refresh on return failed'));
       // Leaving the app makes the last removal final: Undo is no longer offered when it comes back.
       if (state === 'background') undo.end();
     });
     return () => sub.remove();
-  }, [services, undo]);
+  }, [services, undo, refresh]);
 
   // The home screen widget follows the pinned cards and app lock. Only once the cards are open: before
   // that the list is empty, and the widget would lose its cards on every launch.
@@ -277,6 +282,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? {
             services,
             cards,
+            notes,
             folders,
             unlocked,
             refresh,
@@ -300,6 +306,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       services,
       cards,
+      notes,
       folders,
       unlocked,
       refresh,

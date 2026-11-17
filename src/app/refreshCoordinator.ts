@@ -1,14 +1,16 @@
+import { Note } from '../notes/noteStore';
 import { Card, Folder } from '../cards/types';
 
 export interface AppSnapshot {
   cards: Card[];
+  notes: Note[];
   folders: Folder[];
   unlocked: boolean;
 }
 
 export interface RefreshCoordinatorOptions {
   apply(snapshot: AppSnapshot): void;
-  syncReminders(cards: Card[]): Promise<void>;
+  syncReminders(cards: Card[], notes: Note[]): Promise<void>;
   onSyncError?(error: unknown): void;
 }
 
@@ -25,15 +27,15 @@ export interface RefreshCoordinator {
 //    runs are coalesced into a single follow-up sync that uses the newest cards.
 export function createRefreshCoordinator(options: RefreshCoordinatorOptions): RefreshCoordinator {
   let latest = 0;
-  let pendingCards: Card[] | null = null;
+  let pendingSnapshot: AppSnapshot | null = null;
   let running: Promise<void> | null = null;
 
   const drain = async () => {
-    while (pendingCards) {
-      const cards = pendingCards;
-      pendingCards = null;
+    while (pendingSnapshot) {
+      const snapshot = pendingSnapshot;
+      pendingSnapshot = null;
       try {
-        await options.syncReminders(cards);
+        await options.syncReminders(snapshot.cards, snapshot.notes);
       } catch (error) {
         options.onSyncError?.(error);
       }
@@ -41,8 +43,8 @@ export function createRefreshCoordinator(options: RefreshCoordinatorOptions): Re
     running = null;
   };
 
-  const requestSync = (cards: Card[]) => {
-    pendingCards = cards;
+  const requestSync = (snapshot: AppSnapshot) => {
+    pendingSnapshot = snapshot;
     if (!running) running = drain();
   };
 
@@ -58,7 +60,7 @@ export function createRefreshCoordinator(options: RefreshCoordinatorOptions): Re
       }
       if (ticket !== latest) return false;
       options.apply(snapshot);
-      requestSync(snapshot.cards);
+      requestSync(snapshot);
       return true;
     },
     async idle() {
