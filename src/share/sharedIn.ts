@@ -1,5 +1,5 @@
-// Files shared to Doc Keeper from another app's share sheet (Photos, Files, a chat). One or two
-// photos become a new document's front and back; one PDF becomes a PDF document.
+// Content shared to Doc Keeper from another app: photos or a PDF become a document;
+// plain text from the share sheet or Android's selection menu becomes a note.
 
 export interface SharedFile {
   path: string;
@@ -31,4 +31,17 @@ export function takePendingShared(): SharedIn | null {
   const shared = pending;
   pending = null;
   return shared;
+}
+
+// Shared text stays in memory until the new note editor takes it; never put it in a route URL.
+let pendingNoteText: string | null = null;
+
+export function setPendingNoteText(text: string): void {
+  pendingNoteText = text;
+}
+
+export function takePendingNoteText(): string | null {
+  const text = pendingNoteText;
+  pendingNoteText = null;
+  return text;
 }
