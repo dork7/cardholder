@@ -43,8 +43,14 @@ test('asks for permission only when it has never been asked', async () => {
   expect(await requestReminderPermissionOnce()).toBe(true);
   expect(mocked.requestPermissionsAsync).toHaveBeenCalledTimes(1);
 
-  mocked.getPermissionsAsync.mockResolvedValueOnce({ status: 'denied' } as never);
+  mocked.getPermissionsAsync.mockResolvedValueOnce({ status: 'denied', canAskAgain: false } as never);
   expect(await requestReminderPermissionOnce()).toBe(false);
+  expect(mocked.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+});
+
+test('asks on Android 13+, which reports a never-asked permission as denied but askable', async () => {
+  mocked.getPermissionsAsync.mockResolvedValueOnce({ status: 'denied', canAskAgain: true } as never);
+  expect(await requestReminderPermissionOnce()).toBe(true);
   expect(mocked.requestPermissionsAsync).toHaveBeenCalledTimes(1);
 });
 

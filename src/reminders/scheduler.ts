@@ -41,7 +41,9 @@ export function reminderNoteId(response: Notifications.NotificationResponse | nu
 // Called when the user saves a card with an expiry date — never at launch.
 export async function requestReminderPermissionOnce(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
-  if (current.status !== 'undetermined') return current.status === 'granted';
+  if (current.status === 'granted') return true;
+  // Android 13+ reports a permission it has never asked for as denied, with canAskAgain still true.
+  if (current.status === 'denied' && !current.canAskAgain) return false;
   return (await Notifications.requestPermissionsAsync()).status === 'granted';
 }
 

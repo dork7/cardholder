@@ -332,7 +332,7 @@ export const strings = {
     zoomOut: 'Zoom out',
     zoomHint: 'Pinch, or double-tap to zoom in and out.',
     // Short captions under the action icons; the full names are the accessibility labels.
-    captions: { show: 'Show', share: 'Share', pdf: 'PDF', pin: 'Pin', unpin: 'Unpin', edit: 'Edit', delete: 'Delete', more: 'More' },
+    captions: { show: 'Full screen', share: 'Share', pdf: 'PDF', pin: 'Pin', unpin: 'Unpin', edit: 'Edit', delete: 'Delete', more: 'More' },
     more: 'More actions',
     moreHint: 'Opens a menu with Export as PDF, Edit and Delete.',
     moreTitle: 'More',
@@ -348,7 +348,7 @@ export const strings = {
     edit: 'Edit',
     pin: 'Pin to home',
     unpin: 'Unpin from home',
-    showToStaff: 'Show to staff',
+    showToStaff: 'Full screen',
     staffHint: 'Shows this document full screen until you hold to finish.',
     staffDone: 'Hold to finish',
     staffDoneHint: 'Press and hold to unlock the screen.',

@@ -88,6 +88,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { flex: 1 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  panel: { borderWidth: 1, overflow: 'hidden', ...SHADOW.soft },
-  glass: { borderWidth: 1, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOW.heavy },
+  // Android draws elevation under the whole view, so on these see-through surfaces the shadow shows
+  // through as a grey frame around a lighter inset box. Android keeps the border; iOS keeps the shadow.
+  panel: { borderWidth: 1, overflow: 'hidden', ...SHADOW.soft, ...(Platform.OS === 'android' && { elevation: 0 }) },
+  glass: { borderWidth: 1, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOW.heavy, ...(Platform.OS === 'android' && { elevation: 0 }) },
 });
