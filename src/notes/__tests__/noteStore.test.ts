@@ -147,3 +147,25 @@ test('a note links to one current document and stays after that document is dele
   expect(await notes.get('a')).toMatchObject({ title: 'Embassy', documentId: null });
   await expect(notes.setDocument('a', card.id)).rejects.toThrow('Document not found');
 });
+
+test('deletion waits for an in-flight note save before clearing its document link', async () => {
+  const { store, notes, db } = await makeStore();
+  const card = await store.create(fields(), images('doc'));
+  await notes.save('a', { title: 'Original', body: 'Text' });
+  await notes.setDocument('a', card.id);
+  let entered!: () => void;
+  let release!: () => void;
+  const atWrite = new Promise<void>((resolve) => { entered = resolve; });
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  const originalRun = db.runAsync.bind(db);
+  db.runAsync = async (sql, params) => {
+    if (sql.startsWith('UPDATE notes SET payload = ?, updated_at = ?')) { entered(); await held; }
+    return originalRun(sql, params);
+  };
+  const saving = notes.save('a', { title: 'Updated', body: 'Text' });
+  await atWrite;
+  const deleting = store.moveToRecentlyDeleted(card.id);
+  release();
+  await Promise.all([saving, deleting]);
+  expect(await notes.get('a')).toMatchObject({ title: 'Updated', documentId: null });
+});

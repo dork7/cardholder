@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { Person } from '../src/cards/types';
+import { PERSON_NAME_MAX_LENGTH } from '../src/config';
+import { personName } from '../src/people/names';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { Field, useInputStyle } from '../src/ui/Field';
@@ -16,31 +18,31 @@ export default function PeopleScreen() {
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
-  const start = (person?: Person) => { setEditing(person?.id ?? 'new'); setName(person?.name ?? ''); setError(false); };
+  const [error, setError] = useState<string | null>(null);
+  const start = (person?: Person) => { setEditing(person?.id ?? 'new'); setName(person?.name ?? ''); setError(null); };
   const save = async () => {
-    const trimmed = name.trim();
-    if (!trimmed || [...trimmed].length > 60) { setError(true); return; }
+    const trimmed = personName(name);
+    if (!trimmed) { setError(strings.people.invalidName); return; }
     setBusy(true);
     try {
       if (editing === 'new') await services.store.createPerson(trimmed);
       else if (editing) await services.store.renamePerson(editing, trimmed);
       await refresh();
       setEditing(null);
-    } catch { setError(true); }
+    } catch { setError(strings.people.changeFailed); }
     finally { setBusy(false); }
   };
   const remove = (person: Person) => Alert.alert(strings.people.deleteTitle(person.name), strings.people.deleteBody, [
     { text: strings.common.cancel, style: 'cancel' },
     { text: strings.common.delete, style: 'destructive', onPress: () => {
       setBusy(true);
-      void services.store.removePerson(person.id).then(refresh).catch(() => Alert.alert(strings.notes.failed)).finally(() => setBusy(false));
+      void services.store.removePerson(person.id).then(refresh).catch(() => Alert.alert(strings.people.changeFailed)).finally(() => setBusy(false));
     } },
   ]);
   const editor = <View style={styles.editor}>
-    <Field label={strings.people.name} error={error ? strings.people.invalidName : undefined}>
-      <TextInput value={name} onChangeText={(value) => { setName(value); setError(false); }}
-        maxLength={60} autoFocus accessibilityLabel={strings.people.name} style={inputStyle} testID="person-name" />
+    <Field label={strings.people.name} error={error ?? undefined}>
+      <TextInput value={name} onChangeText={(value) => { setName(value); setError(null); }}
+        maxLength={PERSON_NAME_MAX_LENGTH} autoFocus accessibilityLabel={strings.people.name} style={inputStyle} testID="person-name" />
     </Field>
     <View style={styles.actions}>
       <Button variant="secondary" label={strings.common.cancel} onPress={() => setEditing(null)} disabled={busy} />

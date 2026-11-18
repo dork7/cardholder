@@ -176,11 +176,15 @@ function Editor({ note, initialBody = '', initialDocumentId }: { note: Note | nu
               onPress={(tag) => {
                 if (!tag) return;
                 const next = tags.some((value) => sameTag(value, tag)) ? tags.filter((value) => !sameTag(value, tag)) : [...tags, tag];
-                if (next.length <= MAX_TAGS) void changeTags(next);
+                if (next.length > MAX_TAGS) { Alert.alert(strings.tags.tooManyTitle, strings.notes.tooManyTags(MAX_TAGS)); return; }
+                void changeTags(next);
               }} onAddNew={() => setNamingTag(true)} wrap />
             {namingTag && <TagNameInput tags={allTags([...cards, ...notes])} onCancel={() => setNamingTag(false)} onSubmit={(tag) => {
+              if (tags.length >= MAX_TAGS && !tags.some((value) => sameTag(value, tag))) {
+                Alert.alert(strings.tags.tooManyTitle, strings.notes.tooManyTags(MAX_TAGS));
+                return;
+              }
               setNamingTag(false);
-              if (tags.length >= MAX_TAGS) return;
               void changeTags(normalizeTags([...tags, tag]));
             }} />}
           </Field>

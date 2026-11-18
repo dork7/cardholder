@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { Alert } from 'react-native';
 import PeopleScreen from '../../../app/people';
 import { Person } from '../types';
+import { strings } from '../../strings';
 
 let mockPeople: Person[] = [];
 const mockCreate = jest.fn();
@@ -39,5 +40,17 @@ test('profiles can be created, renamed and removed without deleting documents', 
   const actions = alert.mock.calls.at(-1)?.[2] as { onPress?: () => void }[];
   actions[1].onPress?.();
   await waitFor(() => expect(mockRemove).toHaveBeenCalledWith('sara'));
+  alert.mockRestore();
+});
+
+test('a failed profile removal reports a profile error', async () => {
+  mockPeople = [{ id: 'sara', name: 'Sara', createdAt: 1 }];
+  mockRemove.mockRejectedValueOnce(new Error('disk full'));
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await render(<PeopleScreen />);
+  await fireEvent.press(screen.getByTestId('delete-person-sara'));
+  const actions = alert.mock.calls.at(-1)?.[2] as { onPress?: () => void }[];
+  actions[1].onPress?.();
+  await waitFor(() => expect(alert).toHaveBeenLastCalledWith(strings.people.changeFailed));
   alert.mockRestore();
 });

@@ -1,4 +1,4 @@
-import { importNotes, Note, unlinkNotesFromDocument } from '../notes/noteStore';
+import { importNotes, Note, queueNoteWrite, unlinkNotesFromDocument } from '../notes/noteStore';
 import { Aead } from '../crypto/aead';
 import { base64, toHex, utf8 } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
@@ -8,6 +8,7 @@ import { sortCards } from './listing';
 import { DAY_MS, DEFAULT_REMIND_DAYS, RECENTLY_DELETED_DAYS } from '../config';
 import { parseRemindDays, toCardText } from './validate';
 import { withLegacyCategory } from './tags';
+import { personName, samePersonName } from '../people/names';
 import { Card, CardFields, CardPdf, DeletedCard, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument, Person } from './types';
 
 export class FolderNotFoundError extends Error {
@@ -318,15 +319,15 @@ export function createCardStore({
       return next;
     },
 
-    async moveToRecentlyDeleted(id) {
-      await db.withTransactionAsync(async () => {
+    moveToRecentlyDeleted(id) {
+      return queueNoteWrite(db, () => db.withTransactionAsync(async () => {
         const row = await getRow(id);
         if (!row || row.deleted_at !== null) return;
         const at = now();
         await db.runAsync(`UPDATE cards SET deleted_at = ? WHERE id = ? AND ${CURRENT}`, [at, id]);
         await unlinkNotesFromDocument(db, aead, id, at);
         await db.runAsync("INSERT INTO settings (key, value) VALUES ('documentsChangedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(at)]);
-      });
+      }));
     },
 
     listRecentlyDeleted: async () =>
@@ -389,7 +390,7 @@ export function createCardStore({
         const pinnedInOrder = entries.filter((e) => e.card.pinned).sort((a, b) => a.card.position - b.card.position);
         const positions = new Map(pinnedInOrder.map((e) => [e.card.id, position++] as const));
 
-        await db.withTransactionAsync(async () => {
+        await queueNoteWrite(db, () => db.withTransactionAsync(async () => {
           if (replace) {
             await db.runAsync('DELETE FROM cards', []);
             await db.runAsync('DELETE FROM folders', []);
@@ -403,7 +404,7 @@ export function createCardStore({
             const exists = await db.getFirstAsync('SELECT id FROM people WHERE id = ?', [person.id]);
             if (!exists) await db.runAsync(INSERT_PERSON_SQL, [person.id, sealPerson(person), person.createdAt]);
           }
-          if (notes !== undefined) await importNotes(db, aead, notes, replace, notesBackedUpAt);
+          if (notes !== undefined) await importNotes(db, aead, notes, replace, notesBackedUpAt, new Set(entries.map((entry) => entry.card.id)));
           for (const { card } of entries) {
             const stored: Card = { ...card, position: positions.get(card.id) ?? 0 };
             await db.runAsync(INSERT_SQL, [
@@ -417,7 +418,7 @@ export function createCardStore({
               stored.updatedAt,
             ]);
           }
-        });
+        }));
       } catch (e) {
         for (const id of newBlobIds) await removeImages(id);
         throw e;
@@ -470,9 +471,9 @@ export function createCardStore({
     },
     listPeople,
     async createPerson(name) {
-      const trimmed = name.trim();
-      if (!trimmed || [...trimmed].length > 60) throw new Error('Invalid person name');
-      if ((await listPeople()).some((person) => person.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) throw new Error('Person already exists');
+      const trimmed = personName(name);
+      if (!trimmed) throw new Error('Invalid person name');
+      if ((await listPeople()).some((person) => samePersonName(person.name, trimmed))) throw new Error('Person already exists');
       const person = { id: newId(), name: trimmed, createdAt: now() };
       await db.withTransactionAsync(async () => {
         await db.runAsync(INSERT_PERSON_SQL, [person.id, sealPerson(person), person.createdAt]);
@@ -481,9 +482,9 @@ export function createCardStore({
       return person;
     },
     async renamePerson(id, name) {
-      const trimmed = name.trim();
-      if (!trimmed || [...trimmed].length > 60) throw new Error('Invalid person name');
-      if ((await listPeople()).some((person) => person.id !== id && person.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) throw new Error('Person already exists');
+      const trimmed = personName(name);
+      if (!trimmed) throw new Error('Invalid person name');
+      if ((await listPeople()).some((person) => person.id !== id && samePersonName(person.name, trimmed))) throw new Error('Person already exists');
       const row = await db.getFirstAsync<FolderRow>('SELECT * FROM people WHERE id = ?', [id]);
       if (!row) throw new Error('Person not found');
       const person = { ...toPerson(row), name: trimmed };

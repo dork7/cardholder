@@ -8,6 +8,7 @@ export const NAME_MAX_LENGTH = 60;
 export const TAG_MAX_LENGTH = 24;
 export const MAX_TAGS = 8;
 export const FOLDER_NAME_MAX_LENGTH = 30;
+export const PERSON_NAME_MAX_LENGTH = 60;
 // Per side; card reading rarely finds a tenth of this, so it only stops a bad backup file from bloating a card.
 export const READ_TEXT_MAX_LENGTH = 4000;
 // A document has one filing place; tags can cross folder boundaries (ADR 0009).

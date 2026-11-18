@@ -38,6 +38,19 @@ test('backup preserves family profiles, note tags and document links', async () 
   expect(await b.notes.get('visa')).toMatchObject({ tags: ['Travel'], documentId: card.id });
 });
 
+test('merge clears a note link when its backup document is only in Recently deleted locally', async () => {
+  const source = await makeStore();
+  const card = await source.store.create(fields(), images('source'));
+  await source.notes.save('linked', { title: 'Visa', body: 'Embassy' });
+  await source.notes.setDocument('linked', card.id);
+  const snapshot = await buildSnapshot(source.store, 42, source.notes);
+  const target = await makeStore();
+  await target.store.insertMany(snapshot.cards, { replace: false });
+  await target.store.moveToRecentlyDeleted(card.id);
+  await applySnapshot(target.store, snapshot, 'merge', target.notes);
+  expect(await target.notes.get('linked')).toMatchObject({ title: 'Visa', documentId: null });
+});
+
 test('merge keeps notes with matching IDs and adds missing notes', async () => {
   const a = await makeStore();
   await a.notes.save('same', { title: '', body: 'From backup' });

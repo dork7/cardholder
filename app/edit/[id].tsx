@@ -28,9 +28,10 @@ import {
   SaveError,
   SavePlan,
 } from '../../src/cards/editForm';
-import { DEFAULT_REMIND_DAYS, FOLDERS_ENABLED, MAX_TAGS, NAME_MAX_LENGTH, PDF_MAX_BYTES, REMIND_DAY_CHOICES } from '../../src/config';
+import { DEFAULT_REMIND_DAYS, FOLDERS_ENABLED, MAX_TAGS, NAME_MAX_LENGTH, PDF_MAX_BYTES, PERSON_NAME_MAX_LENGTH, REMIND_DAY_CHOICES } from '../../src/config';
 import { parseRemindDays } from '../../src/cards/validate';
 import { findFolderNamed } from '../../src/folders/names';
+import { personName as parsePersonName, samePersonName } from '../../src/people/names';
 import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
@@ -377,7 +378,7 @@ export default function EditCard() {
         fields = { ...fields, folderId: folder.id };
       }
       if (plan.newPerson) {
-        const person = (await services.store.listPeople()).find((item) => item.name.toLocaleLowerCase() === plan.newPerson!.toLocaleLowerCase())
+        const person = (await services.store.listPeople()).find((item) => samePersonName(item.name, plan.newPerson!))
           ?? (await services.store.createPerson(plan.newPerson));
         fields = { ...fields, personId: person.id };
       }
@@ -642,15 +643,15 @@ export default function EditCard() {
             )}
             <Field label={strings.people.person}>
               {namingPerson ? <View style={{ gap: 8 }}>
-                <TextInput value={personName} onChangeText={setPersonName} maxLength={60} autoFocus
+                <TextInput value={personName} onChangeText={setPersonName} maxLength={PERSON_NAME_MAX_LENGTH} autoFocus
                   accessibilityLabel={strings.people.name} placeholder={strings.people.name}
                   placeholderTextColor={theme.muted} style={inputStyle} testID="person-name" />
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Button variant="secondary" label={strings.common.cancel} onPress={() => setNamingPerson(false)} />
                   <Button label={strings.people.create} onPress={() => {
-                    const name = personName.trim();
+                    const name = parsePersonName(personName);
                     if (!name) return;
-                    const existingPerson = people.find((person) => person.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+                    const existingPerson = people.find((person) => samePersonName(person.name, name));
                     update(existingPerson ? { personId: existingPerson.id, newPersonName: null } : { personId: null, newPersonName: name });
                     setNamingPerson(false);
                   }} testID="person-create" />

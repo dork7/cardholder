@@ -3,6 +3,7 @@ import { ImportEntry } from '../cards/cardStore';
 import { Card, CardImage, Folder, Person, looksVertical, PdfDocument } from '../cards/types';
 import { validateCardFields } from '../cards/validate';
 import { normalizeTags } from '../cards/tags';
+import { personName } from '../people/names';
 import { FOLDER_NAME_MAX_LENGTH, MAX_TAGS, PBKDF2_ITERATIONS, TAG_MAX_LENGTH } from '../config';
 import { createAead } from '../crypto/aead';
 import { concat, utf8 } from '../crypto/bytes';
@@ -126,9 +127,9 @@ function parseFolder(v: unknown, seen: Set<string>): Folder {
 }
 
 function parsePerson(v: unknown, seen: Set<string>): Person {
-  if (!isObject(v) || typeof v.id !== 'string' || !ID_PATTERN.test(v.id) || !isNumber(v.createdAt) || typeof v.name !== 'string') invalid();
-  const name = v.name.trim();
-  if (!name || [...name].length > 60 || seen.has(v.id.toLowerCase())) invalid();
+  if (!isObject(v) || typeof v.id !== 'string' || !ID_PATTERN.test(v.id) || !isNumber(v.createdAt)) invalid();
+  const name = personName(v.name);
+  if (!name || seen.has(v.id.toLowerCase())) invalid();
   seen.add(v.id.toLowerCase());
   return { id: v.id, name, createdAt: v.createdAt };
 }

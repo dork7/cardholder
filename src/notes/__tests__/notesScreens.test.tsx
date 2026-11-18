@@ -97,6 +97,20 @@ test('note editor adds a tag and Notes filters by that tag', async () => {
   expect(screen.queryByTestId('note-b')).toBeNull();
 });
 
+test('a ninth note tag explains the limit and keeps the new-tag input open', async () => {
+  await mockServices.notes.save('a', { title: 'Passport steps', body: 'Call embassy' });
+  await mockServices.notes.setTags('a', Array.from({ length: 8 }, (_, i) => `Tag ${i}`));
+  mockId = 'a';
+  await render(<NoteScreen />);
+  await screen.findByTestId('note-body');
+  await fireEvent.press(screen.getByTestId('tag-add'));
+  await fireEvent.changeText(screen.getByTestId('new-tag-name'), 'Extra');
+  await fireEvent.press(screen.getByTestId('new-tag-submit'));
+  expect(alert).toHaveBeenLastCalledWith(strings.tags.tooManyTitle, strings.notes.tooManyTags(8));
+  expect(screen.getByTestId('new-tag-name').props.value).toBe('Extra');
+  expect((await mockServices.notes.get('a'))?.tags).toHaveLength(8);
+});
+
 test.each([['Title only', ''], ['', 'Body only\nwith another line']])('creates and reopens plain text: %s', async (title, body) => {
   await render(<NoteScreen />);
   await write(title, body);

@@ -53,6 +53,16 @@ export interface NoteStore {
 const INSERT = 'INSERT INTO notes (id, pinned, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?)';
 const seal = (aead: Aead, fields: NoteFields & { reminderAt?: number; tags?: string[]; documentId?: string | null }) => aead.seal(utf8.encode(JSON.stringify({ title: fields.title, body: fields.body, ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), tags: fields.tags ?? [], documentId: fields.documentId ?? null })));
 
+// Note editors and document deletion share this queue, so a late note save cannot restore a link
+// after the document has been moved to Recently deleted.
+const writeTails = new WeakMap<SqlDb, Promise<unknown>>();
+export function queueNoteWrite<T>(db: SqlDb, run: () => Promise<T>): Promise<T> {
+  const next = (writeTails.get(db) ?? Promise.resolve()).then(run);
+  writeTails.set(db, next.catch(() => {}));
+  return next;
+}
+const waitForWrites = (db: SqlDb) => writeTails.get(db) ?? Promise.resolve();
+
 async function changed(db: SqlDb, at: number) {
   // A deletion must count as a change too, even if there are no notes left.
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('notesChangedAt', ?)", [String(at)]);
@@ -61,13 +71,15 @@ async function changed(db: SqlDb, at: number) {
 // Called inside the document import's transaction so notes and document rows commit together.
 // When the notes left on the phone are exactly the backup's, they changed no later than the backup
 // (backedUpAt), so Settings doesn't report the notes just restored as changed since that backup.
-export async function importNotes(db: SqlDb, aead: Aead, notes: readonly Note[], replace: boolean, backedUpAt?: number) {
+export async function importNotes(db: SqlDb, aead: Aead, notes: readonly Note[], replace: boolean, backedUpAt?: number, incomingCardIds: ReadonlySet<string> = new Set()) {
   const matchesBackup = replace || !(await db.getFirstAsync('SELECT id FROM notes LIMIT 1', []));
   if (replace) await db.runAsync('DELETE FROM notes', []);
   let inserted = 0;
   for (const note of notes) {
     if (await db.getFirstAsync('SELECT id FROM notes WHERE id = ?', [note.id])) continue;
-    await db.runAsync(INSERT, [note.id, note.pinned ? 1 : 0, seal(aead, note), note.createdAt, note.updatedAt]);
+    const linked = note.documentId && (incomingCardIds.has(note.documentId) || await db.getFirstAsync('SELECT id FROM cards WHERE id = ? AND deleted_at IS NULL', [note.documentId]));
+    const safeNote = linked ? note : { ...note, documentId: null };
+    await db.runAsync(INSERT, [note.id, note.pinned ? 1 : 0, seal(aead, safeNote), note.createdAt, note.updatedAt]);
     inserted++;
   }
   if (replace || inserted) await changed(db, matchesBackup && backedUpAt !== undefined ? backedUpAt : Date.now());
@@ -101,17 +113,12 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
     return row ? decode(row) : null;
   };
   // Editors, pin actions and deletes share one queue: no old write can resurrect a deleted note.
-  let tail: Promise<unknown> = Promise.resolve();
-  const write = <T>(run: () => Promise<T>): Promise<T> => {
-    const next = tail.then(run);
-    tail = next.catch(() => {});
-    return next;
-  };
+  const write = <T>(run: () => Promise<T>): Promise<T> => queueNoteWrite(db, run);
   return {
     newId,
     get,
     async list() {
-      await tail;
+      await waitForWrites(db);
       const rows = await db.getAllAsync<Row>('SELECT * FROM notes', []);
       return findNotes(rows.map(decode));
     },
@@ -181,7 +188,7 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
       });
     }),
     async lastChangeAt() {
-      await tail;
+      await waitForWrites(db);
       const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'notesChangedAt'", []);
       return row ? Number(row.value) : null;
     },
