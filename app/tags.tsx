@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { removeTagEverywhere } from '../src/cards/batch';
-import { allTags, cardsWithTag } from '../src/cards/tags';
+import { allTags, cardsWithTag, sameTag } from '../src/cards/tags';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { Panel, Screen } from '../src/ui/Surface';
@@ -12,18 +12,24 @@ import { TYPE, useTheme } from '../src/ui/theme';
 // Every tag in use, and how many cards have it. Deleting one takes it off those cards; the cards are
 // kept. New tags are made where a card is tagged: its edit screen, its own screen, or the gallery.
 export default function TagsScreen() {
-  const { services, cards, refresh } = useApp();
+  const { services, cards, notes = [], refresh } = useApp();
   const theme = useTheme();
   const [busy, setBusy] = useState(false);
-  const tags = allTags(cards);
+  const tags = allTags([...cards, ...notes]);
+  const notesWithTag = (tag: string) => notes.filter((note) => note.tags.some((value) => sameTag(value, tag)));
 
   const remove = async (tag: string) => {
     if (busy) return;
     setBusy(true);
     try {
       const failed = await removeTagEverywhere(services.store, cards, tag);
-      if (failed > 0) {
-        const { title, body } = strings.errors.removeTag(failed);
+      let noteFailures = 0;
+      for (const note of notesWithTag(tag)) {
+        try { await services.notes.setTags(note.id, note.tags.filter((value) => !sameTag(value, tag))); }
+        catch { noteFailures++; }
+      }
+      if (failed + noteFailures > 0) {
+        const { title, body } = strings.tagsScreen.removeFailed(failed + noteFailures);
         Alert.alert(title, body);
       }
     } finally {
@@ -33,7 +39,7 @@ export default function TagsScreen() {
   };
 
   const confirmDelete = (tag: string) =>
-    Alert.alert(strings.tagsScreen.deleteConfirmTitle(tag), strings.tagsScreen.deleteConfirmBody(cardsWithTag(tag, cards).length), [
+    Alert.alert(strings.tagsScreen.deleteConfirmTitle(tag), strings.tagsScreen.deleteConfirmBody(cardsWithTag(tag, cards).length, notesWithTag(tag).length), [
       { text: strings.common.cancel, style: 'cancel' },
       { text: strings.common.delete, style: 'destructive', onPress: () => void remove(tag) },
     ]);
@@ -51,7 +57,7 @@ export default function TagsScreen() {
           <Panel key={tag} style={styles.row}>
             <View style={styles.text}>
               <Text style={[styles.title, { color: theme.text }]}>{tag}</Text>
-              <Text style={[styles.caption, { color: theme.muted }]}>{strings.folders.count(cardsWithTag(tag, cards).length)}</Text>
+              <Text style={[styles.caption, { color: theme.muted }]}>{strings.tagsScreen.count(cardsWithTag(tag, cards).length, notesWithTag(tag).length)}</Text>
             </View>
             <Button
               variant="danger"

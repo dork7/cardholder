@@ -2,6 +2,8 @@ import { Aead } from '../crypto/aead';
 import { toHex, utf8 } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
 import { SqlDb } from '../storage/sqlDb';
+import { normalizeTags } from '../cards/tags';
+import { MAX_TAGS, TAG_MAX_LENGTH } from '../config';
 
 export interface NoteFields {
   title: string;
@@ -12,15 +14,17 @@ export interface Note extends NoteFields {
   id: string;
   pinned: boolean;
   reminderAt?: number; // Date and time, sealed with the content.
+  tags: string[];
+  documentId: string | null;
   createdAt: number;
   updatedAt: number; // Content edits only; pinning does not reorder peers.
 }
 
 export const isBlankNote = (fields: NoteFields) => !fields.title.trim() && !fields.body.trim();
 
-export function findNotes(notes: readonly Note[], query = ''): Note[] {
+export function findNotes(notes: readonly Note[], query = '', tag: string | null = null): Note[] {
   const needle = query.trim().toLowerCase();
-  return notes.filter((note) => !needle || `${note.title}\n${note.body}`.toLowerCase().includes(needle)).sort(
+  return notes.filter((note) => (!tag || note.tags.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase())) && (!needle || `${note.title}\n${note.body}`.toLowerCase().includes(needle))).sort(
     (a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   );
 }
@@ -40,12 +44,14 @@ export interface NoteStore {
   remove(id: string): Promise<void>;
   setPinned(id: string, pinned: boolean): Promise<void>;
   setReminder(id: string, at: number | null): Promise<void>;
+  setTags(id: string, tags: string[]): Promise<void>;
+  setDocument(id: string, documentId: string | null): Promise<void>;
   lastChangeAt(): Promise<number | null>;
   newId(): string;
 }
 
 const INSERT = 'INSERT INTO notes (id, pinned, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?)';
-const seal = (aead: Aead, fields: NoteFields & { reminderAt?: number }) => aead.seal(utf8.encode(JSON.stringify({ title: fields.title, body: fields.body, ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }) })));
+const seal = (aead: Aead, fields: NoteFields & { reminderAt?: number; tags?: string[]; documentId?: string | null }) => aead.seal(utf8.encode(JSON.stringify({ title: fields.title, body: fields.body, ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), tags: fields.tags ?? [], documentId: fields.documentId ?? null })));
 
 async function changed(db: SqlDb, at: number) {
   // A deletion must count as a change too, even if there are no notes left.
@@ -67,6 +73,19 @@ export async function importNotes(db: SqlDb, aead: Aead, notes: readonly Note[],
   if (replace || inserted) await changed(db, matchesBackup && backedUpAt !== undefined ? backedUpAt : Date.now());
 }
 
+// A deleted document never leaves a dangling note link. Notes themselves remain available.
+export async function unlinkNotesFromDocument(db: SqlDb, aead: Aead, documentId: string, at: number) {
+  let changedAny = false;
+  const rows = await db.getAllAsync<Row>('SELECT * FROM notes', []);
+  for (const row of rows) {
+    const fields = JSON.parse(utf8.decode(aead.open(row.payload))) as NoteFields & { documentId?: string | null };
+    if (fields.documentId !== documentId) continue;
+    await db.runAsync('UPDATE notes SET payload = ? WHERE id = ?', [seal(aead, { ...fields, documentId: null }), row.id]);
+    changedAny = true;
+  }
+  if (changedAny) await changed(db, at);
+}
+
 export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(engine.randomBytes(16)) }: {
   db: SqlDb;
   aead: Aead;
@@ -74,8 +93,8 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
   newId?: () => string;
 }): NoteStore {
   const decode = (row: Row): Note => {
-    const fields = JSON.parse(utf8.decode(aead.open(row.payload))) as NoteFields & { reminderAt?: number };
-    return { ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), id: row.id, title: fields.title, body: fields.body, pinned: row.pinned === 1, createdAt: row.created_at, updatedAt: row.updated_at };
+    const fields = JSON.parse(utf8.decode(aead.open(row.payload))) as NoteFields & { reminderAt?: number; tags?: string[]; documentId?: string | null };
+    return { ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), id: row.id, title: fields.title, body: fields.body, tags: normalizeTags(Array.isArray(fields.tags) ? fields.tags : []), documentId: typeof fields.documentId === 'string' ? fields.documentId : null, pinned: row.pinned === 1, createdAt: row.created_at, updatedAt: row.updated_at };
   };
   const get = async (id: string) => {
     const row = await db.getFirstAsync<Row>('SELECT * FROM notes WHERE id = ?', [id]);
@@ -101,7 +120,7 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
       const previous = await get(id);
       if (previous && previous.title === fields.title && previous.body === fields.body) return previous;
       const at = Math.max(now(), (previous?.updatedAt ?? 0) + 1);
-      const note: Note = { ...fields, ...(previous?.reminderAt !== undefined && { reminderAt: previous.reminderAt }), id, pinned: previous?.pinned ?? false, createdAt: previous?.createdAt ?? at, updatedAt: at };
+      const note: Note = { ...fields, ...(previous?.reminderAt !== undefined && { reminderAt: previous.reminderAt }), tags: previous?.tags ?? [], documentId: previous?.documentId ?? null, id, pinned: previous?.pinned ?? false, createdAt: previous?.createdAt ?? at, updatedAt: at };
       await db.withTransactionAsync(async () => {
         if (previous) {
           await db.runAsync('UPDATE notes SET payload = ?, updated_at = ? WHERE id = ?', [seal(aead, note), at, id]);
@@ -137,6 +156,27 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
       else note.reminderAt = at;
       await db.withTransactionAsync(async () => {
         await db.runAsync('UPDATE notes SET payload = ? WHERE id = ?', [seal(aead, note), id]);
+        await changed(db, now());
+      });
+    }),
+    setTags: (id, tags) => write(async () => {
+      const normalized = normalizeTags(tags);
+      if (normalized.length > MAX_TAGS || normalized.some((tag) => [...tag].length > TAG_MAX_LENGTH)) throw new Error('Invalid note tags');
+      const note = await get(id);
+      if (!note) throw new Error('Note not found');
+      if (JSON.stringify(note.tags) === JSON.stringify(normalized)) return;
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('UPDATE notes SET payload = ? WHERE id = ?', [seal(aead, { ...note, tags: normalized }), id]);
+        await changed(db, now());
+      });
+    }),
+    setDocument: (id, documentId) => write(async () => {
+      if (documentId !== null && !(await db.getFirstAsync('SELECT id FROM cards WHERE id = ? AND deleted_at IS NULL', [documentId]))) throw new Error('Document not found');
+      const note = await get(id);
+      if (!note) throw new Error('Note not found');
+      if (note.documentId === documentId) return;
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('UPDATE notes SET payload = ? WHERE id = ?', [seal(aead, { ...note, documentId }), id]);
         await changed(db, now());
       });
     }),

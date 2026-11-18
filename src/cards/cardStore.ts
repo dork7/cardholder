@@ -1,4 +1,4 @@
-import { importNotes, Note } from '../notes/noteStore';
+import { importNotes, Note, unlinkNotesFromDocument } from '../notes/noteStore';
 import { Aead } from '../crypto/aead';
 import { base64, toHex, utf8 } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
@@ -8,7 +8,7 @@ import { sortCards } from './listing';
 import { DAY_MS, DEFAULT_REMIND_DAYS, RECENTLY_DELETED_DAYS } from '../config';
 import { parseRemindDays, toCardText } from './validate';
 import { withLegacyCategory } from './tags';
-import { Card, CardFields, CardPdf, DeletedCard, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument } from './types';
+import { Card, CardFields, CardPdf, DeletedCard, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument, Person } from './types';
 
 export class FolderNotFoundError extends Error {
   constructor(id: string) {
@@ -56,12 +56,16 @@ export interface CardStore {
   setPinned(id: string, pinned: boolean): Promise<void>;
   reorderPinned(orderedIds: string[]): Promise<void>;
   // Folders given here are written with the cards; ones already on the phone keep their name.
-  insertMany(entries: ImportEntry[], options: { replace: boolean; folders?: Folder[]; notes?: Note[]; notesBackedUpAt?: number }): Promise<void>;
+  insertMany(entries: ImportEntry[], options: { replace: boolean; folders?: Folder[]; people?: Person[]; notes?: Note[]; notesBackedUpAt?: number }): Promise<void>;
   listFolders(): Promise<Folder[]>;
   createFolder(name: string): Promise<Folder>;
   renameFolder(id: string, name: string): Promise<Folder>;
   // Its cards stay, outside any folder.
   removeFolder(id: string): Promise<void>;
+  listPeople(): Promise<Person[]>;
+  createPerson(name: string): Promise<Person>;
+  renamePerson(id: string, name: string): Promise<Person>;
+  removePerson(id: string): Promise<void>;
 }
 
 export interface CardStoreDeps {
@@ -77,6 +81,7 @@ interface Row {
   pinned: number;
   position: number;
   folder_id: string | null;
+  person_id: string | null;
   payload: Uint8Array;
   created_at: number;
   updated_at: number;
@@ -90,14 +95,15 @@ interface FolderRow {
 }
 
 // Everything about a card except what SQL needs for ordering is sealed in the payload.
-type Payload = Omit<Card, 'id' | 'pinned' | 'position' | 'folderId' | 'createdAt' | 'updatedAt'>;
+type Payload = Omit<Card, 'id' | 'pinned' | 'position' | 'folderId' | 'personId' | 'createdAt' | 'updatedAt'>;
 
 type BlobKind = ImageSide | 'pdf';
 const KINDS: BlobKind[] = ['front', 'back', 'thumb', 'pdf'];
 const INSERT_SQL =
-  'INSERT INTO cards (id, pinned, position, folder_id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
+  'INSERT INTO cards (id, pinned, position, folder_id, person_id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 const CURRENT = 'deleted_at IS NULL';
 const INSERT_FOLDER_SQL = 'INSERT INTO folders (id, payload, created_at) VALUES (?, ?, ?)';
+const INSERT_PERSON_SQL = 'INSERT INTO people (id, payload, created_at) VALUES (?, ?, ?)';
 
 export const blobName = (id: string, kind: BlobKind) => `${id}.${kind}`;
 
@@ -157,6 +163,7 @@ export function createCardStore({
       pinned: row.pinned === 1,
       position: row.position,
       folderId: row.folder_id ?? null,
+      personId: row.person_id ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -169,6 +176,9 @@ export function createCardStore({
     createdAt: row.created_at,
   });
   const folderName = (name: string) => name.trim();
+  const markDocumentsChanged = () => db.runAsync("INSERT INTO settings (key, value) VALUES ('documentsChangedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(now())]);
+  const sealPerson = (person: Person) => aead.seal(utf8.encode(JSON.stringify({ name: person.name })));
+  const toPerson = (row: FolderRow): Person => ({ id: row.id, name: (JSON.parse(utf8.decode(aead.open(row.payload))) as { name: string }).name, createdAt: row.created_at });
 
   const getRow = (id: string) => db.getFirstAsync<Row>(`SELECT * FROM cards WHERE id = ? AND ${CURRENT}`, [id]);
 
@@ -225,6 +235,10 @@ export function createCardStore({
   };
 
   const ids = async () => (await db.getAllAsync<{ id: string }>('SELECT id FROM cards', [])).map((r) => r.id);
+  const listPeople = async (): Promise<Person[]> => {
+    const rows = await db.getAllAsync<FolderRow>('SELECT * FROM people', []);
+    return rows.map(toPerson).sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }) || a.id.localeCompare(b.id));
+  };
 
   return {
     list: listCards,
@@ -266,7 +280,7 @@ export function createCardStore({
         createdAt: t,
         updatedAt: t,
       };
-      await db.runAsync(INSERT_SQL, [card.id, card.pinned ? 1 : 0, card.position, card.folderId, seal(card), t, t]);
+      await db.runAsync(INSERT_SQL, [card.id, card.pinned ? 1 : 0, card.position, card.folderId, card.personId, seal(card), t, t]);
       return card;
     },
 
@@ -294,8 +308,9 @@ export function createCardStore({
         // Strictly increasing so image caches keyed on updatedAt never serve a stale picture.
         updatedAt: Math.max(now(), current.updatedAt + 1),
       };
-      await db.runAsync('UPDATE cards SET folder_id = ?, payload = ?, updated_at = ? WHERE id = ?', [
+      await db.runAsync('UPDATE cards SET folder_id = ?, person_id = ?, payload = ?, updated_at = ? WHERE id = ?', [
         next.folderId,
+        next.personId,
         seal(next),
         next.updatedAt,
         id,
@@ -309,6 +324,7 @@ export function createCardStore({
         if (!row || row.deleted_at !== null) return;
         const at = now();
         await db.runAsync(`UPDATE cards SET deleted_at = ? WHERE id = ? AND ${CURRENT}`, [at, id]);
+        await unlinkNotesFromDocument(db, aead, id, at);
         await db.runAsync("INSERT INTO settings (key, value) VALUES ('documentsChangedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(at)]);
       });
     },
@@ -356,7 +372,7 @@ export function createCardStore({
       });
     },
 
-    async insertMany(entries, { replace, folders = [], notes, notesBackedUpAt }) {
+    async insertMany(entries, { replace, folders = [], people = [], notes, notesBackedUpAt }) {
       const existingBefore = new Set(await ids());
       const previousIds = replace ? [...existingBefore] : [];
       const newBlobIds: string[] = [];
@@ -377,10 +393,15 @@ export function createCardStore({
           if (replace) {
             await db.runAsync('DELETE FROM cards', []);
             await db.runAsync('DELETE FROM folders', []);
+            await db.runAsync('DELETE FROM people', []);
           }
           for (const folder of folders) {
             const exists = await db.getFirstAsync('SELECT id FROM folders WHERE id = ?', [folder.id]);
             if (!exists) await db.runAsync(INSERT_FOLDER_SQL, [folder.id, sealFolder(folder), folder.createdAt]);
+          }
+          for (const person of people) {
+            const exists = await db.getFirstAsync('SELECT id FROM people WHERE id = ?', [person.id]);
+            if (!exists) await db.runAsync(INSERT_PERSON_SQL, [person.id, sealPerson(person), person.createdAt]);
           }
           if (notes !== undefined) await importNotes(db, aead, notes, replace, notesBackedUpAt);
           for (const { card } of entries) {
@@ -390,6 +411,7 @@ export function createCardStore({
               stored.pinned ? 1 : 0,
               stored.position,
               stored.folderId,
+              stored.personId,
               seal(stored),
               stored.createdAt,
               stored.updatedAt,
@@ -444,6 +466,38 @@ export function createCardStore({
       await db.withTransactionAsync(async () => {
         await db.runAsync('UPDATE cards SET folder_id = NULL WHERE folder_id = ?', [id]);
         await db.runAsync('DELETE FROM folders WHERE id = ?', [id]);
+      });
+    },
+    listPeople,
+    async createPerson(name) {
+      const trimmed = name.trim();
+      if (!trimmed || [...trimmed].length > 60) throw new Error('Invalid person name');
+      if ((await listPeople()).some((person) => person.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) throw new Error('Person already exists');
+      const person = { id: newId(), name: trimmed, createdAt: now() };
+      await db.withTransactionAsync(async () => {
+        await db.runAsync(INSERT_PERSON_SQL, [person.id, sealPerson(person), person.createdAt]);
+        await markDocumentsChanged();
+      });
+      return person;
+    },
+    async renamePerson(id, name) {
+      const trimmed = name.trim();
+      if (!trimmed || [...trimmed].length > 60) throw new Error('Invalid person name');
+      if ((await listPeople()).some((person) => person.id !== id && person.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) throw new Error('Person already exists');
+      const row = await db.getFirstAsync<FolderRow>('SELECT * FROM people WHERE id = ?', [id]);
+      if (!row) throw new Error('Person not found');
+      const person = { ...toPerson(row), name: trimmed };
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('UPDATE people SET payload = ? WHERE id = ?', [sealPerson(person), id]);
+        await markDocumentsChanged();
+      });
+      return person;
+    },
+    async removePerson(id) {
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('UPDATE cards SET person_id = NULL WHERE person_id = ?', [id]);
+        await db.runAsync('DELETE FROM people WHERE id = ?', [id]);
+        await markDocumentsChanged();
       });
     },
   };

@@ -13,6 +13,7 @@ export const fieldsOf = (card: Card): CardFields => ({
   tags: card.tags,
   documentKey: card.documentKey,
   folderId: card.folderId,
+  personId: card.personId,
   readText: card.readText,
   vertical: card.vertical,
   blurPreview: card.blurPreview,

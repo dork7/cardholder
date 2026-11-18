@@ -11,9 +11,11 @@ export interface EditDraft {
   tags: string[];
   documentKey: string | null;
   folderId: string | null;
+  personId: string | null;
   readText: CardText | null; // see CardFields; set as each photo is read
   unreadSides: (keyof CardText)[]; // sides with a photo not read yet; saved as unread so it's read later
   newFolderName: string | null; // a folder to create on save and put the card in; folderId is then null
+  newPersonName: string | null; // a person to create on save
   front: FrontImage | null; // newly captured only; for a PDF, its cover page
   back: CardImage | null; // newly captured only
   removeBack: boolean;
@@ -28,8 +30,8 @@ export type SaveError = FieldError | 'front-required';
 export type SavePlan =
   | { kind: 'invalid'; errors: SaveError[] }
   | { kind: 'limit-reached' }
-  | { kind: 'create'; fields: CardFields; images: NewCardImages; newFolder: string | null }
-  | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges; newFolder: string | null };
+  | { kind: 'create'; fields: CardFields; images: NewCardImages; newFolder: string | null; newPerson: string | null }
+  | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges; newFolder: string | null; newPerson: string | null };
 
 // Whether the user changed anything that closing the form would lose. The text read off the photos and
 // the document key follow from the photos, so they don't count on their own. Every edit replaces only
@@ -62,11 +64,13 @@ export function draftFor(card: Card | null): EditDraft {
     tags: card?.tags ?? [],
     documentKey: card?.documentKey ?? null,
     folderId: card?.folderId ?? null,
+    personId: card?.personId ?? null,
     readText: card?.readText ?? null,
     // A card never read is read in full later (readUnreadCards). Only sides that have a photo count,
     // so reading the one photo of a front-only card is enough to save it as read.
     unreadSides: unreadSidesOf(card),
     newFolderName: null,
+    newPersonName: null,
     front: null,
     back: null,
     removeBack: false,
@@ -98,7 +102,7 @@ export function planSave(
     else if (draft.removeBack) changes.back = null;
     if (draft.pdf) changes.pdf = draft.pdf;
     else if (draft.removePdf) changes.pdf = null;
-    return { kind: 'update', id: ctx.existing.id, fields, changes, newFolder: draft.newFolderName };
+    return { kind: 'update', id: ctx.existing.id, fields, changes, newFolder: draft.newFolderName, newPerson: draft.newPersonName };
   }
 
   if (!canAddCard(ctx.cardCount, ctx.unlocked)) return { kind: 'limit-reached' };
@@ -108,6 +112,7 @@ export function planSave(
     fields,
     images: { front: draft.front as FrontImage, back: draft.back, ...(draft.pdf && { pdf: draft.pdf }) },
     newFolder: draft.newFolderName,
+    newPerson: draft.newPersonName,
   };
 }
 

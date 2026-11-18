@@ -23,6 +23,21 @@ test.each([false, true])('encrypted notes backup round trip, with documents: %s'
   expect(await b.store.list()).toEqual(await a.store.list());
 });
 
+test('backup preserves family profiles, note tags and document links', async () => {
+  const a = await makeStore();
+  const person = await a.store.createPerson('Sara');
+  const card = await a.store.create(fields({ name: 'Passport', personId: person.id }), images('passport'));
+  await a.notes.save('visa', { title: 'Visa details', body: 'Call embassy' });
+  await a.notes.setTags('visa', ['Travel']);
+  await a.notes.setDocument('visa', card.id);
+  const encrypted = await encodeBackup(await buildSnapshot(a.store, 42, a.notes), secret, { iterations: 1_000 });
+  const b = await makeStore();
+  await applySnapshot(b.store, await decodeBackup(encrypted, secret), 'replace', b.notes);
+  expect(await b.store.listPeople()).toEqual([person]);
+  expect(await b.store.get(card.id)).toMatchObject({ personId: person.id });
+  expect(await b.notes.get('visa')).toMatchObject({ tags: ['Travel'], documentId: card.id });
+});
+
 test('merge keeps notes with matching IDs and adds missing notes', async () => {
   const a = await makeStore();
   await a.notes.save('same', { title: '', body: 'From backup' });

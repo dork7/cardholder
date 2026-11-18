@@ -43,6 +43,7 @@ export default function FoldersScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.caption, { color: theme.muted }]}>{strings.folders.intro}</Text>
         <Panel style={styles.section}>
           {naming === 'new' ? (
             <FolderNameInput

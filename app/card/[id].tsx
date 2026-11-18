@@ -11,6 +11,7 @@ import { ZoomableImage } from '../../src/ui/ZoomableImage';
 import { Button } from '../../src/ui/Button';
 import { IconButton } from '../../src/ui/IconButton';
 import { ActionSheet } from '../../src/ui/ActionSheet';
+import { Sheet } from '../../src/ui/Sheet';
 import { Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { TRACKING, TYPE, useTheme } from '../../src/ui/theme';
@@ -41,7 +42,7 @@ import { UndoBar } from '../../src/ui/UndoBar';
 
 export default function CardView() {
   const { id, show } = useLocalSearchParams<{ id: string; show?: string }>();
-  const { cards, folders, services, refresh, undo, cardBrightness } = useApp();
+  const { cards, folders, notes = [], people = [], services, refresh, undo, cardBrightness } = useApp();
   const confirmIdShare = useConfirmIdShare();
   const router = useRouter();
   const theme = useTheme();
@@ -57,6 +58,7 @@ export default function CardView() {
   // The photos, or the card's details and scanned text as the Markdown file it can be saved as.
   const [view, setView] = useState<'card' | 'details'>('card');
   const [tagging, setTagging] = useState(false);
+  const [linkingNote, setLinkingNote] = useState(false);
   const [more, setMore] = useState(false);
   const [recreating, setRecreating] = useState(false);
 
@@ -96,6 +98,18 @@ export default function CardView() {
     });
 
   const markdown = cardMarkdown(card, folders);
+  const owner = people.find((person) => person.id === card.personId);
+  const linkedNotes = notes.filter((note) => note.documentId === card.id);
+  const linkNote = async (noteId: string) => {
+    try {
+      await services.notes.setDocument(noteId, card.id);
+      await refresh();
+      setLinkingNote(false);
+    } catch (e) {
+      console.warn('Linking note failed', e);
+      Alert.alert(strings.notes.failed);
+    }
+  };
   const saveMarkdown = () =>
     confirmIfId(() =>
       shareCardMarkdown(card, markdown).catch((e) => {
@@ -240,6 +254,7 @@ export default function CardView() {
               />
             )}
             <View pointerEvents="box-none" style={[styles.staffOverlay, { bottom: insets.bottom + 8, start: insets.left + 8, end: insets.right + 8 }]}>
+              {owner && <Text style={[styles.hint, { color: theme.text, backgroundColor: theme.surface }]}>{strings.people.belongsTo(owner.name)}</Text>}
               {holdHint && (
                 <LiveText style={[styles.hint, { color: theme.text, backgroundColor: theme.surface }]}>
                   {strings.card.staffHoldReminder}
@@ -341,6 +356,7 @@ export default function CardView() {
                 {expiryLabel(card, now)}
               </Text>
             </View>
+            {owner && <Text style={[styles.meta, { color: theme.muted }]}>{strings.people.belongsTo(owner.name)}</Text>}
             {!staff && (
               <View style={styles.tags} testID="card-tags">
                 {card.tags.map((tag) => (
@@ -377,6 +393,13 @@ export default function CardView() {
               <Text selectable style={[styles.markdown, { color: theme.text }]} testID="card-markdown">
                 {markdown}
               </Text>
+              <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{strings.notes.title}</Text>
+              {linkedNotes.map((note) => <Button key={note.id} variant="secondary" label={note.title.trim() || strings.notes.untitled}
+                onPress={() => router.push(`/note/${note.id}`)} testID={`linked-note-${note.id}`} />)}
+              <Button variant="secondary" label={strings.notes.addLinkedNote}
+                onPress={() => router.push(`/note/new?documentId=${card.id}`)} testID="add-linked-note" />
+              <Button variant="secondary" label={strings.notes.linkExistingNote}
+                onPress={() => setLinkingNote(true)} testID="link-existing-note" />
             </ScrollView>
           </Panel>
           <View style={styles.detailsActions}>
@@ -435,10 +458,19 @@ export default function CardView() {
       <TagSheet
         visible={tagging}
         title={strings.tags.titleOne}
-        existing={tagOptions(cards).filter((t) => !hasTag(card, t))}
+        existing={tagOptions([...cards, ...notes]).filter((t) => !hasTag(card, t))}
         onApply={addTagsToCard}
         onClose={() => setTagging(false)}
       />
+      <Sheet visible={linkingNote} onClose={() => setLinkingNote(false)} testID="link-note-sheet">
+        <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{strings.notes.linkExistingNote}</Text>
+        <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ gap: 8 }}>
+          {notes.filter((note) => note.documentId !== card.id).map((note) =>
+            <Button key={note.id} variant="secondary" label={note.title.trim() || strings.notes.untitled}
+              onPress={() => void linkNote(note.id)} testID={`link-note-${note.id}`} />)}
+        </ScrollView>
+        <Button variant="secondary" label={strings.common.cancel} onPress={() => setLinkingNote(false)} />
+      </Sheet>
     </Screen>
   );
 }

@@ -26,9 +26,10 @@ test('a valid new card within the free limit is created', () => {
   const plan = planSave({ ...draftFor(null), name: ' Gym ', tags: ['Membership'], front }, free);
   expect(plan).toEqual({
     kind: 'create',
-    fields: { name: 'Gym', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
+    fields: { name: 'Gym', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, personId: null, readText: null, vertical: false, blurPreview: false },
     images: { front, back: null },
     newFolder: null,
+    newPerson: null,
   });
 });
 
@@ -44,9 +45,10 @@ test('editing is never limited and sends no image changes when none were made', 
   expect(plan).toEqual({
     kind: 'update',
     id: 'c9',
-    fields: { name: 'New', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, readText: null, vertical: false, blurPreview: false },
+    fields: { name: 'New', expiresOn: null, remindDaysBefore: 14, tags: ['Membership'], documentKey: null, folderId: null, personId: null, readText: null, vertical: false, blurPreview: false },
     changes: {},
     newFolder: null,
+    newPerson: null,
   });
 });
 
@@ -74,7 +76,9 @@ test('draftFor fills from an existing card', () => {
     expiresOn: '2027-01-01',
     remindDaysBefore: '14',
     folderId: null,
+    personId: null,
     newFolderName: null,
+    newPersonName: null,
     front: null,
     back: null,
     removeBack: false,

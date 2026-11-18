@@ -5,6 +5,7 @@ export interface CardFields {
   tags: string[]; // the groups the card is in, free-form, deduplicated ignoring case; [] when there are none
   documentKey: string | null; // hash of the document's own number, for spotting duplicates (src/analysis/documentKey.ts)
   folderId: string | null; // null when the card isn't in a folder
+  personId: string | null; // whose document this is, independent of folder and tags
   readText: CardText | null; // what was read off the photos, for search; null until the card has been read
   blurPreview: boolean; // blur pictures in home previews; the opened document stays readable
   vertical: boolean; // an upright card: shown turned on its side in the landscape slots of the home screen
@@ -23,6 +24,12 @@ export interface CardText {
 
 // A user-made group of cards. Its name is sealed like a card's; the id is random.
 export interface Folder {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+export interface Person {
   id: string;
   name: string;
   createdAt: number;

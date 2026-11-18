@@ -4,6 +4,8 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } f
 import { useApp } from '../src/app/AppProvider';
 import { NoteBody } from '../src/notes/NoteBody';
 import { findNotes, Note } from '../src/notes/noteStore';
+import { allTags } from '../src/cards/tags';
+import { TagChips } from '../src/ui/TagChips';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { Field, useInputStyle } from '../src/ui/Field';
@@ -21,6 +23,9 @@ export default function NotesScreen() {
   const inputStyle = useInputStyle();
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
+  const [tag, setTag] = useState<string | null>(null);
+  const presentTags = allTags(notes);
+  const activeTag = tag && presentTags.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase()) ? tag : null;
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -50,6 +55,7 @@ export default function NotesScreen() {
             autoCorrect={false} autoCapitalize="none" style={inputStyle} testID="notes-search" />
         </Field>
       </View>
+      {presentTags.length > 0 && <TagChips tags={presentTags} selected={activeTag ? [activeTag] : []} includeAll onPress={setTag} />}
       {saveFailed && <LiveText style={{ color: theme.danger, padding: 16 }}>{strings.notes.failed}</LiveText>}
       {loading ? <ActivityIndicator color={theme.accent} /> : failed ? (
         <View style={styles.search}>
@@ -57,7 +63,7 @@ export default function NotesScreen() {
           <Button label={strings.notes.retry} variant="secondary" onPress={() => void load()} />
         </View>
       ) : (
-        <FlatList data={findNotes(notes, query)} keyExtractor={(note) => note.id} keyboardShouldPersistTaps="handled"
+        <FlatList data={findNotes(notes, query, activeTag)} keyExtractor={(note) => note.id} keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View>
             <LiveText style={[styles.empty, { color: theme.muted }]}>{query.trim() ? strings.notes.noResults : strings.notes.empty}</LiveText>
@@ -70,6 +76,7 @@ export default function NotesScreen() {
               style={({ pressed }) => [{ minHeight: 48, justifyContent: 'center', backgroundColor: pressed ? theme.surface : theme.bg }]}>
               {item.pinned && <Text style={[styles.caption, { color: theme.muted }]}>{strings.notes.pinned}</Text>}
               <Text numberOfLines={2} style={[styles.title, { color: theme.text }]}>{item.title.trim() || strings.notes.untitled}</Text>
+              {!!item.tags.length && <Text style={[styles.caption, { color: theme.muted }]}>{item.tags.join(' · ')}</Text>}
             </Pressable>
             {!!item.body && <NoteBody body={item.body} disabled={saving} onChange={(body) => void toggleTask(item, body)} />}
             </View>

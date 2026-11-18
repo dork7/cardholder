@@ -288,6 +288,7 @@ test('cards saved before number and notes were removed still load, without them'
     tags: [], // saved before tags existed, under the retired Loyalty category
     documentKey: null,
     folderId: null,
+    personId: null,
     pinned: false,
     position: 0,
     hasBack: false,
@@ -299,6 +300,19 @@ test('cards saved before number and notes were removed still load, without them'
     createdAt: 1,
     updatedAt: 1,
   });
+});
+
+test('a person is distinct from folders and tags, and removing one keeps documents', async () => {
+  const { store, db } = await makeStore();
+  const person = await store.createPerson('Sara');
+  const card = await store.create(fields({ personId: person.id, tags: ['ID'] }), images('sara'));
+  expect(await store.listPeople()).toEqual([person]);
+  expect(await store.get(card.id)).toMatchObject({ personId: person.id, tags: ['ID'] });
+  const row = await db.getFirstAsync<{ payload: Uint8Array }>('SELECT payload FROM people WHERE id = ?', [person.id]);
+  expect(Buffer.from(row!.payload).toString()).not.toContain('Sara');
+  await store.removePerson(person.id);
+  expect(await store.get(card.id)).toMatchObject({ personId: null, tags: ['ID'] });
+  expect(await store.listPeople()).toEqual([]);
 });
 
 describe('folders', () => {

@@ -572,7 +572,7 @@ describe('reading the card from its photo', () => {
     expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3);
     await save();
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: 'Emirates ID', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: ['Insurance'], documentKey: KEY, folderId: null, readText: { front: 'UNITED ARAB EMIRATES', back: '' }, vertical: false, blurPreview: false },
+      { name: 'Emirates ID', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: ['Insurance'], documentKey: KEY, folderId: null, personId: null, readText: { front: 'UNITED ARAB EMIRATES', back: '' }, vertical: false, blurPreview: false },
       expect.anything(),
     );
   });
@@ -609,7 +609,7 @@ describe('reading the card from its photo', () => {
     await save();
     expect(mockUpdate).toHaveBeenCalledWith(
       'c1',
-      { name: 'Gym', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: ['Membership'], documentKey: KEY, folderId: null, readText: { front: '', back: '' }, vertical: false, blurPreview: false }, // blanks filled; the new front was read, and this card has no back
+      { name: 'Gym', expiresOn: '2030-11-09', remindDaysBefore: 14, tags: ['Membership'], documentKey: KEY, folderId: null, personId: null, readText: { front: '', back: '' }, vertical: false, blurPreview: false }, // blanks filled; the new front was read, and this card has no back
       expect.anything(),
     );
   });

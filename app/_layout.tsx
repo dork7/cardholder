@@ -67,6 +67,7 @@ function RootNavigator() {
          <Stack.Screen name="paywall" options={{ title: strings.paywall.title, presentation: 'modal' }} />
          <Stack.Screen name="folders" options={{ title: strings.folders.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="tags" options={{ title: strings.tagsScreen.title }} />
+         <Stack.Screen name="people" options={{ title: strings.people.title }} />
          <Stack.Screen name="recently-deleted" options={{ title: strings.recentlyDeleted.title }} />
          <Stack.Screen name="export" options={{ title: strings.export.title, presentation: 'modal' }} />
          <Stack.Screen name="import" options={{ title: strings.import.title, presentation: 'modal' }} />

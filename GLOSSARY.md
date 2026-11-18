@@ -25,10 +25,18 @@ The page of a PDF document chosen to show as its picture. Never called its front
 _Avoid_: thumbnail page, first page
 
 **Tag**:
-A group a document belongs to. A document can have several, or none. A few are offered to start
-with (ID, Insurance, Membership); the rest the user names (Car, Dad). A tag exists only while some
-document has it.
-_Avoid_: category, folder, type, label
+A topic used to find documents and notes. Either can have several tags, or none. A few are offered
+to start with (ID, Insurance, Membership); the rest the user names. A tag exists while at least one
+document or note has it.
+_Avoid_: category, type, label
+
+**Folder**:
+One place for a document in the user's filing system. A document can be in at most one folder;
+notes do not go in folders. Folders can exist while empty. Tags can cross folder boundaries.
+
+**Person**:
+The family member whose document it is. A document belongs to at most one person; the person's
+name is distinct from its folder and tags. Notes do not belong to a person.
 
 **Document text**:
 The words read from a document's photos or PDF, kept with it so it can be searched.
@@ -42,9 +50,10 @@ _Avoid_: trash, bin, recycle
 ## Keeping notes
 
 **Note**:
-Standalone text the user writes and keeps, with an optional title; separate from a document and
-from the Document text read from its photos or PDF.
-_Avoid_: document note, document text
+Text the user writes and keeps, with an optional title. A note may link to one document and have
+several tags, but remains its own item if that document is deleted. It is distinct from the Document
+text read from photos or a PDF.
+_Avoid_: document text
 
 ## Problems
 

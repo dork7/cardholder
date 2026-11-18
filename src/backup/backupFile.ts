@@ -1,8 +1,9 @@
 import { isBlankNote, Note } from '../notes/noteStore';
 import { ImportEntry } from '../cards/cardStore';
-import { Card, CardImage, Folder, looksVertical, PdfDocument } from '../cards/types';
+import { Card, CardImage, Folder, Person, looksVertical, PdfDocument } from '../cards/types';
 import { validateCardFields } from '../cards/validate';
-import { FOLDER_NAME_MAX_LENGTH, PBKDF2_ITERATIONS } from '../config';
+import { normalizeTags } from '../cards/tags';
+import { FOLDER_NAME_MAX_LENGTH, MAX_TAGS, PBKDF2_ITERATIONS, TAG_MAX_LENGTH } from '../config';
 import { createAead } from '../crypto/aead';
 import { concat, utf8 } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
@@ -15,6 +16,7 @@ export interface BackupSnapshot {
   cards: BackupCard[];
   notes?: Note[]; // absent in older backups; decoded as an empty collection
   folders: Folder[]; // absent from backups made before folders; read as none
+  people?: Person[]; // absent from backups made before family profiles
 }
 
 export type BackupErrorCode = 'not-a-backup' | 'unsupported-version' | 'wrong-passphrase-or-damaged' | 'invalid-contents';
@@ -123,6 +125,14 @@ function parseFolder(v: unknown, seen: Set<string>): Folder {
   return { id: v.id, name, createdAt: v.createdAt };
 }
 
+function parsePerson(v: unknown, seen: Set<string>): Person {
+  if (!isObject(v) || typeof v.id !== 'string' || !ID_PATTERN.test(v.id) || !isNumber(v.createdAt) || typeof v.name !== 'string') invalid();
+  const name = v.name.trim();
+  if (!name || [...name].length > 60 || seen.has(v.id.toLowerCase())) invalid();
+  seen.add(v.id.toLowerCase());
+  return { id: v.id, name, createdAt: v.createdAt };
+}
+
 function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
   if (!isObject(entry) || !isObject(entry.card) || !isObject(entry.images)) invalid();
   const c = entry.card;
@@ -168,7 +178,12 @@ function parseNote(value: unknown, seen: Set<string>): Note {
       typeof value.title !== 'string' || typeof value.body !== 'string' ||
       typeof value.pinned !== 'boolean' || !isNumber(value.createdAt) || !isNumber(value.updatedAt)) invalid();
   if (value.reminderAt !== undefined && (typeof value.reminderAt !== 'number' || !Number.isSafeInteger(value.reminderAt) || value.reminderAt <= 0 || value.reminderAt > 8.64e15)) invalid();
+  if (value.tags !== undefined && (!Array.isArray(value.tags) || value.tags.some((tag: unknown) => typeof tag !== 'string'))) invalid();
+  const tags = normalizeTags(Array.isArray(value.tags) ? value.tags : []);
+  if (tags.length > MAX_TAGS || tags.some((tag) => [...tag].length > TAG_MAX_LENGTH)) invalid();
+  if (value.documentId !== undefined && value.documentId !== null && (typeof value.documentId !== 'string' || !ID_PATTERN.test(value.documentId))) invalid();
   const note: Note = { ...(value.reminderAt !== undefined && { reminderAt: value.reminderAt as number }), id: value.id, title: value.title, body: value.body, pinned: value.pinned,
+    tags, documentId: typeof value.documentId === 'string' ? value.documentId : null,
     createdAt: value.createdAt, updatedAt: value.updatedAt };
   if (isBlankNote(note) || seen.has(note.id.toLowerCase())) invalid();
   seen.add(note.id.toLowerCase());
@@ -185,13 +200,20 @@ export function parseSnapshot(value: unknown): BackupSnapshot {
   if (value.folders !== undefined && !Array.isArray(value.folders)) invalid();
   const seenFolders = new Set<string>();
   const folders = (value.folders ?? []).map((f) => parseFolder(f, seenFolders));
+  if (value.people !== undefined && !Array.isArray(value.people)) invalid();
+  const seenPeople = new Set<string>();
+  const people = (value.people ?? []).map((p) => parsePerson(p, seenPeople));
   const folderIds = new Set(folders.map((f) => f.id));
+  const personIds = new Set(people.map((p) => p.id));
   const seen = new Set<string>();
   const cards = value.cards.map((entry) => {
     const parsed = parseEntry(entry, seen);
     // A card pointing at a folder the file doesn't hold is kept, outside any folder.
     if (parsed.card.folderId !== null && !folderIds.has(parsed.card.folderId)) parsed.card.folderId = null;
+    if (parsed.card.personId !== null && !personIds.has(parsed.card.personId)) parsed.card.personId = null;
     return parsed;
   });
-  return { formatVersion: 1, exportedAt: value.exportedAt, cards, folders, notes };
+  const cardIds = new Set(cards.map((entry) => entry.card.id));
+  for (const note of notes) if (note.documentId && !cardIds.has(note.documentId)) note.documentId = null;
+  return { formatVersion: 1, exportedAt: value.exportedAt, cards, folders, people, notes };
 }

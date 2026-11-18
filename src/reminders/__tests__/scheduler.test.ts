@@ -63,7 +63,7 @@ test('a reminder one day out reads "1 day", and on the day "today"', () => {
 });
 
 test('note reminders share the schedule, never expose note text, and disappear when cleared', async () => {
-  const notes = [{ id: 'n', title: 'Private title', body: 'Private body', pinned: false, createdAt: 1, updatedAt: 1, reminderAt: new Date(2027, 0, 2, 15, 30).getTime() }];
+  const notes = [{ id: 'n', title: 'Private title', body: 'Private body', tags: [], documentId: null, pinned: false, createdAt: 1, updatedAt: 1, reminderAt: new Date(2027, 0, 2, 15, 30).getTime() }];
   await syncReminders([], now, notes);
   expect(mocked.scheduleNotificationAsync).toHaveBeenLastCalledWith({
     identifier: 'note:n',
@@ -77,7 +77,7 @@ test('note reminders share the schedule, never expose note text, and disappear w
 });
 
 test('the nearest 60 reminders win across notes and documents; past notes are ignored', async () => {
-  const notes = Array.from({ length: 65 }, (_, i) => ({ id: `n${i}`, title: 'Secret', body: 'Secret', pinned: false, createdAt: 1, updatedAt: 1, reminderAt: now.getTime() + (i + 1) * 60_000 }));
+  const notes = Array.from({ length: 65 }, (_, i) => ({ id: `n${i}`, title: 'Secret', body: 'Secret', tags: [], documentId: null, pinned: false, createdAt: 1, updatedAt: 1, reminderAt: now.getTime() + (i + 1) * 60_000 }));
   notes.push({ ...notes[0], id: 'past', reminderAt: now.getTime() });
   await syncReminders([makeCard({ expiresOn: '2027-06-30' })], now, notes);
   expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(60);

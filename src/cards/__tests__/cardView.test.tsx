@@ -89,6 +89,7 @@ jest.mock('../../app/AppProvider', () => ({
     cardBrightness: mockCardBrightness,
     services: mockServices,
     cards: mockCards,
+    notes: [],
     folders: [],
     refresh: () => mockRefresh(),
     undo: mockUndo,

@@ -9,6 +9,11 @@ import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { NoteBody } from '../../src/notes/NoteBody';
 import { NoteEditor } from '../../src/notes/noteEditors';
 import { isBlankNote, Note } from '../../src/notes/noteStore';
+import { allTags, normalizeTags, sameTag } from '../../src/cards/tags';
+import { MAX_TAGS } from '../../src/config';
+import { TagChips } from '../../src/ui/TagChips';
+import { TagNameInput } from '../../src/ui/TagNameInput';
+import { ChipRow } from '../../src/ui/ChipRow';
 import { takePendingNoteText } from '../../src/share/sharedIn';
 import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
@@ -18,7 +23,7 @@ import { Screen } from '../../src/ui/Surface';
 import { TYPE, useTheme } from '../../src/ui/theme';
 
 export default function NoteScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, documentId } = useLocalSearchParams<{ id: string; documentId?: string }>();
   const { services } = useApp();
   const theme = useTheme();
   const [loaded, setLoaded] = useState<{ note: Note | null; initialBody?: string } | null>(null);
@@ -35,11 +40,11 @@ export default function NoteScreen() {
   }, [id, services]);
   if (problem) return <Screen><LiveText style={{ color: theme.danger, padding: 16 }}>{problem}</LiveText></Screen>;
   if (!loaded) return <Screen><ActivityIndicator color={theme.accent} /></Screen>;
-  return <Editor key={id} note={loaded.note} initialBody={loaded.initialBody} />;
+  return <Editor key={id} note={loaded.note} initialBody={loaded.initialBody} initialDocumentId={documentId} />;
 }
 
-function Editor({ note, initialBody = '' }: { note: Note | null; initialBody?: string }) {
-  const { services, refresh } = useApp();
+function Editor({ note, initialBody = '', initialDocumentId }: { note: Note | null; initialBody?: string; initialDocumentId?: string }) {
+  const { services, refresh, cards = [], notes = [] } = useApp();
   const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
@@ -51,6 +56,9 @@ function Editor({ note, initialBody = '' }: { note: Note | null; initialBody?: s
   const [status, setStatus] = useState(editor.status());
   const [reminderAt, setReminderAt] = useState(note?.reminderAt);
   const [pinned, setPinned] = useState(note?.pinned ?? false);
+  const [tags, setTags] = useState(note?.tags ?? []);
+  const [namingTag, setNamingTag] = useState(false);
+  const [documentId, setDocumentId] = useState(note?.documentId ?? initialDocumentId ?? null);
   const [busy, setBusy] = useState(false);
   const [closed, setClosed] = useState(false);
   const [deleted, setDeleted] = useState(false);
@@ -95,7 +103,10 @@ function Editor({ note, initialBody = '' }: { note: Note | null; initialBody?: s
   usePreventRemove(!closed, ({ repeat }) => {
     if (busy) return;
     setBusy(true);
-    void editor.finish().then(() => refresh().catch(() => console.warn('Refresh after note change failed'))).then(() => { setClosed(true); repeat(); }).catch(() => {
+    void editor.finish().then(async () => {
+      if (!isBlankNote(fields) && documentId !== note?.documentId) await services.notes.setDocument(editor.id, documentId);
+      await refresh().catch(() => console.warn('Refresh after note change failed'));
+    }).then(() => { setClosed(true); repeat(); }).catch(() => {
       setActionFailed(true);
     }).finally(() => setBusy(false));
   });
@@ -112,6 +123,18 @@ function Editor({ note, initialBody = '' }: { note: Note | null; initialBody?: s
       await editor.flush();
       await services.notes.setPinned(editor.id, !pinned);
       setPinned(!pinned);
+      await refresh();
+      setActionFailed(false);
+    } catch { setActionFailed(true); }
+    finally { setBusy(false); }
+  };
+  const changeTags = async (next: string[]) => {
+    if (isBlankNote(fields)) { Alert.alert(strings.notes.writeBeforeTagging); return; }
+    setBusy(true);
+    try {
+      await editor.flush();
+      await services.notes.setTags(editor.id, next);
+      setTags(next);
       await refresh();
       setActionFailed(false);
     } catch { setActionFailed(true); }
@@ -148,6 +171,25 @@ function Editor({ note, initialBody = '' }: { note: Note | null; initialBody?: s
               editable={!busy} accessibilityLabel={strings.notes.bodyLabel} style={[inputStyle, styles.body]} testID="note-body" />
           </Field>
           <NoteBody body={fields.body} tasksOnly disabled={busy} onChange={(body) => change('body', body)} />
+          <Field label={strings.notes.tags}>
+            <TagChips tags={allTags([...cards, ...notes, { tags }])} selected={tags} multiple
+              onPress={(tag) => {
+                if (!tag) return;
+                const next = tags.some((value) => sameTag(value, tag)) ? tags.filter((value) => !sameTag(value, tag)) : [...tags, tag];
+                if (next.length <= MAX_TAGS) void changeTags(next);
+              }} onAddNew={() => setNamingTag(true)} wrap />
+            {namingTag && <TagNameInput tags={allTags([...cards, ...notes])} onCancel={() => setNamingTag(false)} onSubmit={(tag) => {
+              setNamingTag(false);
+              if (tags.length >= MAX_TAGS) return;
+              void changeTags(normalizeTags([...tags, tag]));
+            }} />}
+          </Field>
+          <Field label={strings.notes.linkedDocument}>
+            <ChipRow accessibilityLabel={strings.notes.linkedDocument} chips={[
+              { key: 'none', label: strings.notes.noDocument, selected: documentId === null, onPress: () => setDocumentId(null) },
+              ...cards.map((card) => ({ key: card.id, label: card.name || strings.card.unnamed, selected: documentId === card.id, onPress: () => setDocumentId(card.id) })),
+            ]} />
+          </Field>
           <LiveText style={{ color: status === 'error' || actionFailed ? theme.danger : theme.muted }} testID="note-status">
             {status === 'error' || actionFailed ? strings.notes.failed : isBlankNote(fields) ? strings.notes.blank : status === 'saving' ? strings.notes.saving : strings.notes.saved}
           </LiveText>

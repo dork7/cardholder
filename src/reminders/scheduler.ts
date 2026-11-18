@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { MAX_SCHEDULED_REMINDERS } from '../config';
 import { Note } from '../notes/noteStore';
-import { Card } from '../cards/types';
+import { Card, Person } from '../cards/types';
 import { strings } from '../strings';
 import { planReminders } from './plan';
 
@@ -46,11 +46,11 @@ export async function requestReminderPermissionOnce(): Promise<boolean> {
 }
 
 // Re-plans from scratch so edits, deletes, imports and the 60-reminder window are always right.
-export async function syncReminders(cards: Card[], now: Date = new Date(), notes: readonly Note[] = []): Promise<void> {
+export async function syncReminders(cards: Card[], now: Date = new Date(), notes: readonly Note[] = [], people: readonly Person[] = []): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
   if ((await Notifications.getPermissionsAsync()).status !== 'granted') return;
   const planned = [
-    ...planReminders(cards, now).map((r) => ({ id: r.id, fireAt: r.fireAt, title: r.title, body: r.body, data: { cardId: r.cardId } })),
+    ...planReminders(cards, now, MAX_SCHEDULED_REMINDERS, people).map((r) => ({ id: r.id, fireAt: r.fireAt, title: r.title, body: r.body, data: { cardId: r.cardId } })),
     ...notes.filter((n) => n.reminderAt !== undefined && Number.isFinite(n.reminderAt) && n.reminderAt > now.getTime())
       .map((n) => ({ id: `note:${n.id}`, fireAt: new Date(n.reminderAt!), title: strings.notes.reminderNotificationTitle,
         body: strings.notes.reminderNotificationBody, data: { noteId: n.id } })),

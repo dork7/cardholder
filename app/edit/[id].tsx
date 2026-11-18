@@ -60,7 +60,7 @@ import { LiveText } from '../../src/ui/LiveText';
 export default function EditCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
-  const { services, cards, folders, unlocked, refresh, undo } = useApp();
+  const { services, cards, notes = [], folders, people = [], unlocked, refresh, undo } = useApp();
   const existing = isNew ? null : (cards.find((c) => c.id === id) ?? null);
   const router = useRouter();
   const theme = useTheme();
@@ -74,7 +74,7 @@ export default function EditCard() {
     () => !REMIND_DAY_CHOICES.some((d) => String(d) === form.draft.remindDaysBefore),
   );
   // Every tag in use and the starters, then any typed here that no saved card has yet.
-  const offeredTags = normalizeTags([...tagOptions(cards), ...draft.tags]);
+  const offeredTags = normalizeTags([...tagOptions([...cards, ...notes]), ...draft.tags]);
   // How many photos are being read right now, and which read is current for each side: a result for a
   // photo that has since been replaced or removed is dropped.
   const [reading, setReading] = useState(0);
@@ -101,6 +101,8 @@ export default function EditCard() {
   // being cut around the card, or the PDF's pages being drawn. Null when nothing is.
   const [busy, setBusy] = useState<string | null>(null);
   const [namingFolder, setNamingFolder] = useState(false);
+  const [namingPerson, setNamingPerson] = useState(false);
+  const [personName, setPersonName] = useState('');
   const [namingTag, setNamingTag] = useState(false);
   const writing = useRef(false); // synchronous guard: state updates land a render too late for a fast double tap
   const existingFront = useCardImage(existing ?? undefined, 'front');
@@ -345,13 +347,15 @@ export default function EditCard() {
         // The new photos take over the old card; a back the new card doesn't have is removed. The card
         // stays in its folder unless a folder was chosen for the new one.
         const folderId = plan.fields.folderId ?? (plan.newFolder ? null : duplicate.folderId);
+        const personId = plan.fields.personId ?? (plan.newPerson ? null : duplicate.personId);
         await write({
           kind: 'update',
           id: duplicate.id,
-          fields: { ...plan.fields, folderId },
+          fields: { ...plan.fields, folderId, personId },
           // A photo card taking over a PDF card drops the PDF.
           changes: { ...plan.images, pdf: plan.images.pdf ?? null },
           newFolder: plan.newFolder,
+          newPerson: plan.newPerson,
         });
         return;
       }
@@ -371,6 +375,11 @@ export default function EditCard() {
           findFolderNamed(await services.store.listFolders(), plan.newFolder) ??
           (await services.store.createFolder(plan.newFolder));
         fields = { ...fields, folderId: folder.id };
+      }
+      if (plan.newPerson) {
+        const person = (await services.store.listPeople()).find((item) => item.name.toLocaleLowerCase() === plan.newPerson!.toLocaleLowerCase())
+          ?? (await services.store.createPerson(plan.newPerson));
+        fields = { ...fields, personId: person.id };
       }
       if (plan.kind === 'create') await services.store.create(fields, plan.images);
       else await services.store.update(plan.id, fields, plan.changes);
@@ -422,6 +431,14 @@ export default function EditCard() {
       ? [{ key: 'pending', label: strings.folders.pendingNew(draft.newFolderName), selected: true, onPress: () => {} }]
       : []),
     { key: 'add', label: `+ ${strings.folders.newFolder}`, onPress: () => setNamingFolder(true), testID: 'folder-add' },
+  ];
+  const personChips: Chip[] = [
+    { key: 'none', label: strings.people.none, selected: draft.personId === null && !draft.newPersonName,
+      onPress: () => update({ personId: null, newPersonName: null }), testID: 'person-none' },
+    ...people.map((person) => ({ key: person.id, label: person.name, selected: draft.personId === person.id,
+      onPress: () => update({ personId: person.id, newPersonName: null }), testID: `person-${person.id}` })),
+    ...(draft.newPersonName ? [{ key: 'pending', label: draft.newPersonName, selected: true, onPress: () => {} }] : []),
+    { key: 'add', label: `+ ${strings.people.newPerson}`, onPress: () => setNamingPerson(true), testID: 'person-add' },
   ];
 
   // Set from each new front picture's shape; the user can turn it either way.
@@ -623,6 +640,23 @@ export default function EditCard() {
                 )}
               </Field>
             )}
+            <Field label={strings.people.person}>
+              {namingPerson ? <View style={{ gap: 8 }}>
+                <TextInput value={personName} onChangeText={setPersonName} maxLength={60} autoFocus
+                  accessibilityLabel={strings.people.name} placeholder={strings.people.name}
+                  placeholderTextColor={theme.muted} style={inputStyle} testID="person-name" />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button variant="secondary" label={strings.common.cancel} onPress={() => setNamingPerson(false)} />
+                  <Button label={strings.people.create} onPress={() => {
+                    const name = personName.trim();
+                    if (!name) return;
+                    const existingPerson = people.find((person) => person.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+                    update(existingPerson ? { personId: existingPerson.id, newPersonName: null } : { personId: null, newPersonName: name });
+                    setNamingPerson(false);
+                  }} testID="person-create" />
+                </View>
+              </View> : <ChipRow chips={personChips} accessibilityLabel={strings.people.person} />}
+            </Field>
           </Panel>
           <Panel style={styles.group} onLayout={onPanelLayout('expiry')}>
             <ExpiryField

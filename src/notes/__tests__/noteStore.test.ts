@@ -74,7 +74,7 @@ test('upgrading preserves documents without resurrecting their historical notes'
   const old = JSON.parse(utf8.decode(aead.open(row!.payload)));
   old.notes = 'Former document note';
   await db.runAsync('UPDATE cards SET payload = ? WHERE id = ?', [aead.seal(utf8.encode(JSON.stringify(old))), card.id]);
-  await db.execAsync('DROP TABLE notes; ALTER TABLE cards DROP COLUMN deleted_at; PRAGMA user_version = 4;');
+  await db.execAsync('DROP TABLE notes; DROP TABLE people; ALTER TABLE cards DROP COLUMN person_id; ALTER TABLE cards DROP COLUMN deleted_at; PRAGMA user_version = 4;');
   await migrate(db);
   expect(await notes.list()).toEqual([]);
   expect(await store.get(card.id)).toEqual(card);
@@ -122,4 +122,28 @@ test('a reminder survives edits and reopening, stays encrypted, and can be clear
   expect(Buffer.from(raw!.payload).toString()).not.toContain(String(reminderAt));
   await reopened.setReminder('a', null);
   expect((await reopened.get('a'))!.reminderAt).toBeUndefined();
+});
+
+test('note tags share document names, filter the list, survive edits, and stay sealed', async () => {
+  const { notes, db } = await makeStore();
+  await notes.save('a', { title: 'Visa steps', body: 'Embassy call' });
+  await notes.save('b', { title: 'Shopping', body: 'Milk' });
+  await notes.setTags('a', [' Travel ', 'travel', 'ID']);
+  await notes.save('a', { title: 'Updated visa steps', body: 'Embassy call' });
+  const all = await notes.list();
+  expect(all.find((note) => note.id === 'a')?.tags).toEqual(['Travel', 'ID']);
+  expect(findNotes(all, '', 'travel').map((note) => note.id)).toEqual(['a']);
+  const raw = await db.getFirstAsync<{ payload: Uint8Array }>('SELECT payload FROM notes WHERE id = ?', ['a']);
+  expect(Buffer.from(raw!.payload).toString()).not.toContain('Travel');
+});
+
+test('a note links to one current document and stays after that document is deleted', async () => {
+  const { store, notes } = await makeStore();
+  const card = await store.create(fields(), images('doc'));
+  await notes.save('a', { title: 'Embassy', body: 'Call before travel' });
+  await notes.setDocument('a', card.id);
+  expect((await notes.get('a'))?.documentId).toBe(card.id);
+  await store.moveToRecentlyDeleted(card.id);
+  expect(await notes.get('a')).toMatchObject({ title: 'Embassy', documentId: null });
+  await expect(notes.setDocument('a', card.id)).rejects.toThrow('Document not found');
 });

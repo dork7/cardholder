@@ -1,16 +1,17 @@
 import { Note } from '../notes/noteStore';
-import { Card, Folder } from '../cards/types';
+import { Card, Folder, Person } from '../cards/types';
 
 export interface AppSnapshot {
   cards: Card[];
   notes: Note[];
   folders: Folder[];
+  people: Person[];
   unlocked: boolean;
 }
 
 export interface RefreshCoordinatorOptions {
   apply(snapshot: AppSnapshot): void;
-  syncReminders(cards: Card[], notes: Note[]): Promise<void>;
+  syncReminders(cards: Card[], notes: Note[], people: Person[]): Promise<void>;
   onSyncError?(error: unknown): void;
 }
 
@@ -35,7 +36,7 @@ export function createRefreshCoordinator(options: RefreshCoordinatorOptions): Re
       const snapshot = pendingSnapshot;
       pendingSnapshot = null;
       try {
-        await options.syncReminders(snapshot.cards, snapshot.notes);
+        await options.syncReminders(snapshot.cards, snapshot.notes, snapshot.people);
       } catch (error) {
         options.onSyncError?.(error);
       }

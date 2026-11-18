@@ -52,6 +52,7 @@ export default function Home() {
     cards,
     notes,
     folders,
+    people = [],
     unlocked,
     openImportOnReady,
     clearOpenImport,
@@ -73,6 +74,8 @@ export default function Home() {
   const present = allTags(cards);
   const tag = (chosen && present.find((t) => sameTag(t, chosen))) || null;
   const [chosenFolder, setChosenFolder] = useState<string | null>(null);
+  const [chosenPerson, setChosenPerson] = useState<string | null>(null);
+  const personId = chosenPerson && people.some((person) => person.id === chosenPerson) ? chosenPerson : null;
   // Falls back to all cards if the chosen folder is deleted, or the filter is hidden.
   const folderId =
     FOLDERS_ENABLED &&
@@ -95,8 +98,9 @@ export default function Home() {
           })),
       ]
     : [];
-  const shown = filterCards(cards, { query, tag, folderId });
-  const { pinned } = splitPinned(cards);
+  const byPerson = personId ? cards.filter((card) => card.personId === personId) : cards;
+  const shown = filterCards(byPerson, { query, tag, folderId });
+  const { pinned } = splitPinned(byPerson);
   const pinnedNotes = notes.filter((note) => note.pinned).map(({ id, title }) => ({ id, title }));
   const [savedView, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
   // Keep the saved choice so turning the stack back on restores the previous layout.
@@ -263,6 +267,10 @@ export default function Home() {
         {cards.length > 0 && <SearchField value={query} onChange={setQuery} />}
         {/* Filters sit directly under search, above whatever they filter. */}
         {cards.length > 0 && present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
+        {people.length > 0 && <ChipRow accessibilityLabel={strings.people.person} testID="person-filter"
+          chips={[{ key: 'all', label: strings.people.everyone, selected: personId === null, onPress: () => setChosenPerson(null) },
+            ...people.map((person) => ({ key: person.id, label: person.name, selected: personId === person.id,
+              onPress: () => setChosenPerson(person.id), testID: `person-filter-${person.id}` }))]} />}
         {/* Which parts of the folder row show is chosen in settings. */}
         {cards.length > 0 && FOLDERS_ENABLED && folders.length > 0 && (folderChips.length > 0 || homeFolders.manage) && (
           <View style={styles.folderRow}>
@@ -468,7 +476,7 @@ export default function Home() {
           <TagSheet
             visible={choosingTags}
             title={strings.home.tagTo(selected.length)}
-            existing={tagOptions(cards)}
+            existing={tagOptions([...cards, ...notes])}
             onApply={tagSelected}
             onClose={() => setChoosingTags(false)}
           />

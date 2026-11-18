@@ -19,6 +19,12 @@ test('one reminder a day at 09:00, from 14 days before expiry by default through
   expect(plan[14]).toMatchObject({ id: 'c1:0', fireAt: new Date(2027, 5, 30, 9, 0), title: 'Emirates ID expires today' });
 });
 
+test('a family document reminder names its owner', () => {
+  const card = makeCard({ id: 'passport', name: 'passport', personId: 'sara', expiresOn: '2027-06-30' });
+  const plan = planReminders([card], now, 60, [{ id: 'sara', name: 'Sara', createdAt: 1 }]);
+  expect(plan[0].title).toBe("Sara's passport expires in 14 days");
+});
+
 test("follows the card's own number of days", () => {
   const plan = planReminders([makeCard({ id: 'c1', expiresOn: '2027-06-30', remindDaysBefore: 3 })], now);
   expect(plan.map((r) => r.id)).toEqual(['c1:3', 'c1:2', 'c1:1', 'c1:0']);

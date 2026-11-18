@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { canReadText, readPhotoText } from '../analysis/readPhoto';
 import { readUnreadCards } from '../cards/readBackfill';
-import { Card, Folder } from '../cards/types';
+import { Card, Folder, Person } from '../cards/types';
 import { secureVault } from '../crypto/secureVault';
 import { DEFAULT_HOME_FOLDERS, HomeFolderOptions, loadHomeFolders, saveHomeFolders } from '../folders/homeOptions';
 import { isUnlocked } from '../purchases/entitlement';
@@ -40,6 +40,7 @@ export interface AppContextValue {
   cards: Card[];
   notes: Note[];
   folders: Folder[];
+  people: Person[];
   unlocked: boolean;
   refresh(): Promise<void>;
   // The one Undo offer for removals (see undo.ts); home shows it as the Undo bar.
@@ -79,13 +80,14 @@ const purgeRecentlyDeleted = (services: Services): Promise<number> =>
   });
 
 async function readSnapshot(services: Services): Promise<AppSnapshot> {
-  const [cards, folders, unlocked, notes] = await Promise.all([
+  const [cards, folders, people, unlocked, notes] = await Promise.all([
     services.store.list(),
     services.store.listFolders(),
+    services.store.listPeople(),
     isUnlocked(services.settings),
     services.notes.list(),
   ]);
-  return { cards, folders, unlocked, notes };
+  return { cards, folders, people, unlocked, notes };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -93,6 +95,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [unlocked, setUnlocked] = useState(false);
   const [openImportOnReady, setOpenImportOnReady] = useState(false);
   const [appearance, setAppearanceState] = useState<AppearancePref>('system');
@@ -115,12 +118,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCards(snapshot.cards);
         setNotes(snapshot.notes);
         setFolders(snapshot.folders);
+        setPeople(snapshot.people);
         setUnlocked(snapshot.unlocked);
       },
       // Shortcuts follow the cards too; a failure there must not stop reminders being scheduled.
-      syncReminders: async (cards, notes) => {
+      syncReminders: async (cards, notes, people) => {
         await syncShortcuts(cards).catch((e) => console.warn('Shortcut sync failed', e));
-        await syncReminders(cards, new Date(), notes);
+        await syncReminders(cards, new Date(), notes, people);
       },
       onSyncError: (e) => console.warn('Reminder sync failed', e),
     }),
@@ -303,6 +307,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             cards,
             notes,
             folders,
+            people,
             unlocked,
             refresh,
             undo,
@@ -329,6 +334,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cards,
       notes,
       folders,
+      people,
       unlocked,
       refresh,
       undo,

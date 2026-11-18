@@ -144,6 +144,9 @@ export default function SettingsScreen() {
             testID="manage-tags"
           />
         </Section>
+        <Section title={strings.people.title}>
+          <Button variant="secondary" label={strings.people.manage} onPress={() => router.push('/people')} testID="manage-people" />
+        </Section>
         <Section title={strings.recentlyDeleted.title}>
           <Text style={[styles.caption, { color: theme.muted }]}>{strings.recentlyDeleted.intro}</Text>
           <Button

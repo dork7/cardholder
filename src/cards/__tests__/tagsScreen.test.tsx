@@ -8,11 +8,14 @@ import { Card, CardFields } from '../types';
 const mockUpdate = jest.fn();
 const mockRefresh = jest.fn();
 let mockCards: Card[] = [];
+let mockNotes: { id: string; tags: string[] }[] = [];
+const mockSetTags = jest.fn();
 
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
-    services: { store: { update: (id: string, fields: CardFields) => mockUpdate(id, fields) } },
+    services: { store: { update: (id: string, fields: CardFields) => mockUpdate(id, fields) }, notes: { setTags: (id: string, tags: string[]) => mockSetTags(id, tags) } },
     cards: mockCards,
+    notes: mockNotes,
     refresh: () => mockRefresh(),
   }),
 }));
@@ -26,6 +29,8 @@ beforeEach(() => {
     makeCard({ id: 'c3', name: 'Gym', tags: ['Membership'] }),
   ];
   mockUpdate.mockResolvedValue(undefined);
+  mockSetTags.mockResolvedValue(undefined);
+  mockNotes = [];
   mockRefresh.mockResolvedValue(undefined);
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
@@ -41,8 +46,18 @@ test('lists every tag in use with how many cards have it', async () => {
   expect(screen.getByText('Vehicle')).toBeTruthy();
   expect(screen.getByText('Family')).toBeTruthy();
   expect(screen.getByText('Membership')).toBeTruthy();
-  expect(screen.getAllByText(strings.folders.count(2))).toHaveLength(1);
+  expect(screen.getAllByText(strings.tagsScreen.count(2, 0))).toHaveLength(1);
   expect(screen.queryByTestId('no-tags')).toBeNull();
+});
+
+test('a note-only tag is listed and removed from notes', async () => {
+  mockNotes = [{ id: 'n', tags: ['Travel', 'ID'] }];
+  await render(<TagsScreen />);
+  expect(screen.getAllByText(strings.tagsScreen.count(0, 1))).toHaveLength(2);
+  await fireEvent.press(screen.getByTestId('delete-tag-Travel'));
+  const actions = alert.mock.calls.at(-1)?.[2] as { onPress?: () => void }[];
+  await actions[1].onPress?.();
+  await waitFor(() => expect(mockSetTags).toHaveBeenCalledWith('n', ['ID']));
 });
 
 test('with no tags it says so', async () => {
@@ -80,6 +95,6 @@ test('says how many cards could not be changed', async () => {
   await render(<TagsScreen />);
   await fireEvent.press(screen.getByTestId('delete-tag-Vehicle'));
   await pressInAlert(strings.common.delete);
-  await waitFor(() => expect(alert).toHaveBeenLastCalledWith(strings.errors.removeTag(1).title, strings.errors.removeTag(1).body));
+  await waitFor(() => expect(alert).toHaveBeenLastCalledWith(strings.tagsScreen.removeFailed(1).title, strings.tagsScreen.removeFailed(1).body));
   warn.mockRestore();
 });

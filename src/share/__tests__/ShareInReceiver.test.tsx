@@ -18,7 +18,7 @@ let mockShareIntent: ShareIntent;
 const mockReset = jest.fn(() => { mockShareIntent = { files: null, text: null, webUrl: null, type: null }; });
 jest.mock('expo-share-intent', () => ({ useShareIntent: () => ({ shareIntent: mockShareIntent, resetShareIntent: mockReset }) }));
 let mockServices: { notes: NoteStore; noteEditors: ReturnType<typeof createNoteEditors> };
-jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, cards: Array(10).fill({}), unlocked: false }) }));
+jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, cards: Array(10).fill({ tags: [] }), unlocked: false }) }));
 const mockAuthenticate = jest.fn();
 jest.mock('../../security/deviceAuth', () => ({ authenticate: () => mockAuthenticate() }));
 jest.mock('react-native-screens', () => ({ FullWindowOverlay: ({ children }: { children: React.ReactNode }) => children }));

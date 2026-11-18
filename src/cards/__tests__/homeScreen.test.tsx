@@ -1001,9 +1001,9 @@ describe('Undo bar', () => {
 test.each(['list', 'stack', 'gallery'])('pinned notes show only titles beside pinned documents in %s view', async (view) => {
   mockHomeView = view;
   mockNotes = [
-    { id: 'note', title: 'Packing', body: 'PRIVATE NOTE BODY', pinned: true, createdAt: 1, updatedAt: 1 },
-    { id: 'blank-title', title: ' ', body: 'NEVER USE BODY AS TITLE', pinned: true, createdAt: 1, updatedAt: 1 },
-    { id: 'unpinned', title: 'Not pinned', body: 'Hidden', pinned: false, createdAt: 1, updatedAt: 1 },
+    { id: 'note', title: 'Packing', body: 'PRIVATE NOTE BODY', tags: [], documentId: null, pinned: true, createdAt: 1, updatedAt: 1 },
+    { id: 'blank-title', title: ' ', body: 'NEVER USE BODY AS TITLE', tags: [], documentId: null, pinned: true, createdAt: 1, updatedAt: 1 },
+    { id: 'unpinned', title: 'Not pinned', body: 'Hidden', tags: [], documentId: null, pinned: false, createdAt: 1, updatedAt: 1 },
   ];
   await withCards([makeCard({ id: 'doc', name: 'Passport', pinned: true })], async () => {
     await render(<Home />);
@@ -1023,7 +1023,7 @@ test.each(['list', 'stack', 'gallery'])('pinned notes show only titles beside pi
 });
 
 test('home offers pinned notes even when there are no documents', async () => {
-  mockNotes = [{ id: 'n', title: 'My note', body: 'Secret', pinned: true, createdAt: 1, updatedAt: 1 }];
+  mockNotes = [{ id: 'n', title: 'My note', body: 'Secret', tags: [], documentId: null, pinned: true, createdAt: 1, updatedAt: 1 }];
   await withCards([], async () => {
     await render(<Home />);
     expect(screen.getByTestId('pinned-note-n')).toBeTruthy();

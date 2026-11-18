@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert, AppState, Share } from 'react-native';
 import { requestReminderPermissionOnce } from '../../reminders/scheduler';
 jest.mock('../../reminders/scheduler', () => ({ requestReminderPermissionOnce: jest.fn(async () => true) }));
@@ -36,7 +36,7 @@ jest.mock('expo-router', () => {
 });
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 let mockServices: { notes: NoteStore; noteEditors: ReturnType<typeof createNoteEditors> };
-jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, refresh: mockRefresh, cards: Array(10).fill({}), unlocked: false }) }));
+jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, refresh: mockRefresh, cards: Array(10).fill({ id: 'c', name: 'Document', tags: [] }), notes: [], unlocked: false }) }));
 const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 const appState = jest.spyOn(AppState, 'addEventListener');
 
@@ -77,6 +77,24 @@ test('list shows pinned first, searches bodies and titles, and distinguishes no 
   expect(screen.getByTestId('notes-search').props.value).toBe('');
   await fireEvent.press(screen.getByTestId('note-a'));
   expect(mockRouter.push).toHaveBeenCalledWith('/note/a');
+});
+
+test('note editor adds a tag and Notes filters by that tag', async () => {
+  await mockServices.notes.save('a', { title: 'Passport steps', body: 'Call embassy' });
+  await mockServices.notes.save('b', { title: 'Groceries', body: 'Milk' });
+  mockId = 'a';
+  await render(<NoteScreen />);
+  await screen.findByTestId('note-body');
+  await fireEvent.press(screen.getByTestId('tag-add'));
+  await fireEvent.changeText(screen.getByTestId('new-tag-name'), 'Travel');
+  await fireEvent.press(screen.getByTestId('new-tag-submit'));
+  await waitFor(async () => expect((await mockServices.notes.get('a'))?.tags).toEqual(['Travel']));
+  await screen.unmount();
+  await render(<NotesScreen />);
+  await screen.findByTestId('note-a');
+  await fireEvent.press(screen.getByTestId('tag-chip-Travel'));
+  expect(screen.getByTestId('note-a')).toBeTruthy();
+  expect(screen.queryByTestId('note-b')).toBeNull();
 });
 
 test.each([['Title only', ''], ['', 'Body only\nwith another line']])('creates and reopens plain text: %s', async (title, body) => {

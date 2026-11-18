@@ -47,6 +47,13 @@ const MIGRATIONS = [
   // Recently deleted: when a document was deleted, or null while it is current. Plaintext, like the
   // pin and the dates, so a purge can find what is due without opening every payload (ADR 0003).
   `ALTER TABLE cards ADD COLUMN deleted_at INTEGER;`,
+  // A person is its own concept, separate from folders and tags. Names are sealed.
+  `CREATE TABLE people (
+     id TEXT PRIMARY KEY NOT NULL,
+     payload BLOB NOT NULL,
+     created_at INTEGER NOT NULL
+   );
+   ALTER TABLE cards ADD COLUMN person_id TEXT;`,
 ];
 
 export async function migrate(db: SqlDb): Promise<void> {

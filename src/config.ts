@@ -10,8 +10,8 @@ export const MAX_TAGS = 8;
 export const FOLDER_NAME_MAX_LENGTH = 30;
 // Per side; card reading rarely finds a tenth of this, so it only stops a bad backup file from bloating a card.
 export const READ_TEXT_MAX_LENGTH = 4000;
-// Hidden for now: no folder UI anywhere, and new cards aren't sorted into folders. Saved folders are kept.
-export const FOLDERS_ENABLED = false;
+// A document has one filing place; tags can cross folder boundaries (ADR 0009).
+export const FOLDERS_ENABLED = true;
 
 export const MIN_PASSPHRASE_LENGTH = 3;
 export const PBKDF2_ITERATIONS = 600_000;
