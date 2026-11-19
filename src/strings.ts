@@ -424,6 +424,7 @@ export const strings = {
     privacyPolicy: 'Privacy policy',
     version: (v: string) => `Version ${v}`,
   },
+  // The widget's own fixed text (Locked, the empty message) is in modules/home-widget's res/values.
   widget: {
     expired: (date: string) => `Expired ${date}`,
   },

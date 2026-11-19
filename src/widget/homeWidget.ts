@@ -1,16 +1,14 @@
 import { requireOptionalNativeModule } from 'expo';
 import { displayName } from '../cards/display';
 import { expiryStatus } from '../cards/expiry';
-import { sortCards, splitPinned } from '../cards/listing';
+import { isExpiringSoon, sortCards, splitPinned } from '../cards/listing';
 import { Card } from '../cards/types';
+import { MAX_WIDGET_CARDS } from '../config';
 import { strings } from '../strings';
 import { formatDate, fromIsoDate } from '../time/dates';
 
 // The Android home screen widget (modules/home-widget). On iOS, and in builds before it, nothing.
 const native = requireOptionalNativeModule<{ update(json: string): void }>('HomeWidget');
-
-// As many as the widget has rows.
-export const MAX_WIDGET_CARDS = 4;
 
 export interface WidgetCard {
   id: string;
@@ -34,10 +32,10 @@ export function planWidget(cards: Card[], appLock: boolean, now: Date): WidgetSt
     cards: splitPinned(sortCards(cards))
       .pinned.slice(0, MAX_WIDGET_CARDS)
       .map((card) => {
-        const kind = expiryStatus(card, now).kind;
-        const warn = kind === 'expired' || kind === 'today' || kind === 'soon';
+        const warn = isExpiringSoon(card, now);
         const date = card.expiresOn ? formatDate(fromIsoDate(card.expiresOn).getTime()) : '';
-        const note = !warn ? (card.tags[0] ?? '') : kind === 'expired' ? strings.widget.expired(date) : strings.card.expiresOn(date);
+        const expired = expiryStatus(card, now).kind === 'expired';
+        const note = !warn ? (card.tags[0] ?? '') : expired ? strings.widget.expired(date) : strings.card.expiresOn(date);
         return { id: card.id, name: displayName(card), note, warn };
       }),
   };

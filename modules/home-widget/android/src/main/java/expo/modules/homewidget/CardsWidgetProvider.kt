@@ -34,11 +34,22 @@ class CardsWidgetProvider : AppWidgetProvider() {
     private const val KEY_ALIAS = "doc_keeper_widget"
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
     private const val IV_BYTES = 12
+    // The app's links: expo-router opens app/card/[id].tsx and app/edit/[id].tsx from them.
+    private const val APP_LINK = "cardholder://"
+    private const val ADD_CARD_LINK = "${APP_LINK}edit/new"
+    private const val CARD_LINK = "${APP_LINK}card/"
+
+    // Each tap target of a widget needs its own PendingIntent request code: the rows take 0..3, then these.
+    private const val TARGETS_PER_WIDGET = 10
+    private const val OPEN_APP_TARGET = 8
+    private const val ADD_CARD_TARGET = 9
+
+    private data class Row(val row: Int, val name: Int, val note: Int)
     private val ROWS = listOf(
-      Triple(R.id.doc_keeper_row_0, R.id.doc_keeper_name_0, R.id.doc_keeper_note_0),
-      Triple(R.id.doc_keeper_row_1, R.id.doc_keeper_name_1, R.id.doc_keeper_note_1),
-      Triple(R.id.doc_keeper_row_2, R.id.doc_keeper_name_2, R.id.doc_keeper_note_2),
-      Triple(R.id.doc_keeper_row_3, R.id.doc_keeper_name_3, R.id.doc_keeper_note_3),
+      Row(R.id.doc_keeper_row_0, R.id.doc_keeper_name_0, R.id.doc_keeper_note_0),
+      Row(R.id.doc_keeper_row_1, R.id.doc_keeper_name_1, R.id.doc_keeper_note_1),
+      Row(R.id.doc_keeper_row_2, R.id.doc_keeper_name_2, R.id.doc_keeper_note_2),
+      Row(R.id.doc_keeper_row_3, R.id.doc_keeper_name_3, R.id.doc_keeper_note_3),
     )
     // Card ids are random hex from the app; anything else is never put in a link.
     private val CARD_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
@@ -93,7 +104,7 @@ class CardsWidgetProvider : AppWidgetProvider() {
       val cards = if (locked) null else state?.optJSONArray("cards")
 
       views.setOnClickPendingIntent(R.id.doc_keeper_widget, openApp(context, widgetId))
-      views.setOnClickPendingIntent(R.id.doc_keeper_add, link(context, "cardholder://edit/new", widgetId * 10 + 9))
+      views.setOnClickPendingIntent(R.id.doc_keeper_add, link(context, ADD_CARD_LINK, requestCode(widgetId, ADD_CARD_TARGET)))
 
       val count = minOf(cards?.length() ?: 0, ROWS.size)
       views.setViewVisibility(R.id.doc_keeper_message, if (count == 0) View.VISIBLE else View.GONE)
@@ -113,10 +124,12 @@ class CardsWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(note, card.optString("note"))
         val color = if (card.optBoolean("warn")) R.color.doc_keeper_widget_danger else R.color.doc_keeper_widget_muted
         views.setTextColor(note, context.getColor(color))
-        views.setOnClickPendingIntent(row, link(context, "cardholder://card/$id", widgetId * 10 + i))
+        views.setOnClickPendingIntent(row, link(context, CARD_LINK + id, requestCode(widgetId, i)))
       }
       return views
     }
+
+    private fun requestCode(widgetId: Int, target: Int) = widgetId * TARGETS_PER_WIDGET + target
 
     // Opens a screen in this app by its link; expo-router takes it from there.
     private fun link(context: Context, url: String, requestCode: Int): PendingIntent {
@@ -128,8 +141,8 @@ class CardsWidgetProvider : AppWidgetProvider() {
 
     private fun openApp(context: Context, widgetId: Int): PendingIntent {
       val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-        ?: Intent(Intent.ACTION_VIEW, Uri.parse("cardholder://")).setPackage(context.packageName)
-      return PendingIntent.getActivity(context, widgetId * 10 + 8, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        ?: Intent(Intent.ACTION_VIEW, Uri.parse(APP_LINK)).setPackage(context.packageName)
+      return PendingIntent.getActivity(context, requestCode(widgetId, OPEN_APP_TARGET), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
   }
 }

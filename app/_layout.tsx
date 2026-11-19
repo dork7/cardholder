@@ -16,6 +16,7 @@ import { installDiagnostics } from '../src/diagnostics/install';
 import { setupNotifications } from '../src/reminders/scheduler';
 import { strings } from '../src/strings';
 import { FONTS } from '../src/ui/fonts';
+import { PrivacyShield } from '../src/ui/PrivacyShield';
 import { useTheme } from '../src/ui/theme';
 
 // Before the first render, so a crash anywhere after this is recorded (src/diagnostics/).
@@ -38,6 +39,7 @@ export default function RootLayout() {
           <RootNavigator />
         </AppProvider>
       </ErrorBoundary>
+      <PrivacyShield />
     </GestureHandlerRootView>
   );
 }
