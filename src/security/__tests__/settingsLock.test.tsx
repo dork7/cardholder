@@ -34,7 +34,9 @@ let mockShowStack = true;
 const mockSetShowStack = jest.fn(() => Promise.resolve());
 let mockWarnIdShare = true;
 const mockSetWarnIdShare = jest.fn(() => Promise.resolve());
-const mockServices = { settings: { getNumber: () => Promise.resolve(null) }, store: { listRecentlyDeleted: () => Promise.resolve([]) } };
+const mockServices = { settings: { getNumber: () => Promise.resolve(null) }, store: {
+  listRecentlyDeleted: () => Promise.resolve([]), lastChangeAt: () => Promise.resolve(null),
+} };
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     services: mockServices,

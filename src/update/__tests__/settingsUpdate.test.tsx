@@ -33,7 +33,9 @@ jest.mock('expo-router', () => {
     useFocusEffect: (effect: () => void) => useEffect(effect, [effect]),
   };
 });
-const mockServices = { settings: { getNumber: () => Promise.resolve(null) }, store: { listRecentlyDeleted: () => Promise.resolve([]) } };
+const mockServices = { settings: { getNumber: () => Promise.resolve(null) }, store: {
+  listRecentlyDeleted: () => Promise.resolve([]), lastChangeAt: () => Promise.resolve(null),
+} };
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
     services: mockServices,

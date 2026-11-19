@@ -36,6 +36,7 @@ const mockServices = {
   settings: { getNumber: async () => null },
   store: {
     listRecentlyDeleted: async () => mockDeleted,
+    lastChangeAt: async () => null,
     restore: (id: string) => mockRestore(id),
     erase: (id: string) => mockErase(id),
     eraseRecentlyDeleted: () => mockEraseAll(),
