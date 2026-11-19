@@ -115,6 +115,8 @@ jest.mock('../../images/pdf', () => {
 });
 const mockAnalyze = jest.fn();
 jest.mock('../../analysis/analyze', () => ({ analyzeImage: (...a: unknown[]) => mockAnalyze(...a) }));
+const mockIndexPdfAfterSave = jest.fn(async (..._args: unknown[]) => {});
+jest.mock('../../cards/readBackfill', () => ({ indexPdfAfterSave: (...a: unknown[]) => mockIndexPdfAfterSave(...a) }));
 const mockCheckPhotoQuality = jest.fn();
 jest.mock('../../images/photoQuality', () => ({ checkPhotoQuality: (image: string) => mockCheckPhotoQuality(image) }));
 
@@ -136,6 +138,7 @@ beforeEach(() => {
   mockRefresh.mockResolvedValue(undefined);
   mockPermission.mockResolvedValue(true);
   mockAnalyze.mockResolvedValue({});
+  mockIndexPdfAfterSave.mockClear();
   mockCheckPhotoQuality.mockResolvedValue(null);
   mockPickPdf.mockResolvedValue(pdfDoc());
   mockRenderCover.mockImplementation((pdf: { coverPage: number }) => Promise.resolve(frontImage(`page${pdf.coverPage}`)));
@@ -369,6 +372,17 @@ describe('adding from a PDF', () => {
     expect(screen.queryByTestId('pdf-back-page')).toBeNull();
     await save();
     expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { front: frontImage('page0'), back: null, pdf: { ...pdfDoc(0), pageCount: 1 } });
+  });
+
+  test('a saved PDF starts reading every page for search', async () => {
+    mockCreate.mockResolvedValueOnce(makeCard({ pdf: { pageCount: 3, coverPage: 0 }, readText: null }));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    await save();
+    expect(mockIndexPdfAfterSave).toHaveBeenCalledWith(
+      mockServices.store, expect.objectContaining({ pdf: { pageCount: 3, coverPage: 0 } }),
+      expect.any(Function), expect.any(Function),
+    );
   });
 
   test('choosing another page makes it the thumbnail', async () => {

@@ -457,6 +457,14 @@ test('the text read off a card is sealed with it and comes back', async () => {
   expect((await store.get(card.id))?.readText).toEqual({ front: 'NEW', back: '' });
 });
 
+test('all PDF page text is sealed with the document', async () => {
+  const { store } = await makeStore();
+  const pages = ['Cover', 'Terms', 'Renewal code Z8Q4'];
+  const card = await store.create(fields({ readText: { front: 'Cover', back: 'Terms', pages } }),
+    { ...images('pdf'), pdf: { pdfBase64: base64.encode(utf8.encode('%PDF-1.7 test')), pageCount: 3, coverPage: 0 } });
+  expect((await store.get(card.id))?.readText?.pages).toEqual(pages);
+});
+
 test('a card keeps its shape, and one saved before the setting takes it from its picture', async () => {
   const { store } = await makeStore();
   const upright = await store.create(fields({ vertical: true }), images('a'));

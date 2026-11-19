@@ -36,9 +36,12 @@ export function cardMarkdown(card: Card, folders: readonly Folder[]): string {
   if (!card.readText) {
     parts.push(`## ${s.scannedText}\n\n_${s.notRead}_`);
   } else {
-    // For a PDF card the front is its cover page and the back, when kept, its second page.
-    parts.push(section(strings.card.front, card.readText.front));
-    if (card.hasBack) parts.push(section(strings.card.back, card.readText.back));
+    if (card.pdf && card.readText.pages?.length === card.pdf.pageCount) {
+      card.readText.pages.forEach((text, i) => parts.push(section(s.page(i + 1), text)));
+    } else {
+      parts.push(section(strings.card.front, card.readText.front));
+      if (card.hasBack) parts.push(section(strings.card.back, card.readText.back));
+    }
   }
   return `${parts.join('\n\n')}\n`;
 }

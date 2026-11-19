@@ -104,12 +104,15 @@ test('merge adds the backup\'s folders even when every card is already on the ph
 test('a PDF card travels with its whole PDF and cover page', async () => {
   const phoneA = await makeStore();
   const pdfBase64 = base64.encode(utf8.encode('%PDF-1.7 policy'));
-  await phoneA.store.create(fields({ name: 'Policy' }), { ...images('cover'), pdf: { pdfBase64, pageCount: 4, coverPage: 2 } });
+  const pages = ['Introduction', 'Terms', 'Renewal code Z8Q4', 'Signature'];
+  await phoneA.store.create(fields({ name: 'Policy', readText: { front: pages[2], back: pages[1], pages } }),
+    { ...images('cover'), pdf: { pdfBase64, pageCount: 4, coverPage: 2 } });
 
   const snapshot = await decodeBackup(await encodeBackup(await buildSnapshot(phoneA.store, 1), 'travel pass', { iterations: 1_000 }), 'travel pass');
   const phoneB = await makeStore();
   await applySnapshot(phoneB.store, snapshot, 'replace');
   expect((await phoneB.store.get('card1'))?.pdf).toEqual({ pageCount: 4, coverPage: 2 });
+  expect((await phoneB.store.get('card1'))?.readText?.pages).toEqual(pages);
   expect(text(await phoneB.store.loadPdf('card1'))).toBe('%PDF-1.7 policy');
 });
 

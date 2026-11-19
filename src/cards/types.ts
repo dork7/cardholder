@@ -20,6 +20,7 @@ export const looksVertical = (aspect: number): boolean => aspect < 1;
 export interface CardText {
   front: string;
   back: string;
+  pages?: string[]; // every PDF page in document order; absent in older records and photo documents
 }
 
 // A user-made group of cards. Its name is sealed like a card's; the id is random.

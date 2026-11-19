@@ -23,3 +23,9 @@ test('details search finds folder and scanned text, including numbers with diffe
   expect(await find('2025ENH00412')).toContain('content');
   expect(await find('employer acme')).toContain('content');
 });
+
+test('details search finds text that appears only on a later PDF page', async () => {
+  const pdf = makeCard({ id: 'pdf', name: 'Policy', pdf: { pageCount: 3, coverPage: 0 },
+    readText: { front: 'Cover', back: 'Terms', pages: ['Cover', 'Terms', 'Renewal code Z8Q4'] } });
+  expect((await searchDocumentDetails([pdf], [], 'Z8Q4', new Set())).map((card) => card.id)).toEqual(['pdf']);
+});
