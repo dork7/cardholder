@@ -250,6 +250,7 @@ export const strings = {
     },
     license: 'Model: Gemma 3 270M by Google, under the Gemma Terms of Use.',
   },
+  // The widget's own fixed text (Locked, the empty message) is in modules/home-widget's res/values.
   widget: {
     expired: (date: string) => `Expired ${date}`,
   },

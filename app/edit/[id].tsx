@@ -3,16 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
-import { analyzeImage } from '../../src/analysis/analyze';
+import { analyzeImage, readImageText } from '../../src/analysis/analyze';
 import { gemmaReader, releaseGemma } from '../../src/analysis/gemma';
 import { displayName } from '../../src/cards/display';
-import { FrontImage } from '../../src/cards/types';
+import { readOtherPages } from '../../src/cards/pdfText';
+import { FrontImage, PdfDocument } from '../../src/cards/types';
 import { findDuplicate } from '../../src/cards/duplicates';
 import {
   acceptFolderOffer,
   applyAnalysis,
   applyReadText,
   removeReadSide,
+  startReadingSide,
   applyFolderSuggestion,
   editField,
   EditDraft,
@@ -115,7 +117,11 @@ export default function EditCard() {
   };
 
   const applyImage = (side: 'front' | 'back', image: FrontImage) => {
-    // A photo of the front replaces a PDF: the card becomes a photo card again.
+    // A photo of the front replaces a PDF: the card becomes a photo card again, without its pages' text.
+    if (side === 'front' && (draft.pdf || (existing?.pdf && !draft.removePdf))) {
+      reads.current.back++;
+      setForm((f) => removeReadSide(f, 'back'));
+    }
     if (side === 'front') update({ front: image, pdf: null, removePdf: !!existing?.pdf });
     else update({ back: image, removeBack: false });
     covers.current++;
@@ -152,6 +158,7 @@ export default function EditCard() {
       setOriginal('front', null);
       setOriginal('back', null);
       readCard('front', front.jpegBase64);
+      readPdfPages(pdf);
     } catch (e) {
       console.warn('PDF failed', e);
       if (e instanceof PdfTooLargeError) Alert.alert(strings.edit.pdfTooLarge(PDF_MAX_BYTES / 1024 / 1024));
@@ -169,6 +176,7 @@ export default function EditCard() {
       if (covers.current !== cover) return;
       update({ pdf: next, front });
       readCard('front', front.jpegBase64);
+      readPdfPages(next);
     } catch (e) {
       console.warn('Rendering the cover page failed', e);
       Alert.alert(strings.edit.pdfFailed);
@@ -192,6 +200,18 @@ export default function EditCard() {
       })
       .catch((e) => console.warn('Reading the card failed', e))
       .finally(() => setReading((n) => n - 1));
+  };
+
+  // A PDF card's pages other than its cover, kept as its back text for search. Quietly, as it can take
+  // a while: saved before it's done, the card is read again later (readUnreadCards).
+  const readPdfPages = (pdf: PdfDocument) => {
+    const read = ++reads.current.back;
+    setForm((f) => startReadingSide(f, 'back'));
+    readOtherPages(pdf, readImageText)
+      .then((text) => {
+        if (reads.current.back === read) setForm((f) => applyReadText(f, 'back', text));
+      })
+      .catch((e) => console.warn('Reading the PDF pages failed', e));
   };
 
   // The PDF on screen: one just picked, else the saved one once it has loaded.

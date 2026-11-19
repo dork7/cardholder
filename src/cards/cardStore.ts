@@ -96,6 +96,24 @@ const INSERT_FOLDER_SQL = 'INSERT INTO folders (id, payload, created_at) VALUES 
 // Sealed like a folder's name, in the settings table: the user's own category names are theirs to keep private.
 const CATEGORIES_KEY = 'categories';
 
+// What store.update takes, as the card has it now.
+export const fieldsOf = (card: Card): CardFields => ({
+  name: card.name,
+  category: card.category,
+  expiresOn: card.expiresOn,
+  tags: card.tags,
+  documentKey: card.documentKey,
+  folderId: card.folderId,
+  readText: card.readText,
+});
+
+// A photo card's front and, if it has one, its back (base64 JPEGs; null when missing).
+export async function loadPhotos(store: CardStore, card: Card): Promise<{ front: string | null; back: string | null }> {
+  const front = await store.loadImage(card.id, 'front');
+  const back = card.hasBack ? await store.loadImage(card.id, 'back') : null;
+  return { front, back };
+}
+
 export const blobName = (id: string, kind: BlobKind) => `${id}.${kind}`;
 
 const pdfInfo = (pdf: PdfDocument | null | undefined): CardPdf | null =>

@@ -1,6 +1,7 @@
 import { makeCard } from '../../../test/fixtures';
 import { strings } from '../../strings';
-import { MAX_WIDGET_CARDS, planWidget } from '../homeWidget';
+import { MAX_WIDGET_CARDS } from '../../config';
+import { planWidget } from '../homeWidget';
 
 const now = new Date(2026, 10, 1, 12);
 

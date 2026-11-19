@@ -1,18 +1,8 @@
-import { CardStore } from './cardStore';
-import { Card, CardCategory, CardFields } from './types';
+import { CardStore, fieldsOf } from './cardStore';
+import { Card, CardCategory } from './types';
 
 // Actions on several cards picked in the gallery. Each card is done on its own, so one failure doesn't
 // stop the rest; the result is how many failed.
-
-export const fieldsOf = (card: Card): CardFields => ({
-  name: card.name,
-  category: card.category,
-  expiresOn: card.expiresOn,
-  tags: card.tags,
-  documentKey: card.documentKey,
-  folderId: card.folderId,
-  readText: card.readText,
-});
 
 async function each(cards: Card[], what: string, run: (card: Card) => Promise<unknown>): Promise<number> {
   let failed = 0;

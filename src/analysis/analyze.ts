@@ -72,6 +72,11 @@ async function within<T>(work: Promise<T>, ms: number, message: string, onTimeou
   }
 }
 
+// Only the text on a photo, for search: no suggestions and no AI model.
+export async function readImageText(jpegBase64: string, recognizer: TextRecognizer = cardTextRecognizer): Promise<string> {
+  return analyzeText(await recognizer.recognize(jpegBase64), toIsoDate(new Date())).text ?? '';
+}
+
 export async function analyzeImage(
   jpegBase64: string,
   {

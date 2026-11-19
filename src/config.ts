@@ -12,6 +12,8 @@ export const FOLDER_NAME_MAX_LENGTH = 30;
 export const CATEGORY_MAX_LENGTH = 24;
 // Per side; card reading rarely finds a tenth of this, so it only stops a bad backup file from bloating a card.
 export const READ_TEXT_MAX_LENGTH = 4000;
+// Pages of a PDF card read for search besides its cover (src/cards/pdfText.ts).
+export const READ_PDF_MAX_PAGES = 10;
 // Hidden for now: no folder UI anywhere, and new cards aren't sorted into folders. Saved folders are kept.
 export const FOLDERS_ENABLED = false;
 
@@ -27,6 +29,8 @@ export const MAX_SCHEDULED_REMINDERS = 60;
 
 // iOS shows four home-screen quick actions; one is Add card.
 export const MAX_CARD_SHORTCUTS = 3;
+// As many as the home screen widget has rows (modules/home-widget's layout).
+export const MAX_WIDGET_CARDS = 4;
 
 // With the app lock on, time in the background after which the app asks to be unlocked again.
 export const LOCK_AFTER_BACKGROUND_MS = 30_000;

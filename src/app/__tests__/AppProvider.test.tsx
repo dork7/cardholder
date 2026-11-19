@@ -22,6 +22,8 @@ jest.mock('../../storage/fileBlobStore', () => ({ createFileBlobStore: () => moc
 jest.mock('../../crypto/secureVault', () => ({
   secureVault: { get: () => mockVault.get(), set: (key: Uint8Array) => mockVault.set(key) },
 }));
+// Drawing PDF pages needs the native picker and renderer; nothing here reads a PDF.
+jest.mock('../../images/pdf', () => ({ renderPages: jest.fn() }));
 jest.mock('../../reminders/scheduler', () => ({
   syncReminders: (...args: unknown[]) => mockSyncReminders(...args),
 }));

@@ -9,6 +9,7 @@ import {
   formFor,
   planSave,
   removeReadSide,
+  startReadingSide,
 } from '../editForm';
 
 // The limit is switched off in the app for now; these tests keep its rules covered for when it returns.
@@ -241,6 +242,18 @@ describe('text read off the card, for search', () => {
     expect(planSave(applyReadText(form, 'front', 'F').draft, free)).toMatchObject({
       fields: { readText: { front: 'F', back: '' } },
     });
+  });
+
+  test("a PDF card's other pages count as its back: the card is read once both are", () => {
+    const card = makeCard({ pdf: { pageCount: 3, coverPage: 0 }, readText: null });
+    const ctx = { existing: card, cardCount: 1, unlocked: false };
+    let form = applyReadText(formFor(card), 'front', 'COVER');
+    expect(planSave(form.draft, ctx)).toMatchObject({ fields: { readText: null } });
+    form = applyReadText(form, 'back', 'PAGES');
+    expect(planSave(form.draft, ctx)).toMatchObject({ fields: { readText: { front: 'COVER', back: 'PAGES' } } });
+    form = startReadingSide(form, 'back'); // a new cover page: the other pages are read again
+    expect(form.draft.readText).toEqual({ front: 'COVER', back: '' });
+    expect(planSave(form.draft, ctx)).toMatchObject({ fields: { readText: null } });
   });
 
   test('very long text is cut short', () => {

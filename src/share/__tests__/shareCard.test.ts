@@ -189,9 +189,16 @@ describe('sharing several cards', () => {
     ]);
   });
 
-  test('a single card is shared as on its own screen', async () => {
+  test('a single front-only card is still a PDF, named for the card', async () => {
     await shareCards(store, [makeCard({ name: 'Gym' })]);
-    expect(shareAsync).toHaveBeenCalledWith('cache/share/Gym-front.jpg', expect.anything());
+    expect(shareAsync).toHaveBeenCalledWith('cache/share/Gym.pdf', PDF);
+    expect(mockDisk.size).toBe(0);
+  });
+
+  test('a single card with a back goes as on its own screen', async () => {
+    await shareCards(store, [makeCard({ name: 'Gym', hasBack: true, backAspect: 1.586 })]);
+    expect(shareAsync).toHaveBeenCalledWith('cache/share/Gym.pdf', PDF);
+    expect(madeFrom()).toEqual(['cache/share/Gym-front.jpg', 'cache/share/Gym-back.jpg']);
   });
 
   test('without the PDF module it says so instead of sharing part of the selection', async () => {

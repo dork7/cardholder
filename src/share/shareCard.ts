@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { CardStore } from '../cards/cardStore';
+import { CardStore, loadPhotos } from '../cards/cardStore';
 import { displayName } from '../cards/display';
 import { Card } from '../cards/types';
 import { base64 } from '../crypto/bytes';
@@ -45,19 +45,12 @@ export async function shareCard(store: CardStore, card: Card): Promise<void> {
       await Sharing.shareAsync((await writeShareFile(`${base}.pdf`, pdf)).uri, PDF);
       return;
     }
-    const front = await store.loadImage(card.id, 'front');
+    const { front, back } = await loadPhotos(store, card);
     if (!front) return;
     const frontFile = await writeShareFile(`${base}-front.jpg`, front);
-    const back = card.hasBack ? await store.loadImage(card.id, 'back') : null;
     const combined = back ? imagesToPdf([frontFile.uri, (await writeShareFile(`${base}-back.jpg`, back)).uri]) : null;
     if (combined) {
-      const made = new File(await combined);
-      try {
-        await made.move(new File(shareDir(), `${base}.pdf`), { overwrite: true });
-        await Sharing.shareAsync(made.uri, PDF);
-      } finally {
-        if (made.exists) made.delete();
-      }
+      await shareMadePdf(combined, `${base}.pdf`);
       return;
     }
     // No back, or a build without the PDF module: the front photo alone.
@@ -67,13 +60,25 @@ export async function shareCard(store: CardStore, card: Card): Promise<void> {
   }
 }
 
+// Names the PDF imagesToPdf made, shares it, and deletes it once the share sheet closes.
+async function shareMadePdf(made: Promise<string>, name: string): Promise<void> {
+  const file = new File(await made);
+  try {
+    await file.move(new File(shareDir(), name), { overwrite: true });
+    await Sharing.shareAsync(file.uri, PDF);
+  } finally {
+    if (file.exists) file.delete();
+  }
+}
+
 export class PdfUnavailableError extends Error {}
 
 // Several cards as one PDF, in the order given: each photo card's front then back, and every page of a
-// PDF card. Like shareCard, the copies are deleted once the share sheet closes. A single card is shared
-// as shareCard would.
+// PDF card. Like shareCard, the copies are deleted once the share sheet closes. A single PDF card, or
+// one with a back, goes as shareCard sends it (already one PDF, and a PDF card's own file keeps its
+// text); a single front-only card is still a PDF here, named for the card.
 export async function shareCards(store: CardStore, cards: Card[]): Promise<void> {
-  if (cards.length === 1) return shareCard(store, cards[0]);
+  if (cards.length === 1 && (cards[0].pdf || cards[0].hasBack)) return shareCard(store, cards[0]);
   clearShareCache();
   shareDir().create({ intermediates: true });
   try {
@@ -91,21 +96,15 @@ export async function shareCards(store: CardStore, cards: Card[]): Promise<void>
         for (const page of drawn) await addPage(page);
         continue;
       }
-      const front = await store.loadImage(card.id, 'front');
+      const { front, back } = await loadPhotos(store, card);
       if (front) await addPage(front);
-      const back = card.hasBack ? await store.loadImage(card.id, 'back') : null;
       if (back) await addPage(back);
     }
     if (pages.length === 0) return;
     const combined = imagesToPdf(pages);
     if (!combined) throw new PdfUnavailableError('This build cannot make PDFs');
-    const made = new File(await combined);
-    try {
-      await made.move(new File(shareDir(), `DocKeeper-${cards.length}-cards.pdf`), { overwrite: true });
-      await Sharing.shareAsync(made.uri, PDF);
-    } finally {
-      if (made.exists) made.delete();
-    }
+    const name = cards.length === 1 ? `${cardFileBase(cards[0])}.pdf` : `DocKeeper-${cards.length}-cards.pdf`;
+    await shareMadePdf(combined, name);
   } finally {
     clearShareCache();
   }

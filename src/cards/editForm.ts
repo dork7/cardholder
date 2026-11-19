@@ -191,7 +191,13 @@ export function removeReadSide(state: FormState, side: keyof CardText): FormStat
 // Sides still waiting on a read. A card that already has text has none; a card with no back has no back to read.
 function unreadSidesOf(card: Card | null): (keyof CardText)[] {
   if (!card || card.readText !== null) return [];
-  return card.hasBack ? ['front', 'back'] : ['front'];
+  // A PDF card's other pages are its back text.
+  return card.hasBack || card.pdf ? ['front', 'back'] : ['front'];
+}
+
+// A side whose text is being read again: a PDF card's other pages, when its PDF or cover changes.
+export function startReadingSide(state: FormState, side: keyof CardText): FormState {
+  return { ...state, draft: noteUnread(withSideText(state.draft, side, ''), side) };
 }
 
 function noteUnread(draft: EditDraft, side: keyof CardText): EditDraft {
