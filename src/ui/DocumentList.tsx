@@ -65,7 +65,7 @@ function PinnedPanel({ card, now, onPress }: { card: Card; now: Date; onPress: (
       testID={`pinned-${card.id}`}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
-      <Panel style={[styles.panel, { backgroundColor: theme.surface }]} radius={RADIUS.md} testID={`pinned-panel-surface-${card.id}`}>
+      <Panel style={styles.panel} radius={RADIUS.md} opaque testID={`pinned-panel-surface-${card.id}`}>
         <View style={[styles.photo, { backgroundColor: theme.bg }]}>
           <CardPicture uri={uri} vertical={card.vertical} blurPreview={card.blurPreview} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
@@ -85,7 +85,7 @@ export function DocumentRows({ cards, onOpen }: ListProps) {
   const now = new Date();
   const theme = useTheme();
   return (
-    <Panel style={[styles.rows, { backgroundColor: theme.surface }]} testID="document-rows">
+    <Panel style={styles.rows} opaque testID="document-rows">
       {cards.map((card, i) => <Row key={card.id} card={card} now={now} first={i === 0} onPress={() => onOpen(card)} />)}
     </Panel>
   );

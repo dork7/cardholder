@@ -50,11 +50,12 @@ interface PanelProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   radius?: number;
+  opaque?: boolean;
   testID?: string;
   onLayout?: (e: LayoutChangeEvent) => void;
 }
 
-export function Panel({ children, style, radius = RADIUS.none, testID, onLayout }: PanelProps) {
+export function Panel({ children, style, radius = RADIUS.none, opaque = false, testID, onLayout }: PanelProps) {
   const theme = useTheme();
   return (
     <View
@@ -62,11 +63,12 @@ export function Panel({ children, style, radius = RADIUS.none, testID, onLayout 
       onLayout={onLayout}
       style={[
         styles.panel,
-        { borderRadius: radius === RADIUS.none ? RADIUS.md : radius, backgroundColor: theme.glassStrong, borderColor: theme.border },
+        { borderRadius: radius === RADIUS.none ? RADIUS.md : radius, backgroundColor: opaque ? theme.surface : theme.glassStrong,
+          borderColor: theme.border, ...(opaque && { elevation: 0, shadowOpacity: 0 }) },
         style,
       ]}
     >
-      {Platform.OS === 'ios' && <BlurView pointerEvents="none" tint={theme.blurTint} intensity={45} style={StyleSheet.absoluteFill} />}
+      {!opaque && Platform.OS === 'ios' && <BlurView pointerEvents="none" tint={theme.blurTint} intensity={45} style={StyleSheet.absoluteFill} />}
       {children}
     </View>
   );

@@ -19,4 +19,8 @@ test.each(['light', 'dark'] as const)('document library panels use one opaque %s
   </>);
   expect(StyleSheet.flatten(screen.getByTestId('pinned-panel-surface-passport').props.style).backgroundColor).toBe(palettes[scheme].surface);
   expect(StyleSheet.flatten(screen.getByTestId('document-rows').props.style).backgroundColor).toBe(palettes[scheme].surface);
+  for (const panel of ['pinned-panel-surface-passport', 'document-rows']) {
+    const surface = screen.getByTestId(panel);
+    expect(StyleSheet.flatten(surface.props.style).elevation).toBe(0);
+  }
 });
