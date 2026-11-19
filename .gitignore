@@ -45,3 +45,6 @@ yarn-error.*
 
 # Gradle output of the local native modules
 modules/*/android/build/
+
+# emulator-test skill runs (screenshots of real documents)
+/.e2e-runs
