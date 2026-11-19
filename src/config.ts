@@ -33,6 +33,8 @@ export const MAX_SCHEDULED_REMINDERS = 60;
 
 // iOS shows four home-screen quick actions; one is Add card.
 export const MAX_CARD_SHORTCUTS = 3;
+// As many as the home screen widget has rows (modules/home-widget's layout).
+export const MAX_WIDGET_CARDS = 4;
 
 // With the app lock on, time in the background after which the app asks to be unlocked again.
 export const LOCK_AFTER_BACKGROUND_MS = 30_000;
