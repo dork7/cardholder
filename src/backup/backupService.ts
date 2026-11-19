@@ -1,6 +1,6 @@
 import { NoteStore } from '../notes/noteStore';
 import { CardStore } from '../cards/cardStore';
-import { BackupCard, BackupSnapshot } from './backupFile';
+import { BackupCard, BackupSnapshot, decodeBackup } from './backupFile';
 
 export type ImportMode = 'merge' | 'replace';
 
@@ -9,6 +9,19 @@ export interface ImportResult {
   skipped: number;
   notesAdded: number;
   notesSkipped: number;
+}
+
+export interface VerifiedBackup {
+  exportedAt: number;
+  documents: number;
+  notes: number;
+}
+
+// Authenticate and validate with the exact restore parser, then retain only non-sensitive summary
+// data. No store or settings handle enters this path, so verification cannot import anything.
+export async function verifyBackup(bytes: Uint8Array, passphrase: string): Promise<VerifiedBackup> {
+  const snapshot = await decodeBackup(bytes, passphrase);
+  return { exportedAt: snapshot.exportedAt, documents: snapshot.cards.length, notes: snapshot.notes?.length ?? 0 };
 }
 
 export async function buildSnapshot(store: CardStore, now: number, notes?: NoteStore): Promise<BackupSnapshot> {

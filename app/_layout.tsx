@@ -71,6 +71,7 @@ function RootNavigator() {
          <Stack.Screen name="recently-deleted" options={{ title: strings.recentlyDeleted.title }} />
          <Stack.Screen name="export" options={{ title: strings.export.title, presentation: 'modal' }} />
          <Stack.Screen name="import" options={{ title: strings.import.title, presentation: 'modal' }} />
+         <Stack.Screen name="verify-backup" options={{ title: strings.verify.title, presentation: 'modal' }} />
          <Stack.Screen name="privacy" options={{ title: strings.privacy.title }} />
        </Stack>
     </LockedApp>
