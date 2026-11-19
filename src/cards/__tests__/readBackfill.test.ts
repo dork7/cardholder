@@ -87,6 +87,31 @@ test('an older PDF with only cover text is backfilled once and an edit cancels s
   expect((await store.get(card.id))?.name).toBe('Edited');
 });
 
+test('background backfill reports progress and stops before reading another PDF page', async () => {
+  const { store } = await makeStore();
+  const pdfBase64 = base64.encode(utf8.encode('%PDF-1.7 test'));
+  const card = await store.create(fields({ name: 'Old PDF', readText: { front: 'COVER', back: '' } }),
+    { ...images('cover'), pdf: { pdfBase64, pageCount: 3, coverPage: 0 } });
+  const progress: string[] = [];
+  let stopped = false;
+  let rendered = 0;
+  const readPdfPages = async (_pdf: unknown, onPage: (index: number, jpeg: string) => Promise<void>, cancelled?: () => boolean) => {
+    for (let index = 0; index < 3; index++) {
+      if (cancelled?.()) break;
+      rendered++;
+      await onPage(index, `PAGE ${index}`);
+    }
+  };
+  const updated = await readUnreadCards(store, async (jpeg) => {
+    stopped = true;
+    return jpeg;
+  }, readPdfPages, (done, total) => progress.push(`${done}/${total}`), () => stopped);
+  expect(updated).toBe(0);
+  expect(rendered).toBe(1);
+  expect(progress).toEqual(['0/1']);
+  expect((await store.get(card.id))?.readText).toEqual({ front: 'COVER', back: '' });
+});
+
 describe('Recreate .md', () => {
   test('reads every PDF page and finds a word that appears only on page 3', async () => {
     const { store } = await makeStore();

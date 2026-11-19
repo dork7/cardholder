@@ -17,7 +17,8 @@ const renderAndReadPdf: ReadPdfPages = async (pdf, onPage, cancelled) => {
 // saves it, which is what its Details (.md) are made from. Returns false when the card was edited or
 // deleted while it was being read: the user's change wins, nothing is written.
 export async function rereadCard(store: CardStore, card: Card, read: ReadPhoto,
-  readPdfPages: ReadPdfPages = renderAndReadPdf): Promise<boolean> {
+  readPdfPages: ReadPdfPages = renderAndReadPdf, cancelled: () => boolean = () => false): Promise<boolean> {
+  if (cancelled()) return false;
   let readText;
   if (card.pdf) {
     const pdfBase64 = await store.loadPdf(card.id);
@@ -25,11 +26,12 @@ export async function rereadCard(store: CardStore, card: Card, read: ReadPhoto,
     const pages = Array<string>(card.pdf.pageCount).fill('');
     let interrupted = false;
     await readPdfPages({ ...card.pdf, pdfBase64 }, async (index, jpeg) => {
+      if (cancelled()) { interrupted = true; return; }
       pages[index] = await read(jpeg);
       const current = await store.get(card.id);
-      interrupted = !current || current.updatedAt !== card.updatedAt;
-    }, () => interrupted);
-    if (interrupted) return false;
+      interrupted = cancelled() || !current || current.updatedAt !== card.updatedAt;
+    }, () => interrupted || cancelled());
+    if (interrupted || cancelled()) return false;
     readText = { front: pages[card.pdf.coverPage] ?? '', back: card.hasBack ? pages[1] ?? '' : '', pages };
   } else {
     const front = await store.loadImage(card.id, 'front');
@@ -37,7 +39,7 @@ export async function rereadCard(store: CardStore, card: Card, read: ReadPhoto,
     readText = { front: front ? await read(front) : '', back: back ? await read(back) : '' };
   }
   const fresh = await store.get(card.id);
-  if (!fresh || fresh.updatedAt !== card.updatedAt) return false;
+  if (cancelled() || !fresh || fresh.updatedAt !== card.updatedAt) return false;
   await store.update(card.id, { ...fieldsOf(fresh), readText });
   return true;
 }
@@ -73,17 +75,22 @@ export async function rereadCards(
 
 // Cards saved before Doc Keeper kept the text read off them can't be found by it. Each is read once,
 // in the background after the app opens, from its saved photos. Returns how many cards were updated.
-export async function readUnreadCards(store: CardStore, read: ReadPhoto, readPdfPages?: ReadPdfPages): Promise<number> {
+export async function readUnreadCards(store: CardStore, read: ReadPhoto, readPdfPages?: ReadPdfPages,
+  onProgress?: (done: number, total: number) => void, cancelled: () => boolean = () => false): Promise<number> {
   let updated = 0;
-  for (const card of await store.list()) {
-    if (card.readText !== null && (!card.pdf || card.readText.pages?.length === card.pdf.pageCount)) continue;
+  const pending = (await store.list()).filter((card) =>
+    card.readText === null || (card.pdf && card.readText.pages?.length !== card.pdf.pageCount));
+  if (pending.length > 0) onProgress?.(0, pending.length);
+  for (const [index, card] of pending.entries()) {
+    if (cancelled()) break;
     try {
       // Reading takes a while; if the user edited the card meanwhile, leave it for the next launch
       // rather than write over their change.
-      if (await rereadCard(store, card, read, readPdfPages)) updated++;
+      if (await rereadCard(store, card, read, readPdfPages, cancelled)) updated++;
     } catch (e) {
       console.warn('Reading a saved card failed', e);
     }
+    if (!cancelled()) onProgress?.(index + 1, pending.length);
   }
   return updated;
 }

@@ -60,6 +60,8 @@ export default function Home() {
     homeFolders,
     services,
     refresh,
+    pdfBackfill,
+    stopPdfBackfill,
     undo,
     stackVertical,
     showStack,
@@ -267,6 +269,12 @@ export default function Home() {
           <SettingsButton onPress={() => router.push('/settings')} />
         </View>
         {cards.length > 0 && <SearchField value={query} onChange={setQuery} />}
+        {pdfBackfill && (
+          <View style={styles.backfill} testID="backfill-progress">
+            <Text style={{ color: theme.muted, flex: 1 }}>{strings.home.backfillProgress(pdfBackfill.done, pdfBackfill.total)}</Text>
+            <Button variant="secondary" label={strings.common.cancel} onPress={stopPdfBackfill} testID="backfill-cancel" />
+          </View>
+        )}
         {/* Filters sit directly under search, above whatever they filter. */}
         {cards.length > 0 && present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
         {people.length > 0 && <ChipRow accessibilityLabel={strings.people.person} testID="person-filter"
@@ -595,6 +603,7 @@ const styles = StyleSheet.create({
   undoDock: { position: 'absolute', start: 16, end: 88 },
   library: { paddingTop: 12, gap: 24 },
   section: { gap: 12 },
+  backfill: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   viewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   segments: { flexDirection: 'row', borderWidth: 1, borderRadius: RADIUS.md, padding: 3 },
   segment: { minHeight: 44, paddingHorizontal: 14, borderRadius: RADIUS.md - 3, justifyContent: 'center' },

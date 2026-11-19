@@ -109,6 +109,7 @@ export const strings = {
     results: 'Results',
     searchPlaceholder: 'Search documents',
     searchLabel: 'Search document names and details',
+    backfillProgress: (done: number, total: number) => `Reading saved documents ${done} of ${total}…`,
     allTags: 'All',
     noResults: 'No documents.',
     clearSearch: 'Clear search',

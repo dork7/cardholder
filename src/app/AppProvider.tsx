@@ -43,6 +43,8 @@ export interface AppContextValue {
   people: Person[];
   unlocked: boolean;
   refresh(): Promise<void>;
+  pdfBackfill: { done: number; total: number } | null;
+  stopPdfBackfill(): void;
   // The one Undo offer for removals (see undo.ts); home shows it as the Undo bar.
   undo: Undo;
   openImportOnReady: boolean;
@@ -105,6 +107,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [stackVertical, setStackVerticalState] = useState(false);
   const [showStack, setShowStackState] = useState(true);
   const [warnIdShare, setWarnIdShareState] = useState(true);
+  const [pdfBackfill, setPdfBackfill] = useState<{ done: number; total: number } | null>(null);
+  const stopBackfillRef = useRef(false);
+  const stopPdfBackfill = useCallback(() => {
+    stopBackfillRef.current = true;
+    setPdfBackfill(null);
+  }, []);
   const depsRef = useRef<BootDeps | null>(null);
   const bootingRef = useRef(false);
   const phaseRef = useRef(phase);
@@ -233,9 +241,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!services || !canReadText || readingOldCards.current) return;
     readingOldCards.current = true;
-    readUnreadCards(services.store, readPhotoText)
+    readUnreadCards(services.store, readPhotoText, undefined,
+      (done, total) => setPdfBackfill({ done, total }), () => stopBackfillRef.current)
       .then((updated) => (updated > 0 ? refresh() : undefined))
-      .catch((e) => console.warn('Reading saved cards failed', e));
+      .catch((e) => console.warn('Reading saved cards failed', e))
+      .finally(() => setPdfBackfill(null));
   }, [services, refresh]);
   const setAppearance = useCallback(
     async (pref: AppearancePref) => {
@@ -310,6 +320,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             people,
             unlocked,
             refresh,
+            pdfBackfill,
+            stopPdfBackfill,
             undo,
             openImportOnReady,
             clearOpenImport,
@@ -337,6 +349,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       people,
       unlocked,
       refresh,
+      pdfBackfill,
+      stopPdfBackfill,
       undo,
       openImportOnReady,
       clearOpenImport,
