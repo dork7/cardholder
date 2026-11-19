@@ -2,7 +2,7 @@ import { backupSnapshot, fields, images, makeStore } from '../../../test/fixture
 import { base64, utf8 } from '../../crypto/bytes';
 import { blobName } from '../../cards/cardStore';
 import { decodeBackup, encodeBackup, parseSnapshot } from '../backupFile';
-import { applySnapshot, buildSnapshot } from '../backupService';
+import { applySnapshot, buildSnapshot, verifyBackup } from '../backupService';
 
 const text = (b64: string | null) => (b64 === null ? null : utf8.decode(base64.decode(b64)));
 
@@ -20,6 +20,17 @@ test('export from one phone, replace-import on another', async () => {
   expect(await phoneB.store.list()).toEqual(await phoneA.store.list());
   expect(text(await phoneB.store.loadImage('card1', 'back'))).toBe('JPEG:id-back');
   expect(text(await phoneB.store.loadImage('card2', 'thumb'))).toBe('THUMB:gym');
+});
+
+test('verifying an encrypted backup reports its contents without changing the phone', async () => {
+  const phone = await makeStore();
+  await phone.store.create(fields({ name: 'Current' }), images('current'));
+  const backup = backupSnapshot();
+  const bytes = await encodeBackup(backup, 'travel pass', { iterations: 1_000 });
+  expect(await verifyBackup(bytes, 'travel pass')).toEqual({
+    exportedAt: backup.exportedAt, documents: backup.cards.length, notes: 0,
+  });
+  expect((await phone.store.list()).map((card) => card.name)).toEqual(['Current']);
 });
 
 test('merge keeps cards already on the phone and adds the rest', async () => {
