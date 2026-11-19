@@ -38,11 +38,13 @@ import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { canTakePhoto, clearOriginals, cropFullPhoto, cropSharedImage, discardFile, pickImage, takePhoto } from '../../src/images/capture';
+import { checkPhotoQuality, PhotoProblem } from '../../src/images/photoQuality';
 import { canPickPdf, isPdfLocked, PDF_BACK_PAGE, PdfTooLargeError, pickPdf, readPdf, renderCover, renderPdfPage } from '../../src/images/pdf';
 import { discardShared } from '../../src/share/sharedFiles';
 import { takePendingShared } from '../../src/share/sharedIn';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { askReplace } from '../../src/ui/askReplace';
+import { askPhotoQuality } from '../../src/ui/askPhotoQuality';
 import { strings } from '../../src/strings';
 import { showError } from '../../src/ui/errorAlert';
 import { Button } from '../../src/ui/Button';
@@ -108,6 +110,7 @@ export default function EditCard() {
   const [personName, setPersonName] = useState('');
   const [namingTag, setNamingTag] = useState(false);
   const writing = useRef(false); // synchronous guard: state updates land a render too late for a fast double tap
+  const photoQuality = useRef<Record<'front' | 'back', { image: string; result: Promise<PhotoProblem | null>; accepted: boolean; camera: boolean } | null>>({ front: null, back: null });
   const existingFront = useCardImage(existing ?? undefined, 'front');
   const existingBack = useCardImage(existing?.hasBack ? existing : undefined, 'back');
   const existingPdf = useCardPdf(existing?.pdf && !draft.removePdf ? existing : undefined);
@@ -173,7 +176,7 @@ export default function EditCard() {
       setBusy(strings.edit.preparingPhoto);
       const image = await cropSharedImage(shot);
       if (!image) return;
-      applyImage(side, image);
+      applyImage(side, image, true);
       setOriginal(side, null);
     } catch (e) {
       console.warn('Taking a photo failed', e);
@@ -184,7 +187,8 @@ export default function EditCard() {
     }
   };
 
-  const applyImage = (side: 'front' | 'back', image: FrontImage) => {
+  const applyImage = (side: 'front' | 'back', image: FrontImage, camera = false) => {
+    photoQuality.current[side] = { image: image.jpegBase64, result: checkPhotoQuality(image.jpegBase64).catch(() => null), accepted: false, camera };
     // A photo of the front replaces a PDF: the card becomes a photo card again, and the back, a page of
     // that PDF, goes with it.
     if (side === 'front' && pdfInfo) {
@@ -230,6 +234,8 @@ export default function EditCard() {
       else update({ pdf, front, back: null, removeBack: !!existing?.hasBack, removePdf: false, vertical });
       setOriginal('front', null);
       setOriginal('back', null);
+      photoQuality.current.front = null;
+      photoQuality.current.back = null;
       readCard('front', front.jpegBase64);
       if (back) readCard('back', back.jpegBase64);
     } catch (e) {
@@ -319,6 +325,7 @@ export default function EditCard() {
   const pdfInfo = draft.pdf ?? (draft.removePdf ? null : (existing?.pdf ?? null));
 
   const removeBack = () => {
+    photoQuality.current.back = null;
     reads.current.back++; // drop a read of the photo being removed
     update({ back: null, removeBack: true });
     setForm((f) => removeReadSide(f, 'back'));
@@ -338,6 +345,29 @@ export default function EditCard() {
       return;
     }
     writing.current = true;
+    // The quality check runs after a photo is cropped. A result for a replaced photo is discarded.
+    // Only newly selected photos are checked; an unchanged saved photo and PDF pages are not.
+    if (!pdfInfo) {
+      for (const side of ['front', 'back'] as const) {
+        const image = draft[side];
+        if (!image) continue;
+        const check = photoQuality.current[side];
+        if (!check || check.image !== image.jpegBase64) continue;
+        const problem = await check.result;
+        if (photoQuality.current[side] !== check) {
+          writing.current = false;
+          return;
+        }
+        if (!problem || check.accepted) continue;
+        const decision = await askPhotoQuality(problem, side, check.camera);
+        if (decision !== 'keep') {
+          writing.current = false;
+          if (decision === 'replace') void (check.camera ? captureWithCamera(side) : capture(side));
+          return;
+        }
+        check.accepted = true;
+      }
+    }
     // A new card that looks like one already saved: offer to replace the old one instead.
     const duplicate = plan.kind === 'create' ? findDuplicate(plan.fields, cards) : null;
     if (duplicate && plan.kind === 'create') {

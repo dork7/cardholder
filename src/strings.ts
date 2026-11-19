@@ -223,6 +223,18 @@ export const strings = {
     deleteCard: 'Delete document',
     captureFailed: "Couldn't open that photo. Check Doc Keeper's photo access in Settings.",
     cameraFailed: "Couldn't take a photo. Try again, or pick one from your photos.",
+    photoQuality: {
+      title: 'Check this photo',
+      body: (problem: 'blur' | 'glare' | 'cutoff', side: 'front' | 'back') =>
+        `${side === 'front' ? 'The front' : 'The back'} ${
+          problem === 'blur' ? 'may be too blurry to read.' :
+            problem === 'glare' ? 'may have glare hiding details.' :
+              'may cut off part of the document.'
+        } You can replace it or keep it anyway.`,
+      replace: 'Replace photo',
+      retake: 'Retake photo',
+      keep: 'Keep anyway',
+    },
     pdfFailed: "Couldn't open that PDF.",
     pdfLocked: 'That PDF is password protected. Save an unlocked copy and try again.',
     pdfTooLarge: (mb: number) => `That PDF is over ${mb} MB. Choose a smaller file.`,
@@ -390,6 +402,7 @@ export const strings = {
     backup: 'Backup',
     lastBackup: (ago: string) => `Last backup: ${ago}`,
     neverBackedUp: 'Never backed up',
+    documentsChangedSinceBackup: 'Documents have changed since your last backup.',
     exportBackup: 'Export backup',
     importBackup: 'Import backup',
     purchases: 'Unlimited documents',
@@ -641,6 +654,24 @@ export const strings = {
       'invalid-contents': "This backup file is damaged and can't be imported. Nothing was changed.",
     },
     failed: 'Import failed. Nothing was changed.',
+  },
+  verify: {
+    title: 'Verify backup',
+    intro: 'Choose a backup file and enter its passphrase. This checks the file without changing your documents or notes.',
+    pickFile: 'Choose backup file',
+    chooseAnother: 'Choose another file',
+    action: 'Verify backup',
+    working: 'Checking backup…',
+    summary: (documents: number, notes: number, date: string) =>
+      `Backup verified: ${documents} ${plural(documents, 'document', 'documents')} and ${notes} ${plural(notes, 'note', 'notes')}, saved ${date}. Your data was not changed.`,
+    fileFailed: "Couldn't read that file. Choose it again, or check that it is still available.",
+    failed: "Couldn't verify this backup. Your data was not changed. Try another file.",
+    errors: {
+      'not-a-backup': "That file isn't a Doc Keeper backup. Choose a .cardholder file.",
+      'unsupported-version': 'This backup was made by a newer version of Doc Keeper. Update the app and try again.',
+      'wrong-passphrase-or-damaged': 'Wrong passphrase, or the file is damaged. Check the passphrase and try again.',
+      'invalid-contents': "This backup is damaged and can't be verified. Choose another backup file.",
+    },
   },
   paywall: {
     title: 'Unlimited documents',

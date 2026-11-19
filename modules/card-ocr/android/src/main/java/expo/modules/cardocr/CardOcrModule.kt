@@ -76,6 +76,37 @@ class CardOcrModule : Module() {
         .addOnCompleteListener { bitmap.recycle() }
     }
 
+    // Conservative quality signals for the editor. Everything stays in memory on the phone; an
+    // OCR line touching the edge is only considered a cutoff when two lines do so.
+    AsyncFunction("measureQuality") { jpegBase64: String, promise: Promise ->
+      val bytes = try { Base64.decode(jpegBase64, Base64.DEFAULT) }
+      catch (e: IllegalArgumentException) {
+        promise.reject("E_IMAGE", "Could not decode the image", e)
+        return@AsyncFunction
+      }
+      val bitmap = decodeUpright(bytes)
+      if (bitmap == null) {
+        promise.reject("E_IMAGE", "Could not decode the image", null)
+        return@AsyncFunction
+      }
+      val edge = 512
+      val scale = edge.toFloat() / max(bitmap.width, bitmap.height)
+      val small = if (scale < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt().coerceAtLeast(1), (bitmap.height * scale).toInt().coerceAtLeast(1), true) else bitmap
+      val metrics = try { PhotoQualityMeasurer.measure(small) }
+      finally { if (small !== bitmap) small.recycle() }
+      textReader.process(InputImage.fromBitmap(bitmap, 0))
+        .addOnSuccessListener { text ->
+          val clipped = text.textBlocks.flatMap { it.lines }.count { line ->
+            val box = line.boundingBox ?: return@count false
+            box.left <= 1 || box.top <= 1 || box.right >= bitmap.width - 1 || box.bottom >= bitmap.height - 1
+          }
+          promise.resolve(mapOf("sharpness" to metrics.sharpness, "contrast" to metrics.contrast,
+            "whiteRatio" to metrics.whiteRatio, "clippedLines" to clipped))
+        }
+        .addOnFailureListener { e -> promise.reject("E_OCR", e.message ?: "Quality check failed", e) }
+        .addOnCompleteListener { bitmap.recycle() }
+    }
+
     // Like the iOS version: the bounding box of the most likely card-shaped rectangle, upright and
     // normalised with the origin top left, or null.
     AsyncFunction("detectCard") { uri: String ->
