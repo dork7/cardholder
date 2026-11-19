@@ -3,10 +3,11 @@ import { Alert } from 'react-native';
 import { backupSnapshot } from '../../../test/fixtures';
 import ExportScreen from '../../../app/export';
 import ImportScreen from '../../../app/import';
+import VerifyBackupScreen from '../../../app/verify-backup';
 import SettingsScreen from '../../../app/settings';
 import { MIN_PASSPHRASE_LENGTH } from '../../config';
 import { strings } from '../../strings';
-import { formatAgo } from '../../time/dates';
+import { formatAgo, formatDate } from '../../time/dates';
 import { BackupError } from '../backupFile';
 
 const mockRouter = { back: jest.fn(), push: jest.fn(), dismissAll: jest.fn() };
@@ -46,9 +47,11 @@ jest.mock('../backupFile', () => ({
   decodeBackup: (...args: unknown[]) => mockDecode(...args),
 }));
 const mockApply = jest.fn();
+const mockVerify = jest.fn();
 jest.mock('../backupService', () => ({
   buildSnapshot: async () => (mockSteps.push('snapshot'), {}),
   applySnapshot: (...args: unknown[]) => mockApply(...args),
+  verifyBackup: (...args: unknown[]) => mockVerify(...args),
 }));
 const mockShare = jest.fn(async () => {});
 const mockSave = jest.fn(async (): Promise<string | null> => 'DocKeeper-backup-2026-11-15.cardholder');
@@ -232,6 +235,40 @@ describe('import', () => {
   });
 });
 
+describe('verify backup', () => {
+  const pick = async () => {
+    mockPick.mockResolvedValue({ canceled: false, assets: [{ uri: 'cache/pick/check.cardholder', name: 'check.cardholder' }] });
+    await render(<VerifyBackupScreen />);
+    await act(async () => fireEvent.press(screen.getByTestId('verify-pick')));
+    await fireEvent.changeText(screen.getByTestId('verify-passphrase'), 'right pass');
+    await act(async () => fireEvent.press(screen.getByTestId('verify-run')));
+  };
+
+  test('opens and validates a chosen file without importing or changing settings', async () => {
+    mockVerify.mockResolvedValue({ exportedAt: 1234, documents: 2, notes: 1 });
+    await pick();
+    expect(mockVerify).toHaveBeenCalledWith(new Uint8Array([9]), 'right pass');
+    expect(screen.getByTestId('verify-summary')).toHaveTextContent(strings.verify.summary(2, 1, formatDate(1234)));
+    expect(mockDeleted).toEqual(['cache/pick/check.cardholder']);
+    expect(screen.queryByTestId('verify-passphrase')).toBeNull();
+    expect(mockApply).not.toHaveBeenCalled();
+    expect(mockRefresh).not.toHaveBeenCalled();
+    expect(mockSettings.size).toBe(0);
+  });
+
+  test.each([
+    ['wrong-passphrase-or-damaged', strings.verify.errors['wrong-passphrase-or-damaged']],
+    ['invalid-contents', strings.verify.errors['invalid-contents']],
+    ['unsupported-version', strings.verify.errors['unsupported-version']],
+  ] as const)('shows an actionable %s error without changing the vault', async (code, message) => {
+    mockVerify.mockRejectedValue(new BackupError(code));
+    await pick();
+    expect(screen.getByTestId('verify-error').props.children).toBe(message);
+    expect(mockApply).not.toHaveBeenCalled();
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+});
+
 describe('settings', () => {
   test('prompts for a stale backup only when documents changed since the save', async () => {
     mockSettings.set('lastExportAt', String(Date.now() - 31 * 86_400_000));
@@ -245,6 +282,13 @@ describe('settings', () => {
     mockNotesChangedAt = 2000;
     await render(<SettingsScreen />);
     expect(await screen.findByText(strings.notes.changesSinceBackup)).toBeTruthy();
+  });
+
+  test('shows when documents have changed since the last backup', async () => {
+    mockSettings.set('lastExportAt', '1000');
+    mockDocumentChangedAt = 2000;
+    await render(<SettingsScreen />);
+    expect(await screen.findByText(strings.settings.documentsChangedSinceBackup)).toBeTruthy();
   });
 
   test('says nothing about notes when they have not changed since the last backup', async () => {
@@ -268,6 +312,8 @@ describe('settings', () => {
     expect(mockRouter.push).toHaveBeenLastCalledWith('/export');
     await fireEvent.press(screen.getByRole('button', { name: strings.settings.importBackup }));
     expect(mockRouter.push).toHaveBeenLastCalledWith('/import');
+    await fireEvent.press(screen.getByRole('button', { name: strings.verify.title }));
+    expect(mockRouter.push).toHaveBeenLastCalledWith('/verify-backup');
     await fireEvent.press(screen.getByRole('button', { name: strings.settings.privacyPolicy }));
     expect(mockRouter.push).toHaveBeenLastCalledWith('/privacy');
   });

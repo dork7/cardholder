@@ -51,6 +51,7 @@ export default function SettingsScreen() {
   const [lastExportAt, setLastExportAt] = useState<number | null>(null);
 
   const [notesChangedAt, setNotesChangedAt] = useState<number | null>(null);
+  const [documentsChangedAt, setDocumentsChangedAt] = useState<number | null>(null);
   const [deletedCount, setDeletedCount] = useState(0);
   const [staleBackup, setStaleBackup] = useState(false);
   const [backupFailed, setBackupFailed] = useState(false);
@@ -62,6 +63,7 @@ export default function SettingsScreen() {
       services.settings.getNumber('autoBackupError').then((value) => setBackupFailed(value === 1)).catch(() => {});
       services.settings.getNumber('lastExportAt').then(setLastExportAt).catch(() => {});
       services.notes?.lastChangeAt().then(setNotesChangedAt).catch(() => {});
+      services.store.lastChangeAt().then(setDocumentsChangedAt).catch(() => {});
       services.store
         .listRecentlyDeleted()
         .then((deleted) => setDeletedCount(deleted.length))
@@ -165,11 +167,15 @@ export default function SettingsScreen() {
           {lastExportAt !== null && notesChangedAt !== null && notesChangedAt > lastExportAt && (
             <Text style={[styles.caption, { color: theme.muted }]}>{strings.notes.changesSinceBackup}</Text>
           )}
+          {lastExportAt !== null && documentsChangedAt !== null && documentsChangedAt > lastExportAt && (
+            <Text style={[styles.caption, { color: theme.muted }]}>{strings.settings.documentsChangedSinceBackup}</Text>
+          )}
           {staleBackup && <Text style={[styles.body, { color: theme.text }]}>{strings.autoBackup.stale}</Text>}
           {backupFailed && <Text style={[styles.body, { color: theme.text }]}>{strings.autoBackup.runFailed}</Text>}
           {Platform.OS === 'ios' && <Text style={[styles.caption, { color: theme.muted }]}>{strings.autoBackup.ios}</Text>}
           <Button icon="backup" label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
           <Button icon="import" variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
+          <Button variant="secondary" label={strings.verify.title} onPress={() => router.push('/verify-backup')} />
           {Platform.OS === 'android' && <Button variant="secondary" label={strings.autoBackup.title} onPress={() => router.push('/auto-backup')} />}
         </Section>
         <Section title={strings.settings.home}>
