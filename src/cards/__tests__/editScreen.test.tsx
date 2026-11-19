@@ -115,6 +115,8 @@ jest.mock('../../images/pdf', () => {
 });
 const mockAnalyze = jest.fn();
 jest.mock('../../analysis/analyze', () => ({ analyzeImage: (...a: unknown[]) => mockAnalyze(...a) }));
+const mockCheckPhotoQuality = jest.fn();
+jest.mock('../../images/photoQuality', () => ({ checkPhotoQuality: (image: string) => mockCheckPhotoQuality(image) }));
 
 let warn: jest.SpyInstance;
 let alert: jest.SpyInstance;
@@ -134,6 +136,7 @@ beforeEach(() => {
   mockRefresh.mockResolvedValue(undefined);
   mockPermission.mockResolvedValue(true);
   mockAnalyze.mockResolvedValue({});
+  mockCheckPhotoQuality.mockResolvedValue(null);
   mockPickPdf.mockResolvedValue(pdfDoc());
   mockRenderCover.mockImplementation((pdf: { coverPage: number }) => Promise.resolve(frontImage(`page${pdf.coverPage}`)));
   mockRenderPdfPage.mockImplementation((_pdf: unknown, page: number) => Promise.resolve(image(`back${page}`)));
@@ -226,6 +229,39 @@ describe('leaving with unsaved changes', () => {
 });
 
 describe('saving', () => {
+  test('a blurry new photo asks before saving; Keep anyway saves it', async () => {
+    mockCheckPhotoQuality.mockResolvedValue('blur');
+    await fillNewCard();
+    fireEvent.press(screen.getByTestId('save-card'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(
+      strings.edit.photoQuality.title, expect.any(String), expect.any(Array), expect.any(Object),
+    ));
+    expect(mockCreate).not.toHaveBeenCalled();
+    const buttons = alert.mock.calls.find(([title]) => title === strings.edit.photoQuality.title)?.[2] as {
+      text: string; onPress?: () => void;
+    }[];
+    expect(buttons.map((button) => button.text)).toEqual([
+      strings.edit.photoQuality.replace, strings.edit.photoQuality.keep,
+    ]);
+    await act(async () => buttons[1].onPress?.());
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
+  });
+
+  test('replacing a warned photo opens the picker and leaves the document unsaved', async () => {
+    mockCheckPhotoQuality.mockResolvedValue('blur');
+    await fillNewCard();
+    fireEvent.press(screen.getByTestId('save-card'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(
+      strings.edit.photoQuality.title, expect.any(String), expect.any(Array), expect.any(Object),
+    ));
+    const buttons = alert.mock.calls.find(([title]) => title === strings.edit.photoQuality.title)?.[2] as {
+      text: string; onPress?: () => void;
+    }[];
+    await act(async () => buttons[0].onPress?.());
+    await waitFor(() => expect(mockPickImage).toHaveBeenCalledTimes(2));
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
   test('a failed reminder permission after the card was written still leaves the screen, without a second write', async () => {
     mockPermission.mockRejectedValue(new Error('permission boom'));
     await fillNewCard();
