@@ -10,6 +10,7 @@ import { useLaunchLinks } from '../src/app/useLaunchLinks';
 import { addTags, overTagLimit, setBlurPreview, shouldUnpin, togglePinned } from '../src/cards/batch';
 import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
 import { filterCards, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
+import { useDocumentSearch } from '../src/cards/useDocumentSearch';
 import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { shareCards } from '../src/share/shareCard';
@@ -99,7 +100,8 @@ export default function Home() {
       ]
     : [];
   const byPerson = personId ? cards.filter((card) => card.personId === personId) : cards;
-  const shown = filterCards(byPerson, { query, tag, folderId });
+  const searchResults = useDocumentSearch(cards, folders, query);
+  const shown = filterCards(searchResults, { query: '', tag, folderId }).filter((card) => !personId || card.personId === personId);
   const { pinned } = splitPinned(byPerson);
   const pinnedNotes = notes.filter((note) => note.pinned).map(({ id, title }) => ({ id, title }));
   const [savedView, setGallery] = useSavedChoice('homeView', isHomeView, 'list');

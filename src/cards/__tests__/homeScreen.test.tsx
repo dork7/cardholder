@@ -309,6 +309,37 @@ test('search narrows the stack by name, and says so when nothing matches', async
   expect(screen.getByTestId('card-stack').props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 3) });
 });
 
+test('document search adds Details (.md) matches after 500 ms and cancels stale searches', async () => {
+  jest.useFakeTimers();
+  mockHomeView = 'list';
+  try {
+    await withCards([
+      makeCard({ id: 'title', name: 'Acme policy' }),
+      makeCard({ id: 'details', name: 'Insurance', readText: { front: 'Employer: ACME LLC', back: '' } }),
+      makeCard({ id: 'other', name: 'Gym' }),
+    ], async () => {
+      await render(<Home />);
+      await act(async () => fireEvent.changeText(screen.getByTestId('search'), 'acme'));
+      expect(screen.getByTestId('row-title')).toBeTruthy();
+      expect(screen.queryByTestId('row-details')).toBeNull();
+      await act(async () => jest.advanceTimersByTime(499));
+      expect(screen.queryByTestId('row-details')).toBeNull();
+      await act(async () => { jest.advanceTimersByTime(1); await Promise.resolve(); });
+      expect(screen.getByTestId('row-details')).toBeTruthy();
+
+      await act(async () => fireEvent.changeText(screen.getByTestId('search'), 'missing'));
+      await act(async () => fireEvent.changeText(screen.getByTestId('search'), 'gym'));
+      expect(screen.getByTestId('row-other')).toBeTruthy();
+      await act(async () => { jest.advanceTimersByTime(500); await Promise.resolve(); });
+      expect(screen.queryByTestId('row-details')).toBeNull();
+      await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.home.clearSearch })));
+      expect(screen.getByTestId('row-details')).toBeTruthy();
+    });
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test('adding goes to the editor', async () => {
   await renderHome();
   await fireEvent.press(screen.getByTestId('add-card'));

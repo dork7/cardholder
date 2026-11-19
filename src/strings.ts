@@ -108,7 +108,7 @@ export const strings = {
     listLabel: 'List',
     results: 'Results',
     searchPlaceholder: 'Search documents',
-    searchLabel: "Search documents by name or by what's printed on them",
+    searchLabel: 'Search document names and details',
     allTags: 'All',
     noResults: 'No documents.',
     clearSearch: 'Clear search',
