@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EASE_OUT } from '../../src/ui/motion';
 import { useApp } from '../../src/app/AppProvider';
 import { analyzeImage } from '../../src/analysis/analyze';
+import { readPhotoText } from '../../src/analysis/readPhoto';
+import { indexPdfAfterSave } from '../../src/cards/readBackfill';
 import { displayName } from '../../src/cards/display';
 import { deleteWithUndo } from '../../src/cards/deleteWithUndo';
 import { FrontImage, looksVertical, PdfDocument } from '../../src/cards/types';
@@ -382,8 +384,14 @@ export default function EditCard() {
           ?? (await services.store.createPerson(plan.newPerson));
         fields = { ...fields, personId: person.id };
       }
-      if (plan.kind === 'create') await services.store.create(fields, plan.images);
-      else await services.store.update(plan.id, fields, plan.changes);
+      const saved = plan.kind === 'create'
+        ? await services.store.create(fields, plan.images)
+        : await services.store.update(plan.id, fields, plan.changes);
+      if (saved.pdf && (plan.kind === 'create' || plan.changes.pdf ||
+          saved.readText?.pages?.length !== saved.pdf.pageCount)) {
+        void indexPdfAfterSave(services.store, saved, readPhotoText, refresh)
+          .catch((e) => console.warn('Reading PDF pages after save failed', e));
+      }
     } catch (e) {
       console.warn('Save failed', e);
       writing.current = false;

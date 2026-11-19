@@ -67,6 +67,13 @@ test('a PDF card names its pages', () => {
   );
 });
 
+test('a PDF Details document includes text from every page with page numbers', () => {
+  const card = makeCard({ pdf: { pageCount: 3, coverPage: 0 }, readText: {
+    front: 'COVER', back: 'SUMMARY', pages: ['COVER', 'SUMMARY', 'Renewal code Z8Q4'],
+  } });
+  expect(cardMarkdown(card, [])).toContain('## Page 3\n\n```text\nRenewal code Z8Q4\n```');
+});
+
 test('backticks in the scanned text cannot close the code block early', () => {
   const md = cardMarkdown(makeCard({ readText: { front: 'a ``` b', back: '' } }), []);
   expect(md).toContain('````text\na ``` b\n````');

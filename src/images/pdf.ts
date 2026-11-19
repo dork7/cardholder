@@ -115,13 +115,13 @@ export function renderPdfPage(pdf: Pick<PdfDocument, 'pdfBase64'>, page: number)
 export function renderPages(
   pdf: Pick<PdfDocument, 'pdfBase64' | 'pageCount'>,
   maxEdge: number,
-  onPage: (index: number, image: CardImage) => void,
+  onPage: (index: number, image: CardImage) => void | Promise<void>,
   cancelled: () => boolean = () => false,
 ): Promise<void> {
   return withTempPdf(pdf.pdfBase64, async (uri) => {
     for (let page = 0; page < pdf.pageCount && !cancelled(); page++) {
       const image = await renderPage(uri, page, maxEdge, async (img) => img);
-      if (!cancelled()) onPage(page, image);
+      if (!cancelled()) await onPage(page, image);
     }
   });
 }

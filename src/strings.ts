@@ -282,6 +282,7 @@ export const strings = {
     folder: 'Folder',
     source: 'Source',
     pdfPages: (pages: number) => `PDF, ${pages} ${plural(pages, 'page', 'pages')}`,
+    page: (n: number) => `Page ${n}`,
     frontAndBack: 'Photos of the front and back',
     frontOnly: 'Photo of the front',
     added: 'Added',

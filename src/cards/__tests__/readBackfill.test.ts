@@ -1,6 +1,7 @@
 import { fields, images, makeStore } from '../../../test/fixtures';
 import { base64, utf8 } from '../../crypto/bytes';
-import { readUnreadCards, rereadCard, rereadCards } from '../readBackfill';
+import { indexPdfAfterSave, readUnreadCards, rereadCard, rereadCards } from '../readBackfill';
+import { cardMarkdown } from '../cardMarkdown';
 
 // The fixtures' "JPEGs" are markers like JPEG:a; the fake reader returns the marker as the card's text.
 const fakeRead = async (jpegBase64: string) => utf8.decode(base64.decode(jpegBase64)).replace('JPEG:', 'TEXT ');
@@ -55,7 +56,52 @@ test('one card failing does not stop the others', async () => {
   expect((await store.get(bad.id))?.readText).toBeNull();
 });
 
+test('an older PDF with only cover text is backfilled once and an edit cancels stale page reading', async () => {
+  const { store } = await makeStore();
+  const pdfBase64 = base64.encode(utf8.encode('%PDF-1.7 test'));
+  const card = await store.create(fields({ name: 'Policy', readText: { front: 'COVER', back: '' } }),
+    { ...images('cover'), pdf: { pdfBase64, pageCount: 3, coverPage: 0 } });
+  let pagesRead = 0;
+  const readPdfPages = async (_pdf: unknown, onPage: (index: number, jpeg: string) => Promise<void>, cancelled?: () => boolean) => {
+    for (const [index, text] of ['COVER', 'TERMS', 'Z8Q4'].entries()) {
+      if (cancelled?.()) break;
+      pagesRead++;
+      await onPage(index, text);
+    }
+  };
+  expect(await readUnreadCards(store, async (jpeg) => jpeg, readPdfPages)).toBe(1);
+  expect((await store.get(card.id))?.readText?.pages?.[2]).toBe('Z8Q4');
+  expect(await readUnreadCards(store, async (jpeg) => jpeg, readPdfPages)).toBe(0);
+  expect(pagesRead).toBe(3);
+
+  const fresh = (await store.get(card.id))!;
+  const staleRead = async (_pdf: unknown, onPage: (index: number, jpeg: string) => Promise<void>, cancelled?: () => boolean) => {
+    await onPage(0, 'OLD');
+    if (!cancelled?.()) await onPage(1, 'SHOULD NOT READ');
+  };
+  const read = async (jpeg: string) => {
+    if (jpeg === 'OLD') await store.update(card.id, fields({ name: 'Edited' }));
+    return jpeg;
+  };
+  expect(await rereadCard(store, fresh, read, staleRead)).toBe(false);
+  expect((await store.get(card.id))?.name).toBe('Edited');
+});
+
 describe('Recreate .md', () => {
+  test('reads every PDF page and finds a word that appears only on page 3', async () => {
+    const { store } = await makeStore();
+    const pdfBase64 = base64.encode(utf8.encode('%PDF-1.7 test'));
+    const card = await store.create(fields({ name: 'Policy', readText: { front: 'OLD', back: '' } }),
+      { ...images('cover', true), pdf: { pdfBase64, pageCount: 3, coverPage: 0 } });
+    const readPdfPages = jest.fn(async (_pdf: unknown, onPage: (index: number, jpeg: string) => Promise<void>) => {
+      for (const [index, text] of ['COVER', 'TERMS', 'Renewal code Z8Q4'].entries()) await onPage(index, text);
+    });
+    expect(await rereadCard(store, card, async (jpeg) => jpeg, readPdfPages)).toBe(true);
+    const updated = (await store.get(card.id))!;
+    expect(updated.readText?.pages).toEqual(['COVER', 'TERMS', 'Renewal code Z8Q4']);
+    expect(cardMarkdown(updated, [])).toContain('Renewal code Z8Q4');
+  });
+
   test('reads a document again even if it was read before, replacing its text', async () => {
     const { store } = await makeStore();
     const card = await store.create(fields({ name: 'Visa', readText: { front: 'OLD', back: '' } }), images('visa', true));
@@ -92,4 +138,18 @@ describe('Recreate .md', () => {
     expect(await rereadCards(store, [card], read)).toBe(1);
     expect((await store.get(card.id))?.name).toBe('Edited');
   });
+});
+
+test('a newly saved PDF gains searchable text from its later pages without another save', async () => {
+  const { store } = await makeStore();
+  const pdfBase64 = base64.encode(utf8.encode('%PDF-1.7 test'));
+  const card = await store.create(fields({ name: 'Policy' }),
+    { ...images('cover', true), pdf: { pdfBase64, pageCount: 3, coverPage: 0 } });
+  const refresh = jest.fn(async () => {});
+  await indexPdfAfterSave(store, card, async (jpeg) => jpeg, refresh,
+    async (_pdf, onPage) => {
+      for (const [i, text] of ['COVER', 'TERMS', 'Z8Q4'].entries()) await onPage(i, text);
+    });
+  expect((await store.get(card.id))?.readText?.pages?.[2]).toBe('Z8Q4');
+  expect(refresh).toHaveBeenCalledTimes(1);
 });

@@ -54,9 +54,11 @@ const DOCUMENT_KEY = /^[0-9a-f]{64}$/;
 // Not typed by anyone either: anything malformed means "not read yet", and the card is read again.
 export function toCardText(v: unknown): CardText | null {
   if (typeof v !== 'object' || v === null) return null;
-  const { front, back } = v as Record<string, unknown>;
+  const { front, back, pages } = v as Record<string, unknown>;
   if (typeof front !== 'string' || typeof back !== 'string') return null;
-  return { front: front.slice(0, READ_TEXT_MAX_LENGTH), back: back.slice(0, READ_TEXT_MAX_LENGTH) };
+  return { front: front.slice(0, READ_TEXT_MAX_LENGTH), back: back.slice(0, READ_TEXT_MAX_LENGTH),
+    ...(Array.isArray(pages) && pages.every((page) => typeof page === 'string') &&
+      { pages: pages.map((page: string) => page.slice(0, READ_TEXT_MAX_LENGTH)) }) };
 }
 
 export function validateCardFields(raw: RawCardFields): CardValidation {
