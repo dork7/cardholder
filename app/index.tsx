@@ -40,6 +40,7 @@ import { useTooltip } from '../src/ui/Tooltip';
 import { LiveText } from '../src/ui/LiveText';
 import { GestureTip, GestureTipName, useGestureTips } from '../src/ui/GestureTip';
 import { SortSheet } from '../src/ui/SortSheet';
+import { useDebouncedQuery } from '../src/ui/useDebouncedQuery';
 
 type HomeView = 'list' | 'gallery';
 const isHomeView = (v: unknown): v is HomeView => v === 'list' || v === 'gallery';
@@ -66,6 +67,8 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   useLaunchLinks();
   const [query, setQuery] = useState('');
+  const settledQuery = useDebouncedQuery(query);
+  const searchPending = query.trim() !== settledQuery.trim();
   const [chosen, setChosen] = useState<string | null>(null);
   // Only tags some card has are offered; if the chosen tag's last card goes, fall back to All.
   const present = allTags(cards);
@@ -96,7 +99,7 @@ export default function Home() {
       ]
     : [];
   const byPerson = personId ? cards.filter((card) => card.personId === personId) : cards;
-  const searchResults = useDocumentSearch(cards, folders, query);
+  const searchResults = useDocumentSearch(cards, folders, settledQuery);
   const shown = filterCards(searchResults, { query: '', tag, folderId }).filter((card) => !personId || card.personId === personId);
   const { pinned } = splitPinned(byPerson);
   const pinnedNotes = notes.filter((note) => note.pinned).map(({ id, title }) => ({ id, title }));
@@ -339,7 +342,7 @@ export default function Home() {
           {cards.length > 0 && <View style={styles.section}>
             <SectionHeading title={strings.home.allDocuments} count={strings.home.documentCount(rest.length)} />
             {rest.length === 0 ? (
-              <LiveText style={[styles.promise, { color: theme.muted }]}>{strings.home.noResults}</LiveText>
+              <LiveText style={[styles.promise, { color: theme.muted }]}>{searchPending ? strings.home.searching : strings.home.noResults}</LiveText>
             ) : (
               <DocumentRows cards={rest} onOpen={(card) => router.push(`/card/${card.id}`)} />
             )}
@@ -352,7 +355,7 @@ export default function Home() {
           {shown.length === 0 ? (
             <View style={styles.noResults}>
               <LiveText style={[styles.promise, { color: theme.muted }]}>
-                {strings.home.noResults}
+                {searchPending ? strings.home.searching : strings.home.noResults}
               </LiveText>
             </View>
           ) : (

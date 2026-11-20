@@ -231,7 +231,7 @@ test('the appearance toggle says what is on and moves to the next choice', async
   expect(mockSetAppearance).toHaveBeenCalledWith('light');
 });
 
-test('document search adds Details (.md) matches after 500 ms and cancels stale searches', async () => {
+test('document search settles after 250 ms, finds Details (.md), and cancels stale searches', async () => {
   jest.useFakeTimers();
   mockHomeView = 'list';
   try {
@@ -243,16 +243,18 @@ test('document search adds Details (.md) matches after 500 ms and cancels stale 
       await render(<Home />);
       await act(async () => fireEvent.changeText(screen.getByTestId('search'), 'acme'));
       expect(screen.getByTestId('row-title')).toBeTruthy();
-      expect(screen.queryByTestId('row-details')).toBeNull();
-      await act(async () => jest.advanceTimersByTime(499));
-      expect(screen.queryByTestId('row-details')).toBeNull();
+      expect(screen.getByTestId('row-details')).toBeTruthy();
+      await act(async () => jest.advanceTimersByTime(249));
+      expect(screen.getByTestId('row-other')).toBeTruthy();
+      await act(async () => { jest.advanceTimersByTime(1); await Promise.resolve(); });
+      expect(screen.queryByTestId('row-other')).toBeNull();
       await act(async () => { jest.advanceTimersByTime(1); await Promise.resolve(); });
       expect(screen.getByTestId('row-details')).toBeTruthy();
 
       await act(async () => fireEvent.changeText(screen.getByTestId('search'), 'missing'));
       await act(async () => fireEvent.changeText(screen.getByTestId('search'), 'gym'));
+      await act(async () => { jest.advanceTimersByTime(251); await Promise.resolve(); });
       expect(screen.getByTestId('row-other')).toBeTruthy();
-      await act(async () => { jest.advanceTimersByTime(500); await Promise.resolve(); });
       expect(screen.queryByTestId('row-details')).toBeNull();
       await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.home.clearSearch })));
       expect(screen.getByTestId('row-details')).toBeTruthy();

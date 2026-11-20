@@ -68,15 +68,26 @@ test('list shows pinned first, searches bodies and titles, and distinguishes no 
   await render(<NotesScreen />);
   await screen.findByTestId('note-a');
   expect(screen.getAllByRole('button').slice(0, 2).map((button) => button.props.testID)).toEqual(['note-a', 'note-b']);
-  await fireEvent.changeText(screen.getByTestId('notes-search'), 'INSTRUCTIONS');
-  expect(screen.queryByTestId('note-a')).toBeNull();
-  expect(screen.getByText(strings.notes.untitled)).toBeTruthy();
-  await fireEvent.changeText(screen.getByTestId('notes-search'), 'missing');
-  expect(screen.getByText(strings.notes.noResults)).toBeTruthy();
-  await fireEvent.press(screen.getByText(strings.notes.clearSearch));
-  expect(screen.getByTestId('notes-search').props.value).toBe('');
-  await fireEvent.press(screen.getByTestId('note-a'));
-  expect(mockRouter.push).toHaveBeenCalledWith('/note/a');
+  jest.useFakeTimers();
+  try {
+    await act(async () => fireEvent.changeText(screen.getByTestId('notes-search'), 'INSTRUCTIONS'));
+    await act(async () => jest.advanceTimersByTime(249));
+    expect(screen.getByTestId('note-a')).toBeTruthy();
+    await act(async () => jest.advanceTimersByTime(1));
+    expect(screen.queryByTestId('note-a')).toBeNull();
+    expect(screen.getByText(strings.notes.untitled)).toBeTruthy();
+    await act(async () => fireEvent.changeText(screen.getByTestId('notes-search'), 'never'));
+    await act(async () => fireEvent.changeText(screen.getByTestId('notes-search'), 'missing'));
+    await act(async () => jest.advanceTimersByTime(250));
+    expect(screen.getByText(strings.notes.noResults)).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByText(strings.notes.clearSearch)));
+    expect(screen.getByTestId('notes-search').props.value).toBe('');
+    expect(screen.getByTestId('note-a')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('note-a'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/note/a');
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 test('note editor adds a tag and Notes filters by that tag', async () => {

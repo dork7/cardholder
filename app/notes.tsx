@@ -15,6 +15,7 @@ import { TabBar } from '../src/ui/TabBar';
 import { Text } from '../src/ui/Text';
 import { LiveText } from '../src/ui/LiveText';
 import { TRACKING, TYPE, useTheme } from '../src/ui/theme';
+import { useDebouncedQuery } from '../src/ui/useDebouncedQuery';
 
 export default function NotesScreen() {
   const { services } = useApp();
@@ -23,6 +24,8 @@ export default function NotesScreen() {
   const inputStyle = useInputStyle();
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
+  const settledQuery = useDebouncedQuery(query);
+  const searchPending = query.trim() !== settledQuery.trim();
   const [tag, setTag] = useState<string | null>(null);
   const presentTags = allTags(notes);
   const activeTag = tag && presentTags.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase()) ? tag : null;
@@ -63,10 +66,10 @@ export default function NotesScreen() {
           <Button label={strings.notes.retry} variant="secondary" onPress={() => void load()} />
         </View>
       ) : (
-        <FlatList data={findNotes(notes, query, activeTag)} keyExtractor={(note) => note.id} keyboardShouldPersistTaps="handled"
+        <FlatList data={findNotes(notes, settledQuery, activeTag)} keyExtractor={(note) => note.id} keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View>
-            <LiveText style={[styles.empty, { color: theme.muted }]}>{query.trim() ? strings.notes.noResults : strings.notes.empty}</LiveText>
+            <LiveText style={[styles.empty, { color: theme.muted }]}>{query.trim() ? (searchPending ? strings.notes.searching : strings.notes.noResults) : strings.notes.empty}</LiveText>
             {!!query.trim() && <Button label={strings.notes.clearSearch} variant="secondary" onPress={() => setQuery('')} />}
           </View>}
           renderItem={({ item }) => (

@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { searchDocumentDetails, searchDocumentTitles } from './documentSearch';
 import { Card, Folder } from './types';
 
-export const DETAIL_SEARCH_DEBOUNCE_MS = 500;
+export const DETAIL_SEARCH_DEBOUNCE_MS = 0;
 
-// Show title matches immediately; add matches from each document's Details (.md) after typing pauses.
+// The caller settles typing first; show title matches then add asynchronous Details (.md) matches.
 export function useDocumentSearch(cards: readonly Card[], folders: readonly Folder[], query: string): Card[] {
   const titles = useMemo(() => searchDocumentTitles(cards, query), [cards, query]);
   const [details, setDetails] = useState<{
