@@ -270,10 +270,8 @@ export function createCardStore({
       const card: Card = {
         ...fields,
         id,
-        // A new card starts pinned, so it is one tap away on the home strip, in the quick actions and
-        // the widget until the user decides otherwise (docs/design.md, "New cards are pinned by default").
-        pinned: true,
-        position: await nextPinnedPosition(), // the end of the strip, after the cards pinned so far
+        pinned: false,
+        position: 0,
         hasBack: images.back !== null,
         frontAspect: images.front.aspect,
         backAspect: images.back?.aspect ?? null,

@@ -408,8 +408,12 @@ test('pinned cards appear on the home page, stay put while searching, and open o
 });
 
 test('nothing pinned, no pinned section', async () => {
-  await renderHome();
-  expect(screen.queryByTestId('pinned-strip')).toBeNull();
+  mockHomeView = 'list';
+  await withCards([makeCard({ id: 'new', name: 'New document' })], async () => {
+    await render(<Home />);
+    expect(screen.queryByTestId('pinned-section')).toBeNull();
+    expect(screen.getByTestId('row-new')).toBeTruthy();
+  });
 });
 
 describe('document library (the default view)', () => {

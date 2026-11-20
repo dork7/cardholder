@@ -2,7 +2,7 @@ import { fields, images, makeStore } from '../../../test/fixtures';
 import { addTags, overTagLimit, removeTag, removeTagEverywhere, shouldUnpin, togglePinned, withTags } from '../batch';
 import { sortCards } from '../listing';
 
-// Three cards, none pinned: new cards start pinned, and these tests are about pinning them.
+// Three unpinned cards; these tests cover pinning them in a batch.
 async function threeCards() {
   const { store } = await makeStore();
   const made = [

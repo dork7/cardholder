@@ -58,7 +58,7 @@ A document lives in at most one folder, which is its filing place; tags can grou
 
 **Home screen** (the app opens straight to it):
 
-1. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New cards are pinned by default (appended to the end).
+1. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New documents start unpinned; pinning one adds it to the end. Existing pinned documents keep their place.
 2. Search field and tag filter (All, then every tag some card has; a card shows under each of its tags). Search shows name matches as the person types, then after 500 ms without typing adds matches from each document's generated Details (.md), including tags, dates, folder, reference and text read from its photos or every PDF page. Details are generated from sealed records in memory; no permanent plaintext Markdown files are kept. Numbers match regardless of spaces or dashes. Cards saved before the text was kept are read once, in the background, after the app opens; so is any card saved before one of its photos had been read, so no side is left unsearchable and no old photo's text outlives it.
 3. All other cards, alphabetical.
 
@@ -164,7 +164,7 @@ Raised panels and the floating dock use a translucent tint, a light edge and a d
 ## Quality & release
 
 - **Jest** unit tests for encryption round trips, export/import (wrong passphrase, merge, replace), the card limit and unlock state, reminder scheduling.
-- One **Maestro** E2E flow: add a card → it appears pinned → open it full-screen → flip it.
+- One **Maestro** E2E flow: add a card → it appears in the document list unpinned → open it full-screen → flip it.
 - Manual checks on real devices: library pick, share-in from Photos (1 and 2 images, and while at the free limit), crop, brightness, purchases (store sandboxes).
 - Release: TestFlight + Play internal testing with friends and family, then public. Needs a one-page privacy policy (both stores require one) and the "Doc Keeper" store name checked for availability.
 
