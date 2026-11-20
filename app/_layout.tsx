@@ -67,7 +67,6 @@ function RootNavigator() {
          <Stack.Screen name="auto-backup" options={{ title: strings.autoBackup.title }} />
          <Stack.Screen name="settings" options={{ title: strings.settings.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="paywall" options={{ title: strings.paywall.title, presentation: 'modal' }} />
-         <Stack.Screen name="folders" options={{ title: strings.folders.title, headerBackVisible: false, animation: 'fade' }} />
          <Stack.Screen name="tags" options={{ title: strings.tagsScreen.title }} />
          <Stack.Screen name="people" options={{ title: strings.people.title }} />
          <Stack.Screen name="recently-deleted" options={{ title: strings.recentlyDeleted.title }} />

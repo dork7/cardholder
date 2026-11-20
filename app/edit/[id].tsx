@@ -15,11 +15,9 @@ import { findDuplicate } from '../../src/cards/duplicates';
 import { allTags, hasTag, normalizeTags, sameTag, tagOptions } from '../../src/cards/tags';
 import { suggestedTag } from '../../src/analysis/documentType';
 import {
-  acceptFolderOffer,
   applyAnalysis,
   applyReadText,
   removeReadSide,
-  applyFolderSuggestion,
   editField,
   EditDraft,
   firstErrorPanel,
@@ -30,11 +28,9 @@ import {
   SaveError,
   SavePlan,
 } from '../../src/cards/editForm';
-import { DEFAULT_REMIND_DAYS, FOLDERS_ENABLED, MAX_TAGS, NAME_MAX_LENGTH, PDF_MAX_BYTES, PERSON_NAME_MAX_LENGTH, REMIND_DAY_CHOICES } from '../../src/config';
+import { DEFAULT_REMIND_DAYS, MAX_TAGS, NAME_MAX_LENGTH, PDF_MAX_BYTES, PERSON_NAME_MAX_LENGTH, REMIND_DAY_CHOICES } from '../../src/config';
 import { parseRemindDays } from '../../src/cards/validate';
-import { findFolderNamed } from '../../src/folders/names';
 import { personName as parsePersonName, samePersonName } from '../../src/people/names';
-import { suggestFolder } from '../../src/folders/suggest';
 import { dataUri, useCardImage } from '../../src/hooks/useCardImage';
 import { useCardPdf } from '../../src/hooks/usePdf';
 import { canTakePhoto, clearOriginals, cropFullPhoto, cropSharedImage, discardFile, pickImage, takePhoto } from '../../src/images/capture';
@@ -53,7 +49,6 @@ import { TagNameInput } from '../../src/ui/TagNameInput';
 import { Chip, ChipRow } from '../../src/ui/ChipRow';
 import { ExpiryField } from '../../src/ui/ExpiryField';
 import { Field, useInputStyle } from '../../src/ui/Field';
-import { FolderNameInput } from '../../src/ui/FolderNameInput';
 import { ImageField } from '../../src/ui/ImageField';
 import { PdfPagePicker } from '../../src/ui/PdfPagePicker';
 import { ActionFooter, Panel, Screen } from '../../src/ui/Surface';
@@ -65,7 +60,7 @@ import { LiveText } from '../../src/ui/LiveText';
 export default function EditCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
-  const { services, cards, notes = [], folders, people = [], unlocked, refresh, undo } = useApp();
+  const { services, cards, notes = [], people = [], unlocked, refresh, undo } = useApp();
   const existing = isNew ? null : (cards.find((c) => c.id === id) ?? null);
   const router = useRouter();
   const theme = useTheme();
@@ -105,7 +100,6 @@ export default function EditCard() {
   // What the screen is waiting on between the OS picker closing and the form changing: the photo
   // being cut around the card, or the PDF's pages being drawn. Null when nothing is.
   const [busy, setBusy] = useState<string | null>(null);
-  const [namingFolder, setNamingFolder] = useState(false);
   const [namingPerson, setNamingPerson] = useState(false);
   const [personName, setPersonName] = useState('');
   const [namingTag, setNamingTag] = useState(false);
@@ -310,10 +304,7 @@ export default function EditCard() {
         if (reads.current[side] !== read) return;
         // The document's own type ("Residency") when it names one, else its broad kind ("ID").
         const suggestion = { ...analysis, tags: suggestedTag(analysis, allTags(cards)) };
-        setForm((f) => {
-          const read = applyReadText(applyAnalysis(f, suggestion), side, analysis.text ?? '');
-          return FOLDERS_ENABLED ? applyFolderSuggestion(read, suggestFolder(analysis, folders)) : read;
-        });
+        setForm((f) => applyReadText(applyAnalysis(f, suggestion), side, analysis.text ?? ''));
       })
       .catch((e) => console.warn('Reading the card failed', e))
       .finally(() => setReading((n) => n - 1));
@@ -378,16 +369,13 @@ export default function EditCard() {
       }
       if (choice === 'replace') {
         // The new photos take over the old card; a back the new card doesn't have is removed. The card
-        // stays in its folder unless a folder was chosen for the new one.
-        const folderId = plan.fields.folderId ?? (plan.newFolder ? null : duplicate.folderId);
         const personId = plan.fields.personId ?? (plan.newPerson ? null : duplicate.personId);
         await write({
           kind: 'update',
           id: duplicate.id,
-          fields: { ...plan.fields, folderId, personId },
+          fields: { ...plan.fields, personId },
           // A photo card taking over a PDF card drops the PDF.
           changes: { ...plan.images, pdf: plan.images.pdf ?? null },
-          newFolder: plan.newFolder,
           newPerson: plan.newPerson,
         });
         return;
@@ -402,13 +390,6 @@ export default function EditCard() {
     // so `saving` stays true (Save can't write it again) and the follow-ups below are best-effort.
     try {
       let fields = plan.fields;
-      if (plan.newFolder) {
-        // Reuse a folder of that name, e.g. one made by an earlier attempt whose card write then failed.
-        const folder =
-          findFolderNamed(await services.store.listFolders(), plan.newFolder) ??
-          (await services.store.createFolder(plan.newFolder));
-        fields = { ...fields, folderId: folder.id };
-      }
       if (plan.newPerson) {
         const person = (await services.store.listPeople()).find((item) => samePersonName(item.name, plan.newPerson!))
           ?? (await services.store.createPerson(plan.newPerson));
@@ -451,26 +432,6 @@ export default function EditCard() {
     router.dismissAll();
   };
 
-  const folderChips: Chip[] = [
-    {
-      key: 'none',
-      label: strings.folders.none,
-      selected: draft.folderId === null && draft.newFolderName === null,
-      onPress: () => update({ folderId: null, newFolderName: null }),
-      testID: 'folder-none',
-    },
-    ...folders.map((f) => ({
-      key: f.id,
-      label: f.name,
-      selected: draft.folderId === f.id,
-      onPress: () => update({ folderId: f.id, newFolderName: null }),
-      testID: `folder-${f.id}`,
-    })),
-    ...(draft.newFolderName
-      ? [{ key: 'pending', label: strings.folders.pendingNew(draft.newFolderName), selected: true, onPress: () => {} }]
-      : []),
-    { key: 'add', label: `+ ${strings.folders.newFolder}`, onPress: () => setNamingFolder(true), testID: 'folder-add' },
-  ];
   const personChips: Chip[] = [
     { key: 'none', label: strings.people.none, selected: draft.personId === null && !draft.newPersonName,
       onPress: () => update({ personId: null, newPersonName: null }), testID: 'person-none' },
@@ -644,41 +605,6 @@ export default function EditCard() {
                 />
               )}
             </Field>
-            {FOLDERS_ENABLED && (
-              <Field label={strings.folders.folder} hint={form.folderSuggested ? strings.edit.suggested : undefined}>
-                {form.folderOffer && !namingFolder && (
-                  <View style={[styles.offer, { backgroundColor: theme.bannerBg }]} testID="folder-offer">
-                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>
-                      {strings.folders.suggestNewTitle}
-                    </Text>
-                    <Text style={{ color: theme.muted, fontSize: 16 }}>
-                      {strings.folders.suggestNewBody(form.folderOffer)}
-                    </Text>
-                    <Button
-                      variant="secondary"
-                      label={strings.folders.suggestNewAction(form.folderOffer)}
-                      onPress={() => setForm(acceptFolderOffer)}
-                      testID="accept-folder-offer"
-                    />
-                  </View>
-                )}
-                {namingFolder ? (
-                  <FolderNameInput
-                    folders={folders}
-                    submitLabel={strings.folders.create}
-                    onSubmit={(name) => {
-                      // Made on save, with the card: backing out of the form leaves no empty folder behind.
-                      update({ folderId: null, newFolderName: name });
-                      setNamingFolder(false);
-                    }}
-                    onCancel={() => setNamingFolder(false)}
-                    testIDPrefix="new-folder"
-                  />
-                ) : (
-                  <ChipRow chips={folderChips} accessibilityLabel={strings.folders.folder} />
-                )}
-              </Field>
-            )}
             <Field label={strings.people.person}>
               {namingPerson ? <View style={{ gap: 8 }}>
                 <TextInput value={personName} onChangeText={setPersonName} maxLength={PERSON_NAME_MAX_LENGTH} autoFocus

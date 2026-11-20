@@ -1,5 +1,6 @@
 import { NoteStore } from '../notes/noteStore';
 import { CardStore } from '../cards/cardStore';
+import { convertFolderToTag } from '../cards/folderMigration';
 import { BackupCard, BackupSnapshot, decodeBackup } from './backupFile';
 
 export type ImportMode = 'merge' | 'replace';
@@ -26,6 +27,7 @@ export async function verifyBackup(bytes: Uint8Array, passphrase: string): Promi
 
 export async function buildSnapshot(store: CardStore, now: number, notes?: NoteStore): Promise<BackupSnapshot> {
   const cards: BackupCard[] = [];
+  const folders = await store.listFolders();
   for (const card of await store.list()) {
     const front = await store.loadImage(card.id, 'front');
     if (!front) throw new Error(`Card ${card.id} has no front image`);
@@ -34,7 +36,7 @@ export async function buildSnapshot(store: CardStore, now: number, notes?: NoteS
     // A PDF whose file has gone is kept as a photo card of its cover page.
     const pdf = card.pdf ? await store.loadPdf(card.id) : null;
     cards.push({
-      card: { ...card, hasBack: back !== null, backAspect: back ? card.backAspect : null, pdf: pdf ? card.pdf : null },
+      card: convertFolderToTag({ ...card, hasBack: back !== null, backAspect: back ? card.backAspect : null, pdf: pdf ? card.pdf : null }, folders),
       images: {
         front: { jpegBase64: front, aspect: card.frontAspect, thumbJpegBase64: thumb },
         back: back && card.backAspect ? { jpegBase64: back, aspect: card.backAspect } : null,
@@ -42,24 +44,25 @@ export async function buildSnapshot(store: CardStore, now: number, notes?: NoteS
       },
     });
   }
-  return { formatVersion: 1, exportedAt: now, cards, folders: await store.listFolders(), people: await store.listPeople(), notes: notes ? await notes.list() : [] };
+  return { formatVersion: 1, exportedAt: now, cards, folders: [], people: await store.listPeople(), notes: notes ? await notes.list() : [] };
 }
 
 // The snapshot must come from decodeBackup, which has already validated every card.
 export async function applySnapshot(store: CardStore, snapshot: BackupSnapshot, mode: ImportMode, notes?: NoteStore): Promise<ImportResult> {
+  const converted = snapshot.cards.map(({ card, images }) => ({ card: convertFolderToTag(card, snapshot.folders), images }));
   const incomingNotes = snapshot.notes ?? [];
   if (incomingNotes.length && !notes) throw new Error('Note store required to restore notes');
   const existingNotes = new Set(notes ? (await notes.list()).map((note) => note.id) : []);
   const notesAdded = mode === 'replace' ? incomingNotes.length : incomingNotes.filter((note) => !existingNotes.has(note.id)).length;
   const notesSkipped = incomingNotes.length - notesAdded;
   if (mode === 'replace') {
-    await store.insertMany(snapshot.cards, { replace: true, folders: snapshot.folders, people: snapshot.people, notes: incomingNotes, notesBackedUpAt: snapshot.exportedAt });
+    await store.insertMany(converted, { replace: true, people: snapshot.people, notes: incomingNotes, notesBackedUpAt: snapshot.exportedAt });
     return { added: snapshot.cards.length, skipped: 0, notesAdded, notesSkipped };
   }
   const existing = new Set(await store.ids());
-  const fresh = snapshot.cards.filter((entry) => !existing.has(entry.card.id));
-  if (fresh.length > 0 || snapshot.folders.length > 0 || (snapshot.people?.length ?? 0) > 0 || notesAdded > 0) {
-    await store.insertMany(fresh, { replace: false, folders: snapshot.folders, people: snapshot.people, notes: incomingNotes, notesBackedUpAt: snapshot.exportedAt });
+  const fresh = converted.filter((entry) => !existing.has(entry.card.id));
+  if (fresh.length > 0 || (snapshot.people?.length ?? 0) > 0 || notesAdded > 0) {
+    await store.insertMany(fresh, { replace: false, people: snapshot.people, notes: incomingNotes, notesBackedUpAt: snapshot.exportedAt });
   }
   return { added: fresh.length, skipped: snapshot.cards.length - fresh.length, notesAdded, notesSkipped };
 }

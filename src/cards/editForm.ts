@@ -1,6 +1,5 @@
-import { FolderSuggestion } from '../folders/suggest';
 import { canAddCard } from '../purchases/limits';
-import { DEFAULT_REMIND_DAYS, READ_TEXT_MAX_LENGTH } from '../config';
+import { DEFAULT_REMIND_DAYS, MAX_TAGS, READ_TEXT_MAX_LENGTH, TAG_MAX_LENGTH } from '../config';
 import { Card, CardFields, CardImage, CardText, FrontImage, ImageChanges, NewCardImages, PdfDocument } from './types';
 import { FieldError, parseRemindDays, validateCardFields } from './validate';
 
@@ -10,11 +9,9 @@ export interface EditDraft {
   remindDaysBefore: string; // as typed; checked on save
   tags: string[];
   documentKey: string | null;
-  folderId: string | null;
   personId: string | null;
   readText: CardText | null; // see CardFields; set as each photo is read
   unreadSides: (keyof CardText)[]; // sides with a photo not read yet; saved as unread so it's read later
-  newFolderName: string | null; // a folder to create on save and put the card in; folderId is then null
   newPersonName: string | null; // a person to create on save
   front: FrontImage | null; // newly captured only; for a PDF, its cover page
   back: CardImage | null; // newly captured only
@@ -30,8 +27,8 @@ export type SaveError = FieldError | 'front-required';
 export type SavePlan =
   | { kind: 'invalid'; errors: SaveError[] }
   | { kind: 'limit-reached' }
-  | { kind: 'create'; fields: CardFields; images: NewCardImages; newFolder: string | null; newPerson: string | null }
-  | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges; newFolder: string | null; newPerson: string | null };
+  | { kind: 'create'; fields: CardFields; images: NewCardImages; newPerson: string | null }
+  | { kind: 'update'; id: string; fields: CardFields; changes: ImageChanges; newPerson: string | null };
 
 // Whether the user changed anything that closing the form would lose. The text read off the photos and
 // the document key follow from the photos, so they don't count on their own. Every edit replaces only
@@ -63,13 +60,11 @@ export function draftFor(card: Card | null): EditDraft {
     remindDaysBefore: String(card?.remindDaysBefore ?? DEFAULT_REMIND_DAYS),
     tags: card?.tags ?? [],
     documentKey: card?.documentKey ?? null,
-    folderId: card?.folderId ?? null,
     personId: card?.personId ?? null,
     readText: card?.readText ?? null,
     // A card never read is read in full later (readUnreadCards). Only sides that have a photo count,
     // so reading the one photo of a front-only card is enough to save it as read.
     unreadSides: unreadSidesOf(card),
-    newFolderName: null,
     newPersonName: null,
     front: null,
     back: null,
@@ -87,13 +82,17 @@ export function planSave(
 ): SavePlan {
   // The reminder field is hidden without an expiry date, so whatever it holds then can't block a save.
   const hiddenBadReminder = draft.expiresOn === null && parseRemindDays(draft.remindDaysBefore) === null;
-  const validation = validateCardFields(hiddenBadReminder ? { ...draft, remindDaysBefore: DEFAULT_REMIND_DAYS } : draft);
+  const existingTags = ctx.existing?.tags ?? [];
+  const validation = validateCardFields(hiddenBadReminder ? { ...draft, remindDaysBefore: DEFAULT_REMIND_DAYS } : draft, {
+    maxTags: Math.max(MAX_TAGS, existingTags.length),
+    maxTagLength: Math.max(TAG_MAX_LENGTH, ...existingTags.map((tag) => [...tag].length)),
+  });
   const errors: SaveError[] = validation.ok ? [] : [...validation.errors];
   if (!ctx.existing && !draft.front) errors.push('front-required');
   if (!validation.ok || errors.length > 0) return { kind: 'invalid', errors };
 
   // Text from an older photo is never kept for a new one; a side not read yet leaves the card unread.
-  const fields = { ...validation.value, readText: draft.unreadSides.length > 0 ? null : validation.value.readText };
+  const fields = { ...validation.value, folderId: null, readText: draft.unreadSides.length > 0 ? null : validation.value.readText };
 
   if (ctx.existing) {
     const changes: ImageChanges = {};
@@ -102,7 +101,7 @@ export function planSave(
     else if (draft.removeBack) changes.back = null;
     if (draft.pdf) changes.pdf = draft.pdf;
     else if (draft.removePdf) changes.pdf = null;
-    return { kind: 'update', id: ctx.existing.id, fields, changes, newFolder: draft.newFolderName, newPerson: draft.newPersonName };
+    return { kind: 'update', id: ctx.existing.id, fields, changes, newPerson: draft.newPersonName };
   }
 
   if (!canAddCard(ctx.cardCount, ctx.unlocked)) return { kind: 'limit-reached' };
@@ -111,7 +110,6 @@ export function planSave(
     kind: 'create',
     fields,
     images: { front: draft.front as FrontImage, back: draft.back, ...(draft.pdf && { pdf: draft.pdf }) },
-    newFolder: draft.newFolderName,
     newPerson: draft.newPersonName,
   };
 }
@@ -121,22 +119,17 @@ export function planSave(
 export const SUGGESTABLE = ['name', 'tags', 'expiresOn'] as const;
 export type Suggestable = (typeof SUGGESTABLE)[number];
 
-type Touchable = Suggestable | 'folder';
+type Touchable = Suggestable;
 
 export interface FormState {
   draft: EditDraft;
   suggested: Partial<Record<Suggestable, number>>; // field → confidence of the suggestion it holds
   touched: Touchable[]; // fields the user set; suggestions leave them alone
-  folderSuggested: boolean; // draft.folderId was picked from the photo
-  folderOffer: string | null; // no folder fits: the name of one the user can create for the card
 }
 
 export function formFor(card: Card | null): FormState {
-  // An existing card's tags were chosen by the user, and so was its folder if it has one; its
-  // name and expiry may still be blank.
   const touched: Touchable[] = card ? ['tags'] : [];
-  if (card?.folderId) touched.push('folder');
-  return { draft: draftFor(card), suggested: {}, touched, folderSuggested: false, folderOffer: null };
+  return { draft: draftFor(card), suggested: {}, touched };
 }
 
 const isSuggestable = (key: string): key is Suggestable => (SUGGESTABLE as readonly string[]).includes(key);
@@ -146,8 +139,6 @@ export function editField(state: FormState, patch: Partial<EditDraft>): FormStat
   const fields: Touchable[] = Object.keys(patch).filter(isSuggestable);
   const suggested = { ...state.suggested };
   for (const f of fields) delete suggested[f as Suggestable];
-  const folderChanged = 'folderId' in patch || 'newFolderName' in patch;
-  if (folderChanged) fields.push('folder');
   const touched = [...state.touched, ...fields.filter((f) => !state.touched.includes(f))];
   let draft = { ...state.draft, ...patch };
   // A new photo's text isn't known until it is read (applyReadText).
@@ -160,32 +151,7 @@ export function editField(state: FormState, patch: Partial<EditDraft>): FormStat
     draft,
     suggested,
     touched,
-    folderSuggested: folderChanged ? false : state.folderSuggested,
-    folderOffer: folderChanged ? null : state.folderOffer,
   };
-}
-
-// Puts the card in the folder its photo fits, or offers to create one. Like the other suggestions it
-// never overrides the user's own pick; a later, clearer read (e.g. the back) may replace it.
-export function applyFolderSuggestion(state: FormState, suggestion: FolderSuggestion): FormState {
-  if (state.touched.includes('folder') || suggestion.kind === 'none') return state;
-  if (suggestion.kind === 'existing') {
-    return {
-      ...state,
-      draft: { ...state.draft, folderId: suggestion.folderId, newFolderName: null },
-      folderSuggested: true,
-      folderOffer: null,
-    };
-  }
-  // An earlier read already routed it to a folder that exists; keep that over a new one.
-  if (state.draft.folderId !== null) return state;
-  return { ...state, folderOffer: suggestion.name };
-}
-
-// The user took the offer: the folder is created when the card is saved.
-export function acceptFolderOffer(state: FormState): FormState {
-  if (!state.folderOffer) return state;
-  return editField(state, { folderId: null, newFolderName: state.folderOffer });
 }
 
 export function applyAnalysis(

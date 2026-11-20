@@ -16,10 +16,9 @@ test('title matches come first, and generated Details (.md) supply other keyword
   expect(details.map((card) => card.id)).toEqual(['content']);
 });
 
-test('details search finds folder and scanned text, including numbers with different separators', async () => {
+test('details search finds scanned text, including numbers with different separators', async () => {
   const find = async (query: string) =>
     (await searchDocumentDetails(cards, folders, query, new Set())).map((card) => card.id);
-  expect(await find('family')).toContain('content');
   expect(await find('2025ENH00412')).toContain('content');
   expect(await find('employer acme')).toContain('content');
 });

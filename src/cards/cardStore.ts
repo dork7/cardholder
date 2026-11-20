@@ -7,7 +7,7 @@ import { SqlDb, SqlValue } from '../storage/sqlDb';
 import { sortCards } from './listing';
 import { DAY_MS, DEFAULT_REMIND_DAYS, RECENTLY_DELETED_DAYS } from '../config';
 import { parseRemindDays, toCardText } from './validate';
-import { withLegacyCategory } from './tags';
+import { normalizeTags, withLegacyCategory } from './tags';
 import { personName, samePersonName } from '../people/names';
 import { Card, CardFields, CardPdf, DeletedCard, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument, Person } from './types';
 
@@ -56,6 +56,7 @@ export interface CardStore {
   purgeRecentlyDeleted(): Promise<number>;
   setPinned(id: string, pinned: boolean): Promise<void>;
   reorderPinned(orderedIds: string[]): Promise<void>;
+  migrateFoldersToTags(): Promise<void>;
   // Folders given here are written with the cards; ones already on the phone keep their name.
   insertMany(entries: ImportEntry[], options: { replace: boolean; folders?: Folder[]; people?: Person[]; notes?: Note[]; notesBackedUpAt?: number }): Promise<void>;
   listFolders(): Promise<Folder[]>;
@@ -367,6 +368,25 @@ export function createCardStore({
       await db.withTransactionAsync(async () => {
         for (const [index, id] of orderedIds.entries()) {
           await db.runAsync('UPDATE cards SET position = ? WHERE id = ? AND pinned = 1', [index, id]);
+        }
+      });
+    },
+
+    async migrateFoldersToTags() {
+      await db.withTransactionAsync(async () => {
+        const folderRows = await db.getAllAsync<FolderRow>('SELECT * FROM folders', []);
+        const folders = new Map(folderRows.map((row) => [row.id, toFolder(row).name]));
+        const rows = await db.getAllAsync<Row>('SELECT * FROM cards WHERE folder_id IS NOT NULL', []);
+        for (const row of rows) {
+          const name = folders.get(row.folder_id!);
+          if (!name) throw new Error(`Missing folder for document ${row.id}`);
+          const card = toCard(row);
+          const next = { ...card, tags: normalizeTags([...card.tags, name]), folderId: null };
+          await db.runAsync('UPDATE cards SET folder_id = NULL, payload = ? WHERE id = ?', [seal(next), row.id]);
+        }
+        if (folderRows.length > 0) {
+          await db.runAsync('DELETE FROM folders', []);
+          await markDocumentsChanged();
         }
       });
     },

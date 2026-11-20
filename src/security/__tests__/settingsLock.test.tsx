@@ -5,13 +5,6 @@ import { strings } from '../../strings';
 
 const mockAuthenticate = jest.fn();
 const mockAvailable = jest.fn();
-// Folders are hidden in the app for now (FOLDERS_ENABLED); these tests cover both ways.
-let mockFoldersEnabled = true;
-jest.mock('../../config', () =>
-  Object.defineProperty({ ...jest.requireActual('../../config') }, 'FOLDERS_ENABLED', {
-    get: () => mockFoldersEnabled,
-  }),
-);
 jest.mock('../deviceAuth', () => ({
   authenticate: (...a: unknown[]) => mockAuthenticate(...a),
   deviceLockAvailable: () => mockAvailable(),
@@ -53,7 +46,6 @@ jest.mock('../../app/AppProvider', () => ({
 let alert: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFoldersEnabled = true;
   mockAppLock = false;
   mockWarnIdShare = true;
   mockAvailable.mockResolvedValue(true);
@@ -100,16 +92,7 @@ test('turning it off also needs the phone lock, unless the phone no longer has o
   expect(mockSetAppLock).toHaveBeenCalledWith(false);
 });
 
-test('the home screen folder options switch independently', async () => {
-  await render(<SettingsScreen />);
-  await fireEvent(screen.getByTestId('home-folder-filter-switch'), 'valueChange', false);
-  expect(mockSetHomeFolders).toHaveBeenCalledWith({ filter: false, manage: true });
-  await fireEvent(screen.getByTestId('home-manage-folders-switch'), 'valueChange', false);
-  expect(mockSetHomeFolders).toHaveBeenCalledWith({ filter: true, manage: false });
-});
-
-test('with folders hidden, settings has no folder options', async () => {
-  mockFoldersEnabled = false;
+test('settings has no folder options', async () => {
   await render(<SettingsScreen />);
   expect(screen.queryByTestId('home-folder-filter-switch')).toBeNull();
   expect(screen.queryByTestId('manage-folders')).toBeNull();

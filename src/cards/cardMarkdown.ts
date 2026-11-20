@@ -25,8 +25,6 @@ export function cardMarkdown(card: Card, folders: readonly Folder[]): string {
     details.push([s.reminders, s.remindValue(card.remindDaysBefore)]);
   }
   if (card.tags.length > 0) details.push([s.tags, card.tags.join(', ')]);
-  const folder = card.folderId ? folders.find((f) => f.id === card.folderId) : undefined;
-  if (folder) details.push([s.folder, folder.name]);
   details.push([s.source, card.pdf ? s.pdfPages(card.pdf.pageCount) : card.hasBack ? s.frontAndBack : s.frontOnly]);
   details.push([s.added, toIsoDate(new Date(card.createdAt))]);
   details.push([s.updated, toIsoDate(new Date(card.updatedAt))]);

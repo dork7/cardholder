@@ -11,8 +11,6 @@ export const FOLDER_NAME_MAX_LENGTH = 30;
 export const PERSON_NAME_MAX_LENGTH = 60;
 // Per side; card reading rarely finds a tenth of this, so it only stops a bad backup file from bloating a card.
 export const READ_TEXT_MAX_LENGTH = 4000;
-// A document has one filing place; tags can cross folder boundaries (ADR 0009).
-export const FOLDERS_ENABLED = true;
 
 export const MIN_PASSPHRASE_LENGTH = 3;
 export const PBKDF2_ITERATIONS = 600_000;

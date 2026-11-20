@@ -30,13 +30,9 @@ to start with (ID, Insurance, Membership); the rest the user names. A tag exists
 document or note has it.
 _Avoid_: category, type, label
 
-**Folder**:
-One place for a document in the user's filing system. A document can be in at most one folder;
-notes do not go in folders. Folders can exist while empty. Tags can cross folder boundaries.
-
 **Person**:
 The family member whose document it is. A document belongs to at most one person; the person's
-name is distinct from its folder and tags. Notes do not belong to a person.
+name is distinct from its tags. Notes do not belong to a person.
 
 **Document text**:
 The words read from a document's photos or PDF, kept with it so it can be searched.

@@ -4,7 +4,7 @@ import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { backupIsStale } from '../src/backup/autoBackup';
 import { useApp } from '../src/app/AppProvider';
-import { FREE_CARD_LIMIT, FOLDERS_ENABLED } from '../src/config';
+import { FREE_CARD_LIMIT } from '../src/config';
 import { ProblemsSettings } from '../src/diagnostics/ProblemsSettings';
 import { authenticate, deviceLockAvailable } from '../src/security/deviceAuth';
 import { strings } from '../src/strings';
@@ -35,8 +35,6 @@ export default function SettingsScreen() {
     unlocked,
     appLock,
     setAppLock,
-    homeFolders,
-    setHomeFolders,
     cardBrightness,
     setCardBrightness,
     warnIdShare,
@@ -167,31 +165,6 @@ export default function SettingsScreen() {
           <Button variant="secondary" label={strings.verify.title} onPress={() => router.push('/verify-backup')} />
           {Platform.OS === 'android' && <Button variant="secondary" label={strings.autoBackup.title} onPress={() => router.push('/auto-backup')} />}
         </Section>
-        <Section title={strings.settings.home}>
-          {FOLDERS_ENABLED && (
-            <>
-              <SwitchRow
-                label={strings.settings.folderFilter}
-                hint={strings.settings.folderFilterHint}
-                value={homeFolders.filter}
-                onChange={(filter) => void setHomeFolders({ ...homeFolders, filter }).catch(() => {})}
-                testID="home-folder-filter-switch"
-              />
-              <SwitchRow
-                label={strings.settings.manageShortcut}
-                hint={strings.settings.manageShortcutHint}
-                value={homeFolders.manage}
-                onChange={(manage) => void setHomeFolders({ ...homeFolders, manage }).catch(() => {})}
-                testID="home-manage-folders-switch"
-              />
-            </>
-          )}
-        </Section>
-        {FOLDERS_ENABLED && (
-          <Section title={strings.folders.title}>
-            <Button variant="secondary" label={strings.folders.manage} onPress={() => router.push('/folders')} testID="manage-folders" />
-          </Section>
-        )}
         {canSelfUpdate && <UpdateSection />}
         <Section title={strings.report.title}>
           <ProblemsSettings />

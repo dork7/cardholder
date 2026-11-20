@@ -11,7 +11,7 @@ import { addTags, overTagLimit, shouldUnpin, togglePinned } from '../src/cards/b
 import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
 import { filterCards, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { useDocumentSearch } from '../src/cards/useDocumentSearch';
-import { EXPIRY_SOON_DAYS, FOLDERS_ENABLED, MAX_TAGS } from '../src/config';
+import { EXPIRY_SOON_DAYS, MAX_TAGS } from '../src/config';
 import { canAddCard } from '../src/purchases/limits';
 import { shareCards } from '../src/share/shareCard';
 import { useConfirmIdShare } from '../src/share/useConfirmIdShare';
@@ -54,7 +54,6 @@ export default function Home() {
     unlocked,
     openImportOnReady,
     clearOpenImport,
-    homeFolders,
     services,
     refresh,
     pdfBackfill,
@@ -73,34 +72,11 @@ export default function Home() {
   // Only tags some card has are offered; if the chosen tag's last card goes, fall back to All.
   const present = allTags(cards);
   const tag = (chosen && present.find((t) => sameTag(t, chosen))) || null;
-  const [chosenFolder, setChosenFolder] = useState<string | null>(null);
   const [chosenPerson, setChosenPerson] = useState<string | null>(null);
   const personId = chosenPerson && people.some((person) => person.id === chosenPerson) ? chosenPerson : null;
-  // Falls back to all cards if the chosen folder is deleted, or the filter is hidden.
-  const folderId =
-    FOLDERS_ENABLED &&
-    homeFolders.filter && chosenFolder && folders.some((f) => f.id === chosenFolder) ? chosenFolder : null;
-  const folderChips = homeFolders.filter
-    ? [
-          {
-            key: 'all',
-            label: strings.folders.all,
-            selected: folderId === null,
-            onPress: () => setChosenFolder(null),
-            testID: 'folder-filter-all',
-          },
-          ...folders.map((f) => ({
-            key: f.id,
-            label: f.name,
-            selected: folderId === f.id,
-            onPress: () => setChosenFolder(f.id),
-            testID: `folder-filter-${f.id}`,
-          })),
-      ]
-    : [];
   const byPerson = personId ? cards.filter((card) => card.personId === personId) : cards;
   const searchResults = useDocumentSearch(cards, folders, settledQuery);
-  const shown = filterCards(searchResults, { query: '', tag, folderId }).filter((card) => !personId || card.personId === personId);
+  const shown = filterCards(searchResults, { query: '', tag }).filter((card) => !personId || card.personId === personId);
   const { pinned } = splitPinned(byPerson);
   const pinnedNotes = notes.filter((note) => note.pinned).map(({ id, title }) => ({ id, title }));
   const [gallery, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
@@ -264,17 +240,6 @@ export default function Home() {
           chips={[{ key: 'all', label: strings.people.everyone, selected: personId === null, onPress: () => setChosenPerson(null) },
             ...people.map((person) => ({ key: person.id, label: person.name, selected: personId === person.id,
               onPress: () => setChosenPerson(person.id), testID: `person-filter-${person.id}` }))]} />}
-        {/* Which parts of the folder row show is chosen in settings. */}
-        {cards.length > 0 && FOLDERS_ENABLED && folders.length > 0 && (folderChips.length > 0 || homeFolders.manage) && (
-          <View style={styles.folderRow}>
-            {folderChips.length > 0 && (
-              <View style={styles.folderChoices}>
-                <ChipRow accessibilityLabel={strings.folders.title} chips={folderChips} testID="folder-filter-choices" />
-              </View>
-            )}
-            {homeFolders.manage && <Button variant="secondary" label={strings.folders.manage} onPress={() => router.replace('/folders')} />}
-          </View>
-        )}
         {cards.length > 0 && (
           <View style={styles.viewRow}>
               <View accessibilityLabel={strings.home.viewLabel} style={[styles.segments, { backgroundColor: theme.glass, borderColor: theme.border }]}>
@@ -568,8 +533,6 @@ function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort' | 'gal
 
 const styles = StyleSheet.create({
   sortChip: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderWidth: 1, borderRadius: RADIUS.sm },
-  folderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  folderChoices: { flex: 1, minWidth: 0 },
   fill: { flex: 1 },
   // Clear of the + button at the end (20 pt inset, 56 pt wide).
   undoDock: { position: 'absolute', start: 16, end: 88 },

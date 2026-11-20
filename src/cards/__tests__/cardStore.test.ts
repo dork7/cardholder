@@ -53,6 +53,31 @@ test('create stores fields and tags without pinning new documents', async () => 
   expect((await store.ids()).sort()).toEqual(['card1', 'card2']);
 });
 
+test('folder migration preserves tags, pin state, and a full eight-tag document', async () => {
+  const { store } = await makeStore();
+  const folder = await store.createFolder('Family documents');
+  const tags = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const card = await store.create(fields({ name: 'Passport', tags, folderId: folder.id }), images('passport'));
+  await store.setPinned(card.id, true);
+  await store.migrateFoldersToTags();
+  expect(await store.get(card.id)).toMatchObject({ pinned: true, position: 0, folderId: null, tags: [...tags, 'Family documents'] });
+  expect(await store.listFolders()).toEqual([]);
+  await store.migrateFoldersToTags();
+  expect((await store.get(card.id))?.tags).toEqual([...tags, 'Family documents']);
+});
+
+test('folder migration includes recently deleted documents and deduplicates existing tags', async () => {
+  const { store } = await makeStore();
+  const folder = await store.createFolder('Family');
+  const card = await store.create(fields({ name: 'Archive', tags: ['family'], folderId: folder.id }), images('archive'));
+  await store.moveToRecentlyDeleted(card.id);
+  await store.migrateFoldersToTags();
+  expect(await store.listRecentlyDeleted()).toEqual([
+    expect.objectContaining({ id: card.id, folderId: null, tags: ['family'] }),
+  ]);
+  expect(await store.listFolders()).toEqual([]);
+});
+
 test('images round-trip per side', async () => {
   const { store } = await makeStore();
   const card = await store.create(fields(), images('x', true));

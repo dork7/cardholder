@@ -27,6 +27,7 @@ export async function boot(deps: BootDeps): Promise<BootResult> {
   const keyring = await openKeyring(deps.vault, settings);
   if (keyring.status === 'orphaned') return { status: 'orphaned' };
   const store = createCardStore({ db: deps.db, blobs: deps.blobs, aead: keyring.aead });
+  await store.migrateFoldersToTags();
   const notes = createNoteStore({ db: deps.db, aead: keyring.aead });
   return { status: 'ready', services: { ...deps, settings, store, notes, noteEditors: createNoteEditors(notes) } };
 }

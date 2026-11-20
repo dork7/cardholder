@@ -144,7 +144,8 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
   if (seen.has(idFold)) invalid();
   seen.add(idFold);
 
-  const fields = validateCardFields(c);
+  // A legacy category and a migrated folder can each add a tag beyond the usual limit.
+  const fields = validateCardFields(c, { maxTags: MAX_TAGS + 2, maxTagLength: FOLDER_NAME_MAX_LENGTH });
   if (!fields.ok) invalid();
   if (typeof c.pinned !== 'boolean' || !isNumber(c.position) || !isNumber(c.createdAt) || !isNumber(c.updatedAt)) invalid();
   if (!isPositive(c.frontAspect)) invalid();

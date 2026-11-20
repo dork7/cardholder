@@ -21,13 +21,6 @@ const mockPermission = jest.fn();
 let mockCards: ReturnType<typeof makeCard>[] = [];
 let mockFolders: Folder[] = [];
 
-// Folders are hidden in the app for now (FOLDERS_ENABLED); these tests cover both ways.
-let mockFoldersEnabled = true;
-jest.mock('../../config', () =>
-  Object.defineProperty({ ...jest.requireActual('../../config') }, 'FOLDERS_ENABLED', {
-    get: () => mockFoldersEnabled,
-  }),
-);
 // The navigator's removal guard: what the screen last asked for, and what it does when leaving is blocked.
 const mockGuard: { on: boolean; onPrevented?: (o: { data: { action: object }; repeat: () => void }) => void } = { on: false };
 const mockDisablePrevention = jest.fn();
@@ -125,7 +118,6 @@ let alert: jest.SpyInstance;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFoldersEnabled = true;
   mockCanTakePhoto = true;
   mockParams = { id: 'new' };
   mockCards = [];
@@ -762,12 +754,12 @@ describe('a new card that looks like one already saved', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
-  test('a replaced card stays in its folder unless one was picked for the new card', async () => {
+  test('a replaced card clears a legacy folder assignment', async () => {
     mockCards = [makeCard({ id: 'old', name: 'Emirates ID', tags: ['ID'], documentKey: KEY, folderId: 'fam' })];
     answer(strings.edit.replace);
     await fillNewCard();
     await save();
-    expect(mockUpdate).toHaveBeenCalledWith('old', expect.objectContaining({ folderId: 'fam' }), expect.anything());
+    expect(mockUpdate).toHaveBeenCalledWith('old', expect.objectContaining({ folderId: null }), expect.anything());
   });
 
   test('Keep both adds it as a new card', async () => {
@@ -799,94 +791,10 @@ describe('a new card that looks like one already saved', () => {
   });
 });
 
-describe('folders', () => {
-  const daman = {
-    name: { value: 'Daman', confidence: 0.8 },
-    category: { value: 'insurance', confidence: 0.8 },
-    text: 'DAMAN\nHealth Insurance',
-  };
-
-  test('a card that fits a folder is put in it, marked as suggested, and saved there', async () => {
-    mockFolders = [
-      { id: 'fam', name: 'Family', createdAt: 1 },
-      { id: 'ins', name: 'Insurance', createdAt: 1 },
-    ];
-    mockAnalyze.mockResolvedValue(daman);
-    await render(<EditCard />);
-    await fireEvent.press(screen.getByTestId('front-library'));
-    expect(screen.getByTestId('folder-ins').props.accessibilityState).toEqual({ checked: true });
-    expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(3); // name, tag, folder
-    await save();
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'ins' }), expect.anything());
-    expect(mockCreateFolder).not.toHaveBeenCalled();
-  });
-
-  test('when no folder fits, a new one is offered and only made when the card is saved', async () => {
-    mockFolders = [{ id: 'fam', name: 'Family', createdAt: 1 }];
-    mockAnalyze.mockResolvedValue(daman);
-    await render(<EditCard />);
-    await fireEvent.press(screen.getByTestId('front-library'));
-    expect(screen.getByText(strings.folders.suggestNewBody('Insurance'))).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('accept-folder-offer'));
-    expect(screen.queryByTestId('folder-offer')).toBeNull();
-    expect(screen.getByText(strings.folders.pendingNew('Insurance'))).toBeTruthy();
-    expect(mockCreateFolder).not.toHaveBeenCalled();
-    await save();
-    expect(mockCreateFolder).toHaveBeenCalledWith('Insurance');
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'made' }), expect.anything());
-  });
-
-  test('with folders hidden there is no folder picker, and a card that fits one is not put in it', async () => {
-    mockFoldersEnabled = false;
-    mockFolders = [{ id: 'ins', name: 'Insurance', createdAt: 1 }];
-    mockAnalyze.mockResolvedValue(daman);
-    await render(<EditCard />);
-    await fireEvent.press(screen.getByTestId('front-library'));
-    expect(screen.queryByTestId('folder-ins')).toBeNull();
-    expect(screen.queryByTestId('folder-offer')).toBeNull();
-    await save();
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: null }), expect.anything());
-  });
-
-  test('an offer that is not taken leaves the card outside any folder', async () => {
-    mockAnalyze.mockResolvedValue(daman);
-    await render(<EditCard />);
-    await fireEvent.press(screen.getByTestId('front-library'));
-    expect(screen.getByTestId('folder-offer')).toBeTruthy();
-    await save();
-    expect(mockCreateFolder).not.toHaveBeenCalled();
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: null }), expect.anything());
-  });
-
-  test('the folder the user picked is kept over a suggestion', async () => {
-    mockFolders = [
-      { id: 'fam', name: 'Family', createdAt: 1 },
-      { id: 'ins', name: 'Insurance', createdAt: 1 },
-    ];
-    let finish: (a: unknown) => void = () => {};
-    mockAnalyze.mockReturnValue(new Promise((resolve) => (finish = resolve)));
-    await render(<EditCard />);
-    await fireEvent.press(screen.getByTestId('front-library'));
-    await fireEvent.press(screen.getByTestId('folder-fam'));
-    await act(async () => finish(daman));
-    expect(screen.getByTestId('folder-fam').props.accessibilityState).toEqual({ checked: true });
-    await save();
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'fam' }), expect.anything());
-  });
-
-  test('a folder typed in the form is made on save, and a duplicate name is refused', async () => {
-    mockFolders = [{ id: 'fam', name: 'Family', createdAt: 1 }];
-    await fillNewCard();
-    await fireEvent.press(screen.getByTestId('folder-add'));
-    await fireEvent.changeText(screen.getByTestId('new-folder-name'), 'family');
-    await fireEvent.press(screen.getByTestId('new-folder-submit'));
-    expect(screen.getByText(strings.folders.errors.duplicate)).toBeTruthy();
-    await fireEvent.changeText(screen.getByTestId('new-folder-name'), 'Work');
-    await fireEvent.press(screen.getByTestId('new-folder-submit'));
-    await save();
-    expect(mockCreateFolder).toHaveBeenCalledWith('Work');
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'made' }), expect.anything());
-  });
+test('the editor has no folder picker', async () => {
+  await fillNewCard();
+  expect(screen.queryByTestId('folder-add')).toBeNull();
+  expect(screen.queryByTestId('folder-offer')).toBeNull();
 });
 
 describe('card shape', () => {

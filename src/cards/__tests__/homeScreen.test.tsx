@@ -17,13 +17,6 @@ let mockNotes: Note[] = [];
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
-// Folders are hidden in the app for now (FOLDERS_ENABLED); these tests cover both ways.
-let mockFoldersEnabled = true;
-jest.mock('../../config', () =>
-  Object.defineProperty({ ...jest.requireActual('../../config') }, 'FOLDERS_ENABLED', {
-    get: () => mockFoldersEnabled,
-  }),
-);
 const mockShareCards = jest.fn((_store: unknown, _cards: { id: string }[]) => Promise.resolve());
 jest.mock('../../share/shareCard', () => ({
   PdfUnavailableError: class extends Error {},
@@ -129,7 +122,6 @@ beforeEach(() => {
   mockUnlocked = false;
   mockFolders = [];
   mockHomeFolders = { filter: true, manage: true };
-  mockFoldersEnabled = true;
   mockLastExportAt = String(Date.now());
 });
 
@@ -165,44 +157,10 @@ test('a saved Gallery choice still opens the grid', async () => {
   expect(await screen.findByTestId('card-grid')).toBeTruthy();
   expect(mockSettingsSet).not.toHaveBeenCalledWith('homeView', 'list');
 });
-test('with no folders there is no folder filter', async () => {
-  await renderHome();
-  expect(screen.queryByTestId('folder-filter-all')).toBeNull();
-});
-
-test('folder choices are radios in a group; Manage is a button outside it', async () => {
+test('home does not show a folder filter', async () => {
   mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
   await renderHome();
-  // A radiogroup View isn't itself focusable (that would hide its radios), so it's found by test ID.
-  const groupView = screen.getByTestId('folder-filter-choices');
-  expect(groupView.props.accessibilityRole).toBe('radiogroup');
-  expect(groupView.props.accessibilityLabel).toBe(strings.folders.title);
-  const group = within(groupView);
-  expect(group.getByRole('radio', { name: strings.folders.all }).props.accessibilityState).toEqual({ checked: true });
-  expect(group.getByRole('radio', { name: 'Health' }).props.accessibilityState).toEqual({ checked: false });
-  expect(group.queryByRole('button', { name: strings.folders.manage })).toBeNull();
-  expect(screen.getByRole('button', { name: strings.folders.manage })).toBeTruthy();
-});
-
-test('with folders hidden there is no folder row', async () => {
-  mockFoldersEnabled = false;
-  mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
-  await renderHome();
-  expect(screen.queryByTestId('folder-filter-f1')).toBeNull();
-  expect(screen.queryByRole('button', { name: strings.folders.manage })).toBeNull();
-});
-
-test('settings can hide the folder filter and the manage shortcut separately', async () => {
-  mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
-  mockHomeFolders = { filter: false, manage: true };
-  await renderHome();
-  expect(screen.queryByTestId('folder-filter-f1')).toBeNull();
-  expect(screen.getByRole('button', { name: strings.folders.manage })).toBeTruthy();
-
-  mockHomeFolders = { filter: true, manage: false };
-  await renderHome();
-  expect(screen.getByTestId('folder-filter-f1')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: strings.folders.manage })).toBeNull();
+  expect(screen.queryByTestId('folder-filter-choices')).toBeNull();
 });
 
 test('only tags some card has are offered, after All', async () => {

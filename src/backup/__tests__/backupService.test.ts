@@ -76,7 +76,7 @@ test('a missing thumbnail falls back to the front image', async () => {
   expect(text(snapshot.cards[0].images.front.thumbJpegBase64)).toBe('JPEG:x');
 });
 
-test('folders and the cards in them travel with the backup', async () => {
+test('new backups convert folder assignments to tags without carrying folders', async () => {
   const phoneA = await makeStore();
   const health = await phoneA.store.createFolder('Health');
   await phoneA.store.create(fields({ name: 'Daman', folderId: health.id }), images('daman'));
@@ -85,20 +85,31 @@ test('folders and the cards in them travel with the backup', async () => {
     await encodeBackup(await buildSnapshot(phoneA.store, 42), 'travel pass', { iterations: 1_000 }),
     'travel pass',
   );
-  expect(snapshot.folders).toEqual([health]);
+  expect(snapshot.folders).toEqual([]);
+  expect(snapshot.cards[0].card).toMatchObject({ folderId: null, tags: ['Health'] });
 
   const phoneB = await makeStore();
   await applySnapshot(phoneB.store, snapshot, 'replace');
-  expect(await phoneB.store.listFolders()).toEqual([health]);
-  expect((await phoneB.store.list())[0].folderId).toBe(health.id);
+  expect(await phoneB.store.listFolders()).toEqual([]);
+  expect((await phoneB.store.list())[0]).toMatchObject({ folderId: null, tags: ['Health'] });
 });
 
-test('merge adds the backup\'s folders even when every card is already on the phone', async () => {
+test('merge of an old backup with no new cards does not recreate folders', async () => {
   const { store } = await makeStore();
   await applySnapshot(store, backupSnapshot(), 'merge');
   const snapshot = { ...backupSnapshot(), folders: [{ id: 'f1', name: 'Family', createdAt: 1 }] };
   expect(await applySnapshot(store, snapshot, 'merge')).toEqual({ added: 0, skipped: 2, notesAdded: 0, notesSkipped: 0 });
-  expect((await store.listFolders()).map((f) => f.name)).toEqual(['Family']);
+  expect(await store.listFolders()).toEqual([]);
+});
+
+test('old backups map a folder to a tag on import', async () => {
+  const { store } = await makeStore();
+  const snapshot = backupSnapshot();
+  snapshot.folders = [{ id: 'f1', name: 'Family', createdAt: 1 }];
+  snapshot.cards[0].card.folderId = 'f1';
+  await applySnapshot(store, snapshot, 'replace');
+  expect((await store.get(snapshot.cards[0].card.id))?.tags).toContain('Family');
+  expect(await store.listFolders()).toEqual([]);
 });
 
 test('a PDF card travels with its whole PDF and cover page', async () => {

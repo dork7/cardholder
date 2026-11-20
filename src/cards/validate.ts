@@ -33,11 +33,11 @@ function optionalText(v: unknown): string | null {
 }
 
 // Missing means none: cards and backups from before tags have no `tags` at all.
-function parseTags(v: unknown): string[] | null {
+function parseTags(v: unknown, maxTags = MAX_TAGS, maxLength = TAG_MAX_LENGTH): string[] | null {
   if (v === undefined) return [];
   if (!Array.isArray(v) || !v.every((t) => typeof t === 'string')) return null;
   const tags = normalizeTags(v);
-  if (tags.length > MAX_TAGS || tags.some((t) => [...t].length > TAG_MAX_LENGTH)) return null;
+  if (tags.length > maxTags || tags.some((t) => [...t].length > maxLength)) return null;
   return tags;
 }
 
@@ -61,7 +61,7 @@ export function toCardText(v: unknown): CardText | null {
       { pages: pages.map((page: string) => page.slice(0, READ_TEXT_MAX_LENGTH)) }) };
 }
 
-export function validateCardFields(raw: RawCardFields): CardValidation {
+export function validateCardFields(raw: RawCardFields, limits?: { maxTags: number; maxTagLength: number }): CardValidation {
   const errors: FieldError[] = [];
 
   // The name is optional: an unnamed card is shown by its first tag (see displayName).
@@ -74,7 +74,7 @@ export function validateCardFields(raw: RawCardFields): CardValidation {
   const remindDaysBefore = parseRemindDays(raw.remindDaysBefore);
   if (remindDaysBefore === null) errors.push('bad-reminder');
 
-  const tags = parseTags(raw.tags);
+  const tags = parseTags(raw.tags, limits?.maxTags, limits?.maxTagLength);
   if (!tags) errors.push('bad-tags');
 
   if (errors.length > 0 || !tags || remindDaysBefore === null) return { ok: false, errors };

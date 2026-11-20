@@ -25,7 +25,6 @@ test('lists the details, then the text read off each side, with the card id as t
       '- **Expires:** 2027-03-14',
       '- **Reminders:** Daily, from 14 days before',
       '- **Tags:** Residency, UAE',
-      '- **Folder:** Family',
       '- **Source:** Photos of the front and back',
       '- **Added:** 2026-10-01',
       '- **Updated:** 2026-11-04',
