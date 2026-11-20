@@ -8,6 +8,7 @@ import { sortCards } from './listing';
 import { DAY_MS, DEFAULT_REMIND_DAYS, RECENTLY_DELETED_DAYS } from '../config';
 import { parseRemindDays, toCardText } from './validate';
 import { normalizeTags, withLegacyCategory } from './tags';
+import { spaceFor } from '../spaces/spaces';
 import { personName, samePersonName } from '../people/names';
 import { Card, CardFields, CardPdf, DeletedCard, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument, Person } from './types';
 
@@ -129,6 +130,7 @@ export function createCardStore({
   const seal = (card: Card): Uint8Array => {
     const payload: Payload = {
       name: card.name,
+      ...(card.spaceId !== undefined && { spaceId: spaceFor(card.spaceId).id }),
       expiresOn: card.expiresOn,
       remindDaysBefore: card.remindDaysBefore,
       tags: card.tags,
@@ -150,6 +152,7 @@ export function createCardStore({
     // from before categories became tags, which is read as the card's first tag.
     return {
       name: payload.name,
+      ...(payload.spaceId !== undefined && { spaceId: spaceFor(payload.spaceId).id }),
       expiresOn: payload.expiresOn,
       remindDaysBefore: parseRemindDays(payload.remindDaysBefore) ?? DEFAULT_REMIND_DAYS, // cards saved before the setting
       tags: withLegacyCategory(Array.isArray(payload.tags) ? payload.tags : [], (payload as { category?: unknown }).category), // cards saved before tags have none
@@ -230,6 +233,7 @@ export function createCardStore({
   const eraseWhere = async (where: string, params: SqlValue[]) => {
     const rows = await db.getAllAsync<{ id: string }>(`SELECT id FROM cards WHERE ${where}`, params);
     for (const { id } of rows) {
+      await db.runAsync('DELETE FROM document_visits WHERE id = ?', [id]);
       await db.runAsync('DELETE FROM cards WHERE id = ?', [id]);
       await removeImages(id);
     }
@@ -410,6 +414,7 @@ export function createCardStore({
 
         await queueNoteWrite(db, () => db.withTransactionAsync(async () => {
           if (replace) {
+            await db.runAsync('DELETE FROM document_visits', []);
             await db.runAsync('DELETE FROM cards', []);
             await db.runAsync('DELETE FROM folders', []);
             await db.runAsync('DELETE FROM people', []);

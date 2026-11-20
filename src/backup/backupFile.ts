@@ -1,3 +1,4 @@
+import { spaceFor } from '../spaces/spaces';
 import { isBlankNote, Note } from '../notes/noteStore';
 import { ImportEntry } from '../cards/cardStore';
 import { Card, CardImage, Folder, Person, looksVertical, PdfDocument } from '../cards/types';
@@ -185,6 +186,7 @@ function parseNote(value: unknown, seen: Set<string>): Note {
   if (tags.length > MAX_TAGS || tags.some((tag) => [...tag].length > TAG_MAX_LENGTH)) invalid();
   if (value.documentId !== undefined && value.documentId !== null && (typeof value.documentId !== 'string' || !ID_PATTERN.test(value.documentId))) invalid();
   const note: Note = { ...(value.reminderAt !== undefined && { reminderAt: value.reminderAt as number }), id: value.id, title: value.title, body: value.body, pinned: value.pinned,
+    ...(value.spaceId !== undefined && { spaceId: spaceFor(value.spaceId).id }),
     tags, documentId: typeof value.documentId === 'string' ? value.documentId : null,
     createdAt: value.createdAt, updatedAt: value.updatedAt };
   if (isBlankNote(note) || seen.has(note.id.toLowerCase())) invalid();

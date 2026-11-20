@@ -1,0 +1,597 @@
+import { PinnedNotes } from '../src/notes/PinnedNotes';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { FONT, Text } from '../src/ui/Text';
+import { useApp } from '../src/app/AppProvider';
+import { addTags, overTagLimit, shouldUnpin, togglePinned } from '../src/cards/batch';
+import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
+import { filterCards, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
+import { useDocumentSearch } from '../src/cards/useDocumentSearch';
+import { EXPIRY_SOON_DAYS, MAX_TAGS } from '../src/config';
+import { shareCards } from '../src/share/shareCard';
+import { useConfirmIdShare } from '../src/share/useConfirmIdShare';
+import { strings } from '../src/strings';
+import { showError } from '../src/ui/errorAlert';
+import { Button } from '../src/ui/Button';
+import { CardGrid } from '../src/ui/CardGrid';
+import { TagSheet } from '../src/ui/TagSheet';
+import { canReadText, readPhotoText } from '../src/analysis/readPhoto';
+import { rereadCards } from '../src/cards/readBackfill';
+import { AppearanceToggle } from '../src/ui/AppearanceToggle';
+import { TagChips } from '../src/ui/TagChips';
+import { ChipRow } from '../src/ui/ChipRow';
+import { Fab } from '../src/ui/Fab';
+import { TabBar, useTabBarClearance } from '../src/ui/TabBar';
+import { PinnedPanels, DocumentRows, SectionHeading } from '../src/ui/DocumentList';
+import { UndoBar } from '../src/ui/UndoBar';
+import { deleteAllWithUndo } from '../src/cards/deleteWithUndo';
+import { IconButton } from '../src/ui/IconButton';
+import { Card } from '../src/cards/types';
+import { RetroIcon } from '../src/ui/RetroIcon';
+import { PinnedStrip } from '../src/ui/PinnedStrip';
+import { Screen } from '../src/ui/Surface';
+import { RADIUS, TRACKING, TYPE, useTheme } from '../src/ui/theme';
+import { useTooltip } from '../src/ui/Tooltip';
+import { LiveText } from '../src/ui/LiveText';
+import { GestureTip, GestureTipName, useGestureTips } from '../src/ui/GestureTip';
+import { SortSheet } from '../src/ui/SortSheet';
+import { DocumentVisit, listDocumentVisits } from '../src/showcase/documentVisits';
+import { useShowcaseAdd } from '../src/showcase/ShowcaseActions';
+import { ShowcaseDocumentRow } from '../src/showcase/ShowcaseLibrary';
+import { formatAgo } from '../src/time/dates';
+import { useDebouncedQuery } from '../src/ui/useDebouncedQuery';
+
+type HomeView = 'list' | 'gallery';
+const isHomeView = (v: unknown): v is HomeView => v === 'list' || v === 'gallery';
+
+export default function Documents() {
+  const {
+    cards,
+    notes,
+    folders,
+    people = [],
+    services,
+    refresh,
+    pdfBackfill,
+    stopPdfBackfill,
+    undo,
+  } = useApp();
+  const confirmIdShare = useConfirmIdShare();
+  const router = useRouter();
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ mode?: string; search?: string }>();
+  const mode = params.mode === 'favorites' || params.mode === 'recent' ? params.mode : 'all';
+  const [visits, setVisits] = useState<DocumentVisit[]>([]);
+  useFocusEffect(useCallback(() => {
+    if (mode !== 'recent') return;
+    let active = true;
+    void listDocumentVisits(services.db).then((next) => { if (active) setVisits(next); }).catch(() => {});
+    return () => { active = false; };
+  }, [mode, services]));
+  const [query, setQuery] = useState('');
+  const settledQuery = useDebouncedQuery(query);
+  const searchPending = query.trim() !== settledQuery.trim();
+  const [chosen, setChosen] = useState<string | null>(null);
+  // Only tags some card has are offered; if the chosen tag's last card goes, fall back to All.
+  const present = allTags(cards);
+  const tag = (chosen && present.find((t) => sameTag(t, chosen))) || null;
+  const [chosenPerson, setChosenPerson] = useState<string | null>(null);
+  const personId = chosenPerson && people.some((person) => person.id === chosenPerson) ? chosenPerson : null;
+  const byPerson = personId ? cards.filter((card) => card.personId === personId) : cards;
+  const searchResults = useDocumentSearch(cards, folders, settledQuery);
+  const shown = filterCards(searchResults, { query: '', tag }).filter((card) => !personId || card.personId === personId);
+  const { pinned } = splitPinned(byPerson);
+  const pinnedNotes = notes.filter((note) => note.pinned).map(({ id, title }) => ({ id, title }));
+  const [gallery, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
+  const [sort, setSort] = useSavedChoice('gallerySort', isGallerySort, 'name');
+  const [expiringChoice, setExpiringChoice] = useSavedChoice('galleryExpiring', (v): v is 'on' | 'off' => v === 'on' || v === 'off', 'off');
+  const expiringOnly = expiringChoice === 'on';
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const now = new Date();
+  // The gallery has its own order and an "Expiring soon" filter on top of search and tag.
+  const inGallery = sortForGallery(expiringOnly ? shown.filter((c) => isExpiringSoon(c, now)) : shown, sort);
+  // Only cards still on screen count as selected, so a filter change can't act on something hidden.
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const selected = inGallery.filter((c) => selectedIds.has(c.id));
+  const [choosingTags, setChoosingTags] = useState(false);
+  // While the selection is being read again: how many are done, out of how many.
+  const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
+  const selecting = mode === 'all' && gallery === 'gallery' && selected.length > 0;
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  // One-time tip for the gallery's long-press, which only screen readers were told about.
+  const tips = useGestureTips(services.settings);
+  const tipBar = (tip: GestureTipName, text: string) =>
+    tips.showing(tip) && (
+      <GestureTip
+        text={text}
+        announce={!tips.announced(tip)}
+        onAnnounced={() => tips.markAnnounced(tip)}
+        onDismiss={() => tips.done(tip)}
+        testID={`${tip}-tip`}
+      />
+    );
+  // A long-press starts selecting, so the gallery's tip has done its job.
+  const toggleSelected = (card: Card) => {
+    tips.done('gallery');
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(card.id)) next.delete(card.id);
+      else next.add(card.id);
+      return next;
+    });
+  };
+
+  // The system back gesture leaves selection first, as in a photo gallery.
+  useEffect(() => {
+    if (!selecting) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      clearSelection();
+      return true;
+    });
+    return () => sub.remove();
+  }, [selecting, clearSelection]);
+
+  // Runs a batch action on the selection, then leaves selection and reloads the cards.
+  const onSelection = async (
+    run: (cards: Card[]) => Promise<number>,
+    failure: (n: number) => { title: string; body: string },
+  ) => {
+    const failed = await run(selected);
+    clearSelection();
+    await refresh().catch((e) => console.warn('Refresh after a batch action failed', e));
+    if (failed > 0) {
+      const { title, body } = failure(failed);
+      Alert.alert(title, body);
+    }
+  };
+
+  // Adds the chosen tags to every selected card. If any card would go over the limit, nothing is
+  // changed and the sheet stays open, so fewer tags can be chosen.
+  const tagSelected = (tags: string[]) => {
+    const over = overTagLimit(selected, tags);
+    if (over.length > 0) {
+      Alert.alert(strings.tags.tooManyTitle, strings.tags.tooMany(over.length, MAX_TAGS));
+      return;
+    }
+    setChoosingTags(false);
+    void onSelection((picked) => addTags(services.store, picked, tags), strings.errors.tagMany);
+  };
+
+  // Recreate .md on the selection: reads each document's text again from its pictures, which its
+  // Details (.md) are made from. Can take a while, so the bar counts through them.
+  const recreateSelected = async () => {
+    if (!canReadText) {
+      showError('readTextUnavailable', null);
+      return;
+    }
+    const picked = selected;
+    setRereading({ done: 0, of: picked.length });
+    const failed = await rereadCards(services.store, picked, readPhotoText, (done) => setRereading({ done, of: picked.length }));
+    setRereading(null);
+    clearSelection();
+    await refresh().catch((e) => console.warn('Refresh after reading again failed', e));
+    Alert.alert(
+      strings.recreate.button,
+      failed > 0 ? strings.home.selectionFailed(failed) : strings.recreate.doneMany(picked.length),
+    );
+  };
+
+  // No dialog: the selection goes to Recently deleted at once and one Undo brings it all back.
+  const deleteSelected = () =>
+    onSelection((cards) => deleteAllWithUndo(services.store, undo, cards, refresh), strings.errors.deleteMany);
+
+  // One PDF of every selected card. An ID asks first, as on the card's own screen, unless the
+  // warning is turned off. Selection stays, so the same cards can be sent elsewhere.
+  const shareSelected = () => {
+    const picked = selected;
+    confirmIdShare({
+      hasId: picked.some(isId),
+      title: strings.home.shareIdsTitle,
+      body: strings.home.shareIdsBody,
+      go: () =>
+        shareCards(services.store, picked).catch((e) => {
+          console.warn('Share failed', e);
+          showError('shareMany', e);
+        }),
+    });
+  };
+
+  const sortName = sort === 'name' ? strings.home.sortName : sort === 'expiry' ? strings.home.sortExpiry : strings.home.sortAdded;
+
+  const add = useShowcaseAdd();
+
+  const listView = gallery === 'list';
+  // Pinned documents lead the list view; everything else follows under "All documents".
+  const rest = shown.filter((c) => !c.pinned);
+  const clearance = useTabBarClearance();
+  const viewOptions: { key: HomeView; label: string }[] = [
+    { key: 'list', label: strings.home.listLabel },
+    { key: 'gallery', label: strings.home.galleryLabel },
+  ];
+
+  return (
+    <Screen style={{ paddingTop: insets.top + 8, paddingBottom: 0 }}>
+      <View style={[styles.inset, styles.top]}>
+        <View style={styles.header}>
+          <View style={styles.titles}>
+            <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
+              {strings.home.title}
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.muted }]}>{strings.home.subtitle}</Text>
+          </View>
+          <AppearanceToggle />
+          <SettingsButton onPress={() => router.push('/settings')} />
+        </View>
+        {(cards.length > 0 || params.search === '1') && <SearchField value={query} onChange={setQuery} autoFocus={params.search === '1'} />}
+        {pdfBackfill && (
+          <View style={styles.backfill} testID="backfill-progress">
+            <Text style={{ color: theme.muted, flex: 1 }}>{strings.home.backfillProgress(pdfBackfill.done, pdfBackfill.total)}</Text>
+            <Button variant="secondary" label={strings.common.cancel} onPress={stopPdfBackfill} testID="backfill-cancel" />
+          </View>
+        )}
+        {/* Filters sit directly under search, above whatever they filter. */}
+        {cards.length > 0 && present.length > 0 && <TagChips tags={present} selected={tag ? [tag] : []} onPress={setChosen} includeAll />}
+        {people.length > 0 && <ChipRow accessibilityLabel={strings.people.person} testID="person-filter"
+          chips={[{ key: 'all', label: strings.people.everyone, selected: personId === null, onPress: () => setChosenPerson(null) },
+            ...people.map((person) => ({ key: person.id, label: person.name, selected: personId === person.id,
+              onPress: () => setChosenPerson(person.id), testID: `person-filter-${person.id}` }))]} />}
+        {mode === 'all' && cards.length > 0 && (
+          <View style={styles.viewRow}>
+              <View accessibilityLabel={strings.home.viewLabel} style={[styles.segments, { backgroundColor: theme.glass, borderColor: theme.border }]}>
+                {viewOptions.map((option) => {
+                  const on = gallery === option.key;
+                  return (
+                    <Pressable
+                      key={option.key}
+                      testID={`view-${option.key}`}
+                      onPress={() => {
+                        clearSelection();
+                        setGallery(option.key);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={option.label}
+                      accessibilityHint={strings.home.viewLabel}
+                      accessibilityState={{ selected: on }}
+                      style={[styles.segment, on && { backgroundColor: theme.accent }]}
+                    >
+                      <Text style={{ color: on ? theme.onAccent : theme.text, fontSize: TYPE.secondary, fontWeight: '600' }}>{option.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            {gallery === 'gallery' && shown.length > 0 && (
+              <Pressable
+                onPress={() => setSortSheetOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={strings.home.sortChip(sortName)}
+                accessibilityHint={`${strings.home.sortLabel}. ${strings.home.expiringSoon}: ${expiringOnly ? 'on' : 'off'}`}
+                testID="sort-chip"
+                style={[styles.sortChip, { backgroundColor: theme.glass, borderColor: theme.rosette }]}
+              >
+                <Text style={{ color: theme.text, fontSize: TYPE.secondary, fontWeight: '700' }}>{strings.home.sortChip(sortName)}</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </View>
+
+      {mode !== 'all' ? (
+        <ScrollView style={styles.fill} contentContainerStyle={[styles.inset, styles.library, { paddingBottom: clearance + 16 }]}>
+          <SectionHeading title={mode === 'favorites' ? 'Pinned documents' : 'Recently visited'} />
+          <Button variant="secondary" label="Show all documents" onPress={() => router.replace('/documents')} />
+          {mode === 'favorites' ? shown.filter((card) => card.pinned).map((card) => <ShowcaseDocumentRow key={card.id} card={card} />)
+            : visits.map(({ id, visitedAt }) => {
+              const card = shown.find((item) => item.id === id);
+              return card ? <ShowcaseDocumentRow key={id} card={card} subtitle={`Opened ${formatAgo(visitedAt, now.getTime()).toLowerCase()}`} /> : null;
+            })}
+          {(mode === 'favorites' ? !shown.some((card) => card.pinned) : !visits.some(({ id }) => shown.some((card) => card.id === id))) &&
+            <LiveText style={[styles.promise, { color: theme.muted }]}>{query.trim() ? strings.home.noResults :
+              mode === 'favorites' ? 'Pin a document to keep it here.' : 'Open a document to see it here.'}</LiveText>}
+        </ScrollView>
+      ) : cards.length === 0 && pinnedNotes.length === 0 ? (
+        <View style={[styles.inset, styles.body]}>
+          <View style={styles.empty} testID="empty-state">
+            <View style={[styles.emptyIcon, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
+              <RetroIcon name="folder" size={64} color={theme.accent} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: theme.text }]} accessibilityRole="header">
+              {strings.home.emptyTitle}
+            </Text>
+            <Text style={[styles.promise, { color: theme.muted }]}>{strings.promise}</Text>
+            <Text style={[styles.promise, { color: theme.text }]}>{strings.home.emptyHint}</Text>
+          </View>
+        </View>
+      ) : listView || cards.length === 0 ? (
+        // The library: pinned panels, then every other document. Pinned ones stay put while searching or
+        // filtering: they're the shortcut, the list is the browse.
+        <ScrollView style={styles.fill} contentContainerStyle={[styles.inset, styles.library, { paddingBottom: clearance + 16 }]} testID="document-list">
+          {(pinned.length > 0 || pinnedNotes.length > 0) && (
+            <View style={styles.section} testID="pinned-section">
+              <SectionHeading title={strings.home.pinnedForQuickAccess} icon="pin" />
+              <PinnedPanels cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
+              <PinnedNotes notes={pinnedNotes} onOpen={(id) => router.push(`/note-view/${id}`)} />
+            </View>
+          )}
+          {cards.length > 0 && <View style={styles.section}>
+            <SectionHeading title={strings.home.allDocuments} count={strings.home.documentCount(rest.length)} />
+            {rest.length === 0 ? (
+              <LiveText style={[styles.promise, { color: theme.muted }]}>{searchPending ? strings.home.searching : strings.home.noResults}</LiveText>
+            ) : (
+              <DocumentRows cards={rest} onOpen={(card) => router.push(`/card/${card.id}`)} />
+            )}
+          </View>}
+        </ScrollView>
+      ) : (
+        <View style={[styles.inset, styles.body, { paddingBottom: clearance + 8 }]}>
+          <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
+          <PinnedNotes notes={pinnedNotes} compact onOpen={(id) => router.push(`/note-view/${id}`)} />
+          {shown.length === 0 ? (
+            <View style={styles.noResults}>
+              <LiveText style={[styles.promise, { color: theme.muted }]}>
+                {searchPending ? strings.home.searching : strings.home.noResults}
+              </LiveText>
+            </View>
+          ) : (
+            inGallery.length === 0 ? (
+              <LiveText style={[styles.promise, { color: theme.muted }]}>
+                {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
+              </LiveText>
+            ) : (
+              <>
+                {!selecting && tipBar('gallery', strings.home.galleryTip)}
+                <CardGrid
+                  cards={inGallery}
+                  selected={selectedIds}
+                  onOpen={(card) => router.push(`/card/${card.id}`)}
+                  onToggle={toggleSelected}
+                />
+              </>
+            )
+          )}
+        </View>
+      )}
+
+      <SortSheet
+        visible={sortSheetOpen}
+        sort={sort}
+        expiringOnly={expiringOnly}
+        onSort={setSort}
+        onExpiringOnly={(on) => setExpiringChoice(on ? 'on' : 'off')}
+        onClose={() => setSortSheetOpen(false)}
+      />
+
+      {selecting ? (
+        <View style={[styles.selectionBar, { paddingBottom: 0, backgroundColor: theme.glassStrong, borderColor: theme.border }]} testID="selection-bar">
+          <View style={styles.selectionRow}>
+            <LiveText style={[styles.selectionCount, { color: theme.text }]}>
+              {rereading ? strings.recreate.workingMany(rereading.done, rereading.of) : strings.home.selected(selected.length)}
+            </LiveText>
+            <View style={styles.selectionAction}>
+              <Button variant="secondary" label={strings.common.cancel} onPress={clearSelection} testID="selection-cancel" />
+            </View>
+          </View>
+          <View style={styles.selectionActions}>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon={shouldUnpin(selected) ? 'unpin' : 'pin'}
+                label={shouldUnpin(selected) ? strings.home.unpinSelected : strings.home.pinSelected}
+                caption={shouldUnpin(selected) ? strings.home.unpinCaption : strings.home.pinCaption}
+                onPress={() => void onSelection((cards) => togglePinned(services.store, cards), strings.errors.pinMany)}
+                testID="selection-pin"
+              />
+            </View>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon="tag"
+                label={strings.home.tagSelected}
+                caption={strings.home.tagCaption}
+                onPress={() => setChoosingTags(true)}
+                testID="selection-tags"
+              />
+            </View>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon="refresh"
+                label={strings.recreate.button}
+                caption={strings.home.readAgainCaption}
+                hint={strings.recreate.galleryHint}
+                onPress={() => void recreateSelected()}
+                disabled={rereading !== null}
+                testID="selection-recreate"
+              />
+            </View>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon="share"
+                label={strings.home.shareSelected}
+                caption={strings.home.shareCaption}
+                hint={strings.home.shareSelectedHint}
+                onPress={shareSelected}
+                testID="selection-share"
+              />
+            </View>
+            <View style={styles.selectionButton}>
+              <IconButton
+                icon="trash"
+                label={strings.home.deleteSelected}
+                caption={strings.home.deleteCaption}
+                onPress={deleteSelected}
+                variant="danger"
+                testID="selection-delete"
+              />
+            </View>
+          </View>
+          <TagSheet
+            visible={choosingTags}
+            title={strings.home.tagTo(selected.length)}
+            existing={tagOptions([...cards, ...notes])}
+            onApply={tagSelected}
+            onClose={() => setChoosingTags(false)}
+          />
+        </View>
+      ) : (
+        <>
+          {/* Floats just above the tab bar, beside the + button, while a removal can be undone. */}
+          <View pointerEvents="box-none" style={[styles.undoDock, { bottom: clearance }]}>
+            <UndoBar undo={undo} />
+          </View>
+          <Fab label="Add document or note" onPress={add.open} testID="add-card" />
+          {add.sheet}
+          <TabBar active="documents" />
+        </>
+      )}
+    </Screen>
+  );
+}
+
+// Pill search, as the style asks: a filled field two steps up, with a clear button once there's text.
+function SearchField({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
+  const theme = useTheme();
+  const stroke = { stroke: theme.muted, strokeWidth: 2, strokeLinecap: 'round' as const };
+  const clear = useTooltip(strings.home.clearSearch);
+  return (
+    <View style={[styles.search, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
+      <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+        <Circle cx={11} cy={11} r={7} {...stroke} />
+        <Path d="M16.5 16.5L21 21" {...stroke} />
+      </Svg>
+      <TextInput autoFocus={autoFocus}
+        value={value}
+        onChangeText={onChange}
+        placeholder={strings.home.searchPlaceholder}
+        placeholderTextColor={theme.muted}
+        accessibilityLabel={strings.home.searchLabel}
+        autoCorrect={false}
+        autoCapitalize="none"
+        returnKeyType="search"
+        style={[styles.searchInput, { color: theme.text }]}
+        testID="search"
+      />
+      {value !== '' && (
+        <Pressable
+          ref={clear.ref}
+          onPress={() => onChange('')}
+          onLongPress={clear.onLongPress}
+          accessibilityRole="button"
+          accessibilityLabel={strings.home.clearSearch}
+          hitSlop={8}
+          style={styles.clear}
+        >
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Path d="M6 6l12 12M18 6L6 18" {...stroke} stroke={theme.text} />
+          </Svg>
+          {clear.tooltip}
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function SettingsButton({ onPress }: { onPress: () => void }) {
+  const theme = useTheme();
+  const { ref, onLongPress, tooltip } = useTooltip(strings.home.settings);
+  return (
+    <Pressable
+      ref={ref}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={strings.home.settings}
+      testID="open-settings"
+      style={({ pressed }) => [styles.round, { backgroundColor: theme.glassStrong, borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}
+    >
+      <RetroIcon name="settings" size={24} />
+      {tooltip}
+    </Pressable>
+  );
+}
+
+// Choices kept in settings, so the home screen opens the way it was left.
+function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort' | 'galleryExpiring', isValid: (v: unknown) => v is T, fallback: T) {
+  const { services } = useApp();
+  const [value, setValue] = useState<T>(fallback);
+  useEffect(() => {
+    let live = true;
+    services.settings
+      .get(key)
+      .then((saved) => {
+        if (!live) return;
+        if (isValid(saved)) setValue(saved);
+        else if (key === 'homeView' && saved === 'stack') {
+          setValue(fallback);
+          services.settings.set(key, fallback).catch((e) => console.warn('Saving migrated home view failed', e));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+    // isValid is a plain module-level check; it never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, key]);
+  const change = useCallback(
+    (next: T) => {
+      setValue(next);
+      services.settings.set(key, next).catch((e) => console.warn(`Saving ${key} failed`, e));
+    },
+    [services, key],
+  );
+  return [value, change] as const;
+}
+
+const styles = StyleSheet.create({
+  sortChip: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderWidth: 1, borderRadius: RADIUS.sm },
+  fill: { flex: 1 },
+  // Clear of the + button at the end (20 pt inset, 56 pt wide).
+  undoDock: { position: 'absolute', start: 16, end: 88 },
+  library: { paddingTop: 12, gap: 24 },
+  section: { gap: 12 },
+  backfill: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  viewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  segments: { flexDirection: 'row', borderWidth: 1, borderRadius: RADIUS.md, padding: 3 },
+  segment: { minHeight: 44, paddingHorizontal: 14, borderRadius: RADIUS.md - 3, justifyContent: 'center' },
+  titles: { flex: 1 },
+  subtitle: { fontSize: TYPE.secondary, marginTop: 2 },
+  selectionBar: { position: 'absolute', left: 8, right: 8, bottom: 8, gap: 10, paddingHorizontal: 16, paddingTop: 12, borderWidth: 1, borderRadius: RADIUS.lg },
+  selectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  selectionActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  selectionButton: { width: '30%' },
+  selectionCount: { flex: 1, fontSize: TYPE.secondary, fontWeight: '700' },
+  selectionAction: { minWidth: 112 },
+  inset: { paddingHorizontal: 16 },
+  top: { gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  title: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight },
+  round: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 48,
+    paddingLeft: 16,
+    paddingRight: 8,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    shadowColor: '#314570', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 3 },
+  },
+  searchInput: { flex: 1, minHeight: 48, fontSize: TYPE.body, fontFamily: FONT.regular },
+  clear: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  body: { flex: 1, justifyContent: 'center', paddingVertical: 12, gap: 16 },
+  empty: { alignItems: 'center', gap: 12 },
+  emptyIcon: { width: 124, height: 124, borderRadius: RADIUS.lg, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { fontSize: TYPE.title, fontWeight: '700', letterSpacing: TRACKING.tight, textAlign: 'center' },
+  promise: { fontSize: TYPE.body, textAlign: 'center' },
+  noResults: { alignItems: 'center', justifyContent: 'center' },
+});

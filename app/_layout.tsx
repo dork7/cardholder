@@ -5,6 +5,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useLaunchLinks } from '../src/app/useLaunchLinks';
 import { AppProvider, useApp, useBoot } from '../src/app/AppProvider';
 import { removeModelFiles } from '../src/app/removeModelFiles';
 import { AppLockGate } from '../src/security/AppLockGate';
@@ -59,13 +60,15 @@ function RootNavigator() {
           contentStyle: { backgroundColor: theme.bg },
         }}
       >
-         <Stack.Screen name="index" options={{ title: strings.home.title, headerShown: false }} />
-         <Stack.Screen name="edit/[id]" options={{ presentation: 'formSheet', sheetGrabberVisible: true, sheetAllowedDetents: [0.92], sheetCornerRadius: 28 }} />
-         <Stack.Screen name="card/[id]" options={{ presentation: 'formSheet', headerShown: false, sheetGrabberVisible: true, sheetAllowedDetents: [0.65, 0.95], sheetInitialDetentIndex: 1, sheetCornerRadius: 28 }} />
-         <Stack.Screen name="notes" options={{ title: strings.notes.title, headerBackVisible: false, animation: 'fade' }} />
+         <Stack.Screen name="index" options={{ title: strings.tabs.home, headerShown: false }} />
+         <Stack.Screen name="documents" options={{ title: strings.tabs.documents, headerShown: false }} />
+         <Stack.Screen name="spaces" options={{ title: strings.tabs.spaces, headerShown: false }} />
+         <Stack.Screen name="edit/[id]" options={{ gestureEnabled: false }} />
+         <Stack.Screen name="card/[id]" options={{ headerShown: false }} />
+         <Stack.Screen name="notes" options={{ title: strings.notes.title, headerShown: false }} />
          <Stack.Screen name="note/[id]" options={{ title: strings.notes.editTitle }} />
          <Stack.Screen name="auto-backup" options={{ title: strings.autoBackup.title }} />
-         <Stack.Screen name="settings" options={{ title: strings.settings.title, headerBackVisible: false, animation: 'fade' }} />
+         <Stack.Screen name="settings" options={{ title: strings.settings.title }} />
          <Stack.Screen name="paywall" options={{ title: strings.paywall.title, presentation: 'modal' }} />
          <Stack.Screen name="tags" options={{ title: strings.tagsScreen.title }} />
          <Stack.Screen name="people" options={{ title: strings.people.title }} />
@@ -85,7 +88,13 @@ function LockedApp({ children }: { children: ReactNode }) {
   return (
     <AppLockGate enabled={appLock}>
       {children}
+      <LaunchLinks />
       <ShareInReceiver />
     </AppLockGate>
   );
+}
+
+function LaunchLinks() {
+  useLaunchLinks();
+  return null;
 }

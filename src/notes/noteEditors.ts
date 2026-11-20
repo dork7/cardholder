@@ -16,7 +16,7 @@ export function createNoteEditors(store: NoteStore) {
   return {
     open(note: Note | null): NoteEditor {
       const id = note?.id ?? store.newId();
-      let fields: NoteFields = note ? { title: note.title, body: note.body } : { title: '', body: '' };
+      let fields: NoteFields = note ? { title: note.title, body: note.body, ...(note.spaceId !== undefined && { spaceId: note.spaceId }) } : { title: '', body: '' };
       let revision = 0;
       let savedRevision = 0;
       let pending: Promise<void> | null = null;

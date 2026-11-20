@@ -87,7 +87,7 @@ export const strings = {
     errorBody: 'Something went wrong while opening your documents. Your documents are still on this phone. Try again.',
     retry: 'Retry',
   },
-  tabs: { documents: 'Documents', notes: 'Notes', settings: 'Settings' },
+  tabs: { home: 'Home', documents: 'Documents', notes: 'Notes', spaces: 'Spaces', settings: 'Settings' },
   home: {
     title: 'Documents',
     subtitle: 'Everything you need, kept close.',

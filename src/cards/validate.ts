@@ -1,3 +1,4 @@
+import { spaceFor } from '../spaces/spaces';
 import { DEFAULT_REMIND_DAYS, MAX_REMIND_DAYS, MAX_TAGS, NAME_MAX_LENGTH, READ_TEXT_MAX_LENGTH, TAG_MAX_LENGTH } from '../config';
 import { isValidIsoDate } from '../time/dates';
 import { normalizeTags, withLegacyCategory } from './tags';
@@ -13,6 +14,7 @@ export interface RawCardFields {
   remindDaysBefore?: unknown; // a number, or the digits typed in the edit form
   tags?: unknown;
   documentKey?: unknown;
+  spaceId?: unknown;
   folderId?: unknown;
   personId?: unknown;
   readText?: unknown;
@@ -82,6 +84,6 @@ export function validateCardFields(raw: RawCardFields, limits?: { maxTags: numbe
   const documentKey = typeof raw.documentKey === 'string' && DOCUMENT_KEY.test(raw.documentKey) ? raw.documentKey : null;
   return {
     ok: true,
-    value: { name, expiresOn, remindDaysBefore, tags: withLegacyCategory(tags, raw.category), documentKey, folderId: toFolderId(raw.folderId), personId: toFolderId(raw.personId), readText: toCardText(raw.readText), vertical: raw.vertical === true, blurPreview: raw.blurPreview === true },
+    value: { ...(raw.spaceId !== undefined && { spaceId: spaceFor(raw.spaceId).id }), name, expiresOn, remindDaysBefore, tags: withLegacyCategory(tags, raw.category), documentKey, folderId: toFolderId(raw.folderId), personId: toFolderId(raw.personId), readText: toCardText(raw.readText), vertical: raw.vertical === true, blurPreview: raw.blurPreview === true },
   };
 }

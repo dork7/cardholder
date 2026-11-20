@@ -20,6 +20,15 @@ describe.each(Object.entries(palettes))('%s palette', (_, t) => {
     expect(contrast(t.muted, ground)).toBeGreaterThanOrEqual(4.5);
   });
 
+  test('Showcase labels stay legible on the featured gradient and space cards', () => {
+    for (const stop of [t.showcase.start, t.showcase.end]) {
+      expect(contrast(t.showcase.ink, stop)).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const ground of Object.values(t.showcase.spaces)) {
+      expect(contrast(t.text, ground)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   test('button labels reach 4.5:1 on the filled accent', () => {
     expect(contrast(t.onAccent, t.accent)).toBeGreaterThanOrEqual(4.5);
   });

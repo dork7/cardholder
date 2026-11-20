@@ -43,6 +43,10 @@ Where a deleted document waits 30 days, still encrypted, before it is erased. It
 from there exactly as it was. Notes are not kept there.
 _Avoid_: trash, bin, recycle
 
+**Space**:
+A place that holds documents and notes together. Every document and note has one space.
+Spaces are Personal, Family, Home, and Travel.
+
 ## Keeping notes
 
 **Note**:

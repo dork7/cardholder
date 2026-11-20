@@ -46,7 +46,7 @@ export async function startFresh(deps: {
   settings: Settings;
 }): Promise<Aead> {
   const { db, blobs, vault, settings } = deps;
-  await db.execAsync('DELETE FROM cards; DELETE FROM notes; DELETE FROM settings;');
+  await db.execAsync('DELETE FROM document_visits; DELETE FROM cards; DELETE FROM notes; DELETE FROM settings;');
   for (const name of await blobs.list()) await blobs.remove(name);
   await vault.set(generateKey());
   const result = await openKeyring(vault, settings);

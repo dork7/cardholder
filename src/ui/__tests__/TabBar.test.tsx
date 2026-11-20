@@ -7,9 +7,9 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace }) })
 
 beforeEach(() => mockReplace.mockClear());
 
-test('three tabs, with the current one announced as selected', async () => {
+test('four tabs, with the current one announced as selected', async () => {
   await render(<TabBar active="notes" />);
-  for (const key of ['documents', 'notes', 'settings']) {
+  for (const key of ['home', 'documents', 'notes', 'spaces']) {
     expect(screen.getByTestId(`tab-${key}`).props.accessibilityRole).toBe('tab');
   }
   expect(screen.getByTestId('tab-notes').props.accessibilityState).toEqual({ selected: true });
@@ -21,8 +21,8 @@ test('tapping another tab replaces the screen; tapping the current one does noth
   await render(<TabBar active="documents" />);
   await fireEvent.press(screen.getByTestId('tab-documents'));
   expect(mockReplace).not.toHaveBeenCalled();
-  await fireEvent.press(screen.getByTestId('tab-settings'));
-  expect(mockReplace).toHaveBeenCalledWith('/settings');
+  await fireEvent.press(screen.getByTestId('tab-spaces'));
+  expect(mockReplace).toHaveBeenCalledWith('/spaces');
 });
 
 test('the + button is labelled and presses through', async () => {

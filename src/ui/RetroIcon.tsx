@@ -5,7 +5,7 @@ import { useTheme } from './theme';
 // The paths match the rounded, 1.7 pt outline icons in the fluid glass prototype.
 export type RetroIconName =
   | 'backup' | 'documents' | 'lock' | 'appearance' | 'blur' | 'expiry' | 'import' | 'settings'
-  | 'plus' | 'note' | 'gallery' | 'folder' | 'search';
+  | 'plus' | 'note' | 'gallery' | 'folder' | 'search' | 'home' | 'spaces' | 'arrow' | 'back';
 export type ActionIconName =
   | 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'tag' | 'pdf' | 'refresh' | 'more';
 type IconName = RetroIconName | ActionIconName;
@@ -17,6 +17,10 @@ export const ICON_PATHS: Record<Exclude<IconName, 'appearance' | 'documents' | '
   expiry: 'M12 7v5l3 2',
   import: 'M12 3v13m-4-4 4 4 4-4M4 17v4h16v-4',
   settings: 'm9 3-1 3-3 1-2 4 2 2 1 4 4 3 3-1 4-1 3-4-1-3-1-4-4-2z',
+  home: 'm3 10 9-7 9 7v10H3zM9 20v-7h6v7',
+  spaces: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM8 12h.01M12 12h.01M16 12h.01',
+  arrow: 'M4 12h16m-7-7 7 7-7 7',
+  back: 'M20 12H4m7-7-7 7 7 7',
   plus: 'M12 5v14M5 12h14',
   note: 'M14 3H5v18h14V8zM14 3v6h5M8 13h8M8 17h5',
   folder: 'M3 6h7l2 2h9v12H3z',

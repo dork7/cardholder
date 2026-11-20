@@ -54,6 +54,10 @@ const MIGRATIONS = [
      created_at INTEGER NOT NULL
    );
    ALTER TABLE cards ADD COLUMN person_id TEXT;`,
+  `CREATE TABLE document_visits (
+     id TEXT PRIMARY KEY NOT NULL,
+     visited_at INTEGER NOT NULL
+   );`,
 ];
 
 export async function migrate(db: SqlDb): Promise<void> {

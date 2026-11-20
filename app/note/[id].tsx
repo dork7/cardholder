@@ -8,7 +8,7 @@ import { NoteReminder } from '../../src/notes/NoteReminder';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
 import { NoteBody } from '../../src/notes/NoteBody';
 import { NoteEditor } from '../../src/notes/noteEditors';
-import { isBlankNote, Note } from '../../src/notes/noteStore';
+import { isBlankNote, Note, NoteFields } from '../../src/notes/noteStore';
 import { allTags, normalizeTags, sameTag } from '../../src/cards/tags';
 import { MAX_TAGS } from '../../src/config';
 import { TagChips } from '../../src/ui/TagChips';
@@ -19,11 +19,13 @@ import { strings } from '../../src/strings';
 import { Button } from '../../src/ui/Button';
 import { Field, useInputStyle } from '../../src/ui/Field';
 import { LiveText } from '../../src/ui/LiveText';
-import { Screen } from '../../src/ui/Surface';
+import { ActionFooter, Screen } from '../../src/ui/Surface';
+import { SpaceField } from '../../src/spaces/SpaceField';
+import { SpaceId, spaceFor } from '../../src/spaces/spaces';
 import { TYPE, useTheme } from '../../src/ui/theme';
 
 export default function NoteScreen() {
-  const { id, documentId } = useLocalSearchParams<{ id: string; documentId?: string }>();
+  const { id, documentId, space } = useLocalSearchParams<{ id: string; documentId?: string; space?: string }>();
   const { services } = useApp();
   const theme = useTheme();
   const [loaded, setLoaded] = useState<{ note: Note | null; initialBody?: string } | null>(null);
@@ -40,10 +42,10 @@ export default function NoteScreen() {
   }, [id, services]);
   if (problem) return <Screen><LiveText style={{ color: theme.danger, padding: 16 }}>{problem}</LiveText></Screen>;
   if (!loaded) return <Screen><ActivityIndicator color={theme.accent} /></Screen>;
-  return <Editor key={id} note={loaded.note} initialBody={loaded.initialBody} initialDocumentId={documentId} />;
+  return <Editor key={id} note={loaded.note} initialBody={loaded.initialBody} initialDocumentId={documentId} initialSpace={space ? spaceFor(space).id : undefined} />;
 }
 
-function Editor({ note, initialBody = '', initialDocumentId }: { note: Note | null; initialBody?: string; initialDocumentId?: string }) {
+function Editor({ note, initialBody = '', initialDocumentId, initialSpace }: { note: Note | null; initialBody?: string; initialDocumentId?: string; initialSpace?: SpaceId }) {
   const { services, refresh, cards = [], notes = [] } = useApp();
   const router = useRouter();
   const theme = useTheme();
@@ -52,7 +54,9 @@ function Editor({ note, initialBody = '', initialDocumentId }: { note: Note | nu
   const container = useRef<ComponentRef<typeof View>>(null);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [editor] = useState<NoteEditor>(() => services.noteEditors.open(note));
-  const [fields, setFields] = useState({ title: note?.title ?? '', body: note?.body ?? initialBody });
+  const [fields, setFields] = useState<NoteFields>({
+    title: note?.title ?? '', body: note?.body ?? initialBody, ...(note?.spaceId ?? initialSpace ? { spaceId: note?.spaceId ?? initialSpace } : {}),
+  });
   const [status, setStatus] = useState(editor.status());
   const [reminderAt, setReminderAt] = useState(note?.reminderAt);
   const [pinned, setPinned] = useState(note?.pinned ?? false);
@@ -88,8 +92,8 @@ function Editor({ note, initialBody = '', initialDocumentId }: { note: Note | nu
 
   useEffect(() => editor.subscribe(() => setStatus(editor.status())), [editor]);
   useEffect(() => {
-    if (!note && initialBody) editor.change({ title: '', body: initialBody });
-  }, [editor, note, initialBody]);
+    if (!note && initialBody) editor.change({ title: '', body: initialBody, ...(initialSpace && { spaceId: initialSpace }) });
+  }, [editor, note, initialBody, initialSpace]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -111,12 +115,12 @@ function Editor({ note, initialBody = '', initialDocumentId }: { note: Note | nu
     }).finally(() => setBusy(false));
   });
 
-  const change = (key: 'title' | 'body', value: string) => {
-    const next = { ...fields, [key]: value };
+  const updateFields = (next: NoteFields) => {
     setFields(next);
     setActionFailed(false);
     editor.change(next);
   };
+  const change = (key: 'title' | 'body', value: string) => updateFields({ ...fields, [key]: value });
   const pin = async () => {
     setBusy(true);
     try {
@@ -165,6 +169,7 @@ function Editor({ note, initialBody = '', initialDocumentId }: { note: Note | nu
             <TextInput value={fields.title} onChangeText={(value) => change('title', value)}
               editable={!busy} accessibilityLabel={strings.notes.titleLabel} style={inputStyle} testID="note-title" />
           </Field>
+          <SpaceField value={fields.spaceId} onChange={(spaceId) => updateFields({ ...fields, spaceId })} />
           <Field label={strings.notes.bodyLabel}>
             <LiveText style={{ color: theme.muted }}>{strings.notes.checklistHint}</LiveText>
             <TextInput value={fields.body} onChangeText={(value) => change('body', value)} multiline
@@ -222,9 +227,9 @@ function Editor({ note, initialBody = '', initialDocumentId }: { note: Note | nu
             <Button variant="danger" label={strings.notes.remove} onPress={remove} disabled={busy} testID="note-delete" />
           </View>
         </ScrollView>
-        <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
+        <ActionFooter style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
           <Button label={strings.notes.done} onPress={() => router.back()} disabled={busy} testID="note-done" />
-        </View>
+        </ActionFooter>
       </KeyboardAvoidingView>
       </View>
     </Screen>

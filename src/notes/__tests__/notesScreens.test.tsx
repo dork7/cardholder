@@ -58,6 +58,7 @@ test('empty Notes has an add action even at the free document limit', async () =
   await render(<NotesScreen />);
   expect(await screen.findByText(strings.notes.empty)).toBeTruthy();
   await fireEvent.press(screen.getByTestId('add-note'));
+  await fireEvent.press(screen.getByTestId('showcase-add-note'));
   expect(mockRouter.push).toHaveBeenCalledWith('/note/new');
 });
 
@@ -67,7 +68,7 @@ test('list shows pinned first, searches bodies and titles, and distinguishes no 
   await mockServices.notes.setPinned('a', true);
   await render(<NotesScreen />);
   await screen.findByTestId('note-a');
-  expect(screen.getAllByRole('button').slice(0, 2).map((button) => button.props.testID)).toEqual(['note-a', 'note-b']);
+  expect(screen.getAllByRole('button').map((button) => button.props.testID).filter((id) => id === 'note-a' || id === 'note-b')).toEqual(['note-a', 'note-b']);
   jest.useFakeTimers();
   try {
     await act(async () => fireEvent.changeText(screen.getByTestId('notes-search'), 'INSTRUCTIONS'));
@@ -84,7 +85,7 @@ test('list shows pinned first, searches bodies and titles, and distinguishes no 
     expect(screen.getByTestId('notes-search').props.value).toBe('');
     expect(screen.getByTestId('note-a')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('note-a'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/note/a');
+    expect(mockRouter.push).toHaveBeenCalledWith('/note-view/a');
   } finally {
     jest.useRealTimers();
   }

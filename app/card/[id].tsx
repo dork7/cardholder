@@ -1,6 +1,6 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, BackHandler, Modal, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +38,10 @@ import { EASE_OUT } from '../../src/ui/motion';
 import { strings } from '../../src/strings';
 import { showError } from '../../src/ui/errorAlert';
 import { LiveText } from '../../src/ui/LiveText';
+import { useAppLocked } from '../../src/security/AppLockGate';
+import { ShowcaseIcon } from '../../src/showcase/ShowcaseActions';
+import { recordDocumentVisit } from '../../src/showcase/documentVisits';
+import { spaceFor } from '../../src/spaces/spaces';
 import { UndoBar } from '../../src/ui/UndoBar';
 
 export default function CardView() {
@@ -72,6 +76,11 @@ export default function CardView() {
   }, [staff]);
 
   const card = cards.find((c) => c.id === id);
+  const cardId = card?.id;
+  const locked = useAppLocked();
+  useFocusEffect(useCallback(() => {
+    if (cardId && !locked) void recordDocumentVisit(services.db, cardId).catch(() => {});
+  }, [cardId, locked, services]));
   // Hooks run on every render; a missing card or back just loads nothing.
   const frontUri = useCardImage(card, 'front');
   const backUri = useCardImage(card?.hasBack ? card : undefined, 'back');
@@ -329,27 +338,15 @@ export default function CardView() {
     </Panel>
   );
 
-  return (
-    <Screen
-      style={{
-        paddingTop: insets.top + 8,
-        paddingBottom: insets.bottom + 8,
-        paddingLeft: insets.left,
-        paddingRight: insets.right,
-        gap: landscape ? 8 : 16,
-      }}
-    >
-      <Stack.Screen options={{ gestureEnabled: true }} />
-      <StatusBar hidden={false} />
-      {/* Sideways, the photos get the height; the name and details come back upright. */}
-      {!landscape && (
-        <View style={[styles.inset, styles.top]}>
+  const metadata = (
+    <View style={[styles.inset, styles.top]}>
           <Panel style={styles.header} testID="card-header">
             <View style={styles.titleRow}>
               <Text style={[styles.title, styles.flex, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">
                 {displayName(card)}
               </Text>
             </View>
+            <Text style={[styles.meta, { color: theme.muted }]}>{spaceFor(card.spaceId).name} space</Text>
             <View style={styles.expiryRow}>
               {needsExpiryAlert(card, now) && <ExpiryAlert size={18} pop testID="card-expiry-alert" />}
               <Text style={[styles.meta, { color: expiryColor }]} testID="card-expiry">
@@ -382,11 +379,43 @@ export default function CardView() {
             />
           )}
         </View>
-      )}
+  );
+  const media = (
+    <View style={[styles.inset, styles.sides, landscape && styles.sidesRow]} testID="card-sides">
+          {card.pdf ? (
+            <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} initialPage={pdfPage} onPageChange={setPdfPage} />
+          ) : sides.map((side) => (
+            <View key={side.label} style={styles.side}>
+              <Text style={{ fontSize: 14, color: theme.muted, textAlign: 'center' }}>{side.label}</Text>
+              <View style={styles.frame}>
+                <ZoomableImage uri={side.uri} accessibilityLabel={strings.card.imageLabel(displayName(card), side.label)} />
+              </View>
+            </View>
+          ))}
+        </View>
+  );
 
+  return (
+    <Screen
+      style={{
+        paddingTop: insets.top + 8,
+        paddingBottom: insets.bottom + 8,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+        gap: landscape ? 8 : 16,
+      }}
+    >
+      <Stack.Screen options={{ gestureEnabled: true }} />
+      <StatusBar hidden={false} />
+      {!landscape && <View style={[styles.inset, styles.screenHeader]}>
+        <ShowcaseIcon icon="back" label="Go back" onPress={() => router.back()} />
+        <Text style={[styles.screenTitle, { color: theme.text }]}>Document</Text>
+      </View>}
       {/* The photos sit straight on the page: the card is the card, panels are only the chrome.
           In landscape the front and back sit side by side, for staff who need to see both. */}
       {view === 'details' && !landscape ? (
+        <>
+        {metadata}
         <Animated.View key="details" entering={FadeIn.duration(180).easing(EASE_OUT)} style={[styles.inset, styles.sides]}>
           <Panel style={styles.details}>
             <ScrollView contentContainerStyle={styles.detailsText}>
@@ -395,7 +424,7 @@ export default function CardView() {
               </Text>
               <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{strings.notes.title}</Text>
               {linkedNotes.map((note) => <Button key={note.id} variant="secondary" label={note.title.trim() || strings.notes.untitled}
-                onPress={() => router.push(`/note/${note.id}`)} testID={`linked-note-${note.id}`} />)}
+                onPress={() => router.push(`/note-view/${note.id}`)} testID={`linked-note-${note.id}`} />)}
               <Button variant="secondary" label={strings.notes.addLinkedNote}
                 onPress={() => router.push(`/note/new?documentId=${card.id}`)} testID="add-linked-note" />
               <Button variant="secondary" label={strings.notes.linkExistingNote}
@@ -424,19 +453,14 @@ export default function CardView() {
             </View>
           </View>
         </Animated.View>
+        </>
       ) : (
-        <View style={[styles.inset, styles.sides, landscape && styles.sidesRow]} testID="card-sides">
-          {card.pdf ? (
-            <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} initialPage={pdfPage} onPageChange={setPdfPage} />
-          ) : sides.map((side) => (
-            <View key={side.label} style={styles.side}>
-              <Text style={{ fontSize: 14, color: theme.muted, textAlign: 'center' }}>{side.label}</Text>
-              <View style={styles.frame}>
-                <ZoomableImage uri={side.uri} accessibilityLabel={strings.card.imageLabel(displayName(card), side.label)} />
-              </View>
-            </View>
-          ))}
-        </View>
+        landscape ? media : (
+          <ScrollView style={styles.flex} contentContainerStyle={styles.documentContent}>
+            <View style={{ height: card.hasBack ? 350 : 235 }}>{media}</View>
+            {metadata}
+          </ScrollView>
+        )
       )}
 
       <View style={styles.inset}>
@@ -479,6 +503,9 @@ const styles = StyleSheet.create({
   staff: { flex: 1, padding: 0, overflow: 'hidden' },
   staffControls: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
   staffOverlay: { position: 'absolute', alignItems: 'flex-end', gap: 8 },
+  screenHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  screenTitle: { fontSize: TYPE.body, fontWeight: '700' },
+  documentContent: { gap: 18, paddingBottom: 8 },
   padded: { padding: 16, gap: 12 },
   inset: { paddingHorizontal: 16 },
   header: { paddingHorizontal: 20, paddingVertical: 12, gap: 6 },

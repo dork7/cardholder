@@ -52,17 +52,17 @@ The complete feature specification and delivery tickets are in GitHub issue #2.
 
 ## Tags and people
 
-Tags group documents and notes. A document may also belong to one person, whose profile is managed in Settings → People. Person names are sealed on device and carried in encrypted backups. Notes have no person; they may instead link to one document. Home filters documents by person, and Show mode and expiry reminders name the person when one is assigned. Removing a person leaves their documents unassigned. Older folder assignments become tags when the app opens or an older backup is imported (ADR 0009).
+Tags group documents and notes. A document may also belong to one person, whose profile is managed in Settings → People. Person names are sealed on device and carried in encrypted backups. Notes have no person; they may instead link to one document. Documents filters by person, and Show mode and expiry reminders name the person when one is assigned. Removing a person leaves their documents unassigned. Older folder assignments become tags when the app opens or an older backup is imported (ADR 0009).
 
 ## Speed at the counter (≤ 2 taps from an unlocked home screen)
 
-**Home screen** (the app opens straight to it):
+**Home** opens with My favorites, Recently visited, Notes and Spaces. Favorites shows the documents the user pinned, in pin order. Recently visited shows the three newest visits recorded on this device. Notes previews the two latest edits. Space cards show both document and note counts.
 
-1. **Pinned cards** at the top as large thumbnails, manually ordered via drag to reorder. New documents start unpinned; pinning one adds it to the end. Existing pinned documents keep their place.
-2. Search field and tag filter (All, then every tag some card has; a card shows under each of its tags). Search filters document names and Details (.md) after 250 ms without typing, including tags, dates, reference and text read from its photos or every PDF page. Details are generated from sealed records in memory; no permanent plaintext Markdown files are kept. Numbers match regardless of spaces or dashes. Cards saved before the text was kept are read once, in the background, after the app opens; so is any card saved before one of its photos had been read, so no side is left unsearchable and no old photo's text outlives it.
-3. All other cards, alphabetical.
+The floating bar has **Home**, **Documents**, **Notes**, and **Spaces**. The Add button opens a choice between a document and a note. Settings remains available from the main screens. Details and editors are full-screen and omit the bottom bar.
 
-A floating glass **tab bar** with three destinations (**Documents, Notes, Settings**) sits above the home indicator on the root screens; the current tab is announced as selected and tapping a tab replaces the screen, so Back never walks between tabs. A round blue **+** floats above the bar at the bottom right (Documents: add a document; Notes: add a note), and space is reserved so neither covers content. After a delete, an **Undo** bar floats just above the tab bar, beside the +, for a few seconds. Pushed screens (a document, an editor, the counter view) have no bar. The Documents home has two views the person switches between with a **List / Gallery** control under the filters, remembered across launches. **List** (the default) is the prototype's library: a large title with the subtitle *Everything you need, kept close.*, search, tag chips directly under it, then **Pinned for quick access** (large panels: photo, name and a "tag · expiry" meta line) and **All documents** with a count (rows with a chevron). **Gallery** shows a two-column grid of every card (picture, name and tags). Chips above the grid sort it by name, expiry (soonest first, no date last) or newest, the sort is remembered, and **Expiring soon** narrows it to cards that are expired or due within the reminder window. In the grid, a long-press starts selecting, taps then add or remove cards, and a bar at the bottom shows the count with Cancel, **Pin** (Unpin when every selected card is pinned), **Add tags**, **Quick share** and **Delete**. Quick share sends the selected cards as one PDF in the order shown (each photo card's sides, every page of a PDF card), asking first when an ID is among them. Delete moves them to Recently deleted at once, with one Undo for all of them. Only cards still shown by the search and filters are acted on.
+**Documents** retains List and Gallery. Search matches names, tags and text read from photos and every PDF page after 250 ms without typing. Reference numbers can match without spaces or dashes. Tag and person filters narrow the library. Gallery preserves its remembered sort, expiry filter, and long-press batch selection. Favorites and Recently visited link from Home into filtered document lists.
+
+**Spaces** groups documents and notes in Personal, Family, Home, or Travel. Existing entries appear in Personal until reassigned. A space is independent of tags, people, and document links. Assignments are sealed with each record and included in encrypted backups. Visit history stays on the device and is cleared when a backup replaces the library.
 
 Tap a card → **counter view**:
 
@@ -117,7 +117,7 @@ The **passphrase-encrypted export file** (`.cardholder`) is the **only** backup.
 
 ## Visual design
 
-Revised 2026-11-16: the visual language follows the **Apple · Fluid glass** direction in `prototypes/doc-keeper/`. A cool blue canvas, translucent floating controls, generous rounded surfaces and a blue primary action frame the document photos. Tokens live in `src/ui/theme.ts`; shared material is implemented in `src/ui/Surface.tsx`.
+Revised 2026-11-20: the native app uses the **Blue Accent · Showcase** design in `prototypes/blue-accent/`. The Home dashboard leads with blue favorites, followed by recently visited documents, notes and spaces. Home, Documents, Notes and Spaces are the four main destinations. Tokens live in `src/ui/theme.ts`; shared material is implemented in `src/ui/Surface.tsx`.
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
@@ -125,7 +125,7 @@ Revised 2026-11-16: the visual language follows the **Apple · Fluid glass** dir
 | Surface | `#FFFFFF` | `#19253A` | opaque fallback and document content |
 | Raised | `#E6EDF8` | `#26344B` | sheets, chips, tag pills, tooltips |
 | Text / muted | `#1C2433` / `#596273` | `#F3F6FC` / `#B5C1D3` | primary and secondary text (4.5:1 on opaque surfaces) |
-| Accent | `#0960C5`, white label | `#80B8FF`, navy label | filled primary buttons, chosen chips, selection |
+| Accent | `#3442E6`, white label | `#A7B3FF`, navy label | filled primary buttons, chosen chips, selection |
 | Ornament | `#8AA7D1` | `#8AA7D1` | subtle icon tint |
 | Outline | `#6E788B` | `#A5B3C8` | secondary button outlines |
 | Negative red | `#B3263B` | `#FF8B9B` | destructive actions |
@@ -139,7 +139,7 @@ Raised panels and the floating dock use a translucent tint, a light edge and a d
 - **Launcher icon:** white `#FFFFFF` background, `#121212` outline, `#F7F6F3` document paper, `#5C5C5C` lines, `#8AA7D1` seal, and `#808080` shadow. Android's themed icon uses the mark's alpha mask.
 - **Motion:** small fades smooth fields appearing on the edit screen, and the expiry alert sign pops in once. Motion is instant when Reduce Motion is on.
 - **Entrance:** every screen's content fades and rises in over 0.4 s with the prototype's `cubic-bezier(.2,.8,.2,1)` (once, via `Screen`); it is instant when Reduce Motion is on. The card flip stays a spring: it is interruptible, so it tracks the finger instead of the prototype's fixed 340 ms turn. Intentional differences from the prototype: Public Sans instead of the system font.
-- **Sheets:** a document, Add and Edit open as native form sheets over the screen behind (grabber, 28 pt corners, swipe down to close; Edit keeps its discard confirmation). An ordinary delete does not ask: the document goes to Recently deleted with an Undo bar. Erasing for good (Recently deleted's **Delete now** and **Empty**) asks in a bottom sheet (`ConfirmSheet`, built on `BottomSheet`) with Cancel first and the destructive action last; the backdrop, Close and hardware back all cancel. Show to staff, image zoom, system pickers and the paywall stay full screen.
+- **Sheets:** Add opens a choice sheet. Document details, note details and editors open full-screen. The document editor asks before discarding changes. An ordinary delete does not ask: the document goes to Recently deleted with an Undo bar. Erasing for good (Recently deleted's **Delete now** and **Empty**) asks in a bottom sheet (`ConfirmSheet`, built on `BottomSheet`) with Cancel first and the destructive action last; the backdrop, Close and hardware back all cancel. Show to staff, image zoom, system pickers and the paywall stay full screen.
 - **Surfaces:** the page carries a quiet blue and lilac wash. Document library panels use the opaque surface colour without blur or shadow so the page gradient does not show through them; search, the tab bar and the Undo bar float above it. Card photos and text stay legible on stronger tints.
 - Content left-aligned; only the empty state centres its single call to action.
 - Avoid: glass over document details where it reduces readability, decorative motion, uppercase button labels.

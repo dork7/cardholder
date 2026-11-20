@@ -1,4 +1,7 @@
+import { SpaceId } from '../spaces/spaces';
+
 export interface CardFields {
+  spaceId?: SpaceId; // absent in older records, which belong to Personal
   name: string; // '' when the card has no name
   expiresOn: string | null; // YYYY-MM-DD, local calendar day
   remindDaysBefore: number; // daily reminders start this many days before expiresOn (1..MAX_REMIND_DAYS)

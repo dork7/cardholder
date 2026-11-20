@@ -14,12 +14,12 @@ test('migrate creates tables and is idempotent', async () => {
   await migrate(db);
   await migrate(db);
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-  expect(version?.user_version).toBe(7);
+  expect(version?.user_version).toBe(8);
   const tables = await db.getAllAsync<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
     [],
   );
-  expect(tables.map((t) => t.name)).toEqual(['cards', 'folders', 'notes', 'people', 'settings']);
+  expect(tables.map((t) => t.name)).toEqual(['cards', 'document_visits', 'folders', 'notes', 'people', 'settings']);
 });
 
 test('missing setting is null', async () => {
@@ -71,7 +71,7 @@ test('a failed migration rolls back its schema change and leaves user_version un
 
   await migrate(flaky);
   const after = await real.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-  expect(after?.user_version).toBe(7);
+  expect(after?.user_version).toBe(8);
 });
 
 test('upgrading unpins every card: no pin before it was chosen by the user', async () => {

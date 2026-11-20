@@ -20,6 +20,7 @@ let mockScreenOptions: Record<string, unknown> = {};
 let mockShow: string | undefined;
 jest.mock('expo-router', () => ({
   Stack: { Screen: ({ options }: { options: Record<string, unknown> }) => ((mockScreenOptions = options), null) },
+  useFocusEffect: () => {},
   useLocalSearchParams: () => ({ id: 'card1', show: mockShow }),
   useRouter: () => ({ back: () => mockBack(), push: (...a: unknown[]) => mockPush(...a) }),
 }));

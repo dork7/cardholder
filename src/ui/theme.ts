@@ -21,24 +21,27 @@ export interface Theme {
   photoDim: string;
   counterBg: string;
   blurTint: 'light' | 'dark';
+  showcase: { start: string; end: string; ink: string; spaces: Record<'personal' | 'family' | 'home' | 'travel', string> };
 }
 
 const light: Theme = {
+  showcase: { start: '#515BE9', end: '#303FE5', ink: '#FFFFFF', spaces: { personal: '#E9E4FA', family: '#E2EEEA', home: '#F1E7D4', travel: '#DCE3FA' } },
   counterBg: '#000000',
   bg: '#F1F3F9', surface: '#FFFFFF',
   glass: 'rgba(255, 255, 255, 0.64)', glassStrong: 'rgba(255, 255, 255, 0.82)',
-  text: '#1C2433', muted: '#596273', accent: '#0960C5', onAccent: '#FFFFFF',
-  ornament: '#8AA7D1', selection: '#0960C5', danger: '#B3263B',
+  text: '#1C2433', muted: '#596273', accent: '#3442E6', onAccent: '#FFFFFF',
+  ornament: '#8AA7D1', selection: '#3442E6', danger: '#B3263B',
   border: 'rgba(255, 255, 255, 0.85)', rosette: '#6E788B',
   bannerBg: '#E6EDF8', bannerText: '#1C2433', photoDim: 'transparent', blurTint: 'light',
 };
 
 const dark: Theme = {
+  showcase: { start: '#484FBF', end: '#252F9D', ink: '#FFFFFF', spaces: { personal: '#383055', family: '#213F3B', home: '#403729', travel: '#263B61' } },
   counterBg: '#000000',
   bg: '#101827', surface: '#19253A',
   glass: 'rgba(35, 49, 73, 0.66)', glassStrong: 'rgba(35, 49, 73, 0.84)',
-  text: '#F3F6FC', muted: '#B5C1D3', accent: '#80B8FF', onAccent: '#10243E',
-  ornament: '#8AA7D1', selection: '#80B8FF', danger: '#FF8B9B',
+  text: '#F3F6FC', muted: '#B5C1D3', accent: '#A7B3FF', onAccent: '#10243E',
+  ornament: '#8AA7D1', selection: '#A7B3FF', danger: '#FF8B9B',
   border: 'rgba(255, 255, 255, 0.18)', rosette: '#A5B3C8',
   bannerBg: '#26344B', bannerText: '#F3F6FC', photoDim: 'rgba(0, 0, 0, 0.12)', blurTint: 'dark',
 };

@@ -55,10 +55,12 @@ import { ActionFooter, Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 import { useConfirmDiscard } from '../../src/ui/useConfirmDiscard';
+import { SpaceField } from '../../src/spaces/SpaceField';
+import { spaceFor } from '../../src/spaces/spaces';
 import { LiveText } from '../../src/ui/LiveText';
 
 export default function EditCard() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, space } = useLocalSearchParams<{ id: string; space?: string }>();
   const isNew = id === 'new';
   const { services, cards, notes = [], people = [], unlocked, refresh, undo } = useApp();
   const existing = isNew ? null : (cards.find((c) => c.id === id) ?? null);
@@ -67,7 +69,12 @@ export default function EditCard() {
   const inputStyle = useInputStyle();
   const insets = useSafeAreaInsets();
 
-  const [form, setForm] = useState(() => formFor(existing));
+  const [form, setForm] = useState(() => {
+    const initial = formFor(existing);
+    if (!isNew || !space) return initial;
+    const spaceId = spaceFor(space).id;
+    return { ...initial, draft: { ...initial.draft, spaceId } };
+  });
   const draft = form.draft;
   // Custom shows the number field: chosen by the user, or a saved number that isn't one of the chips.
   const [customRemind, setCustomRemind] = useState(
@@ -373,7 +380,7 @@ export default function EditCard() {
         await write({
           kind: 'update',
           id: duplicate.id,
-          fields: { ...plan.fields, personId },
+          fields: { ...plan.fields, personId, ...(plan.fields.spaceId === undefined && { spaceId: duplicate.spaceId }) },
           // A photo card taking over a PDF card drops the PDF.
           changes: { ...plan.images, pdf: plan.images.pdf ?? null },
           newPerson: plan.newPerson,
@@ -563,6 +570,7 @@ export default function EditCard() {
             )}
           </Panel>
           <Panel style={styles.group} onLayout={onPanelLayout('details')}>
+            <SpaceField value={draft.spaceId} onChange={(spaceId) => update({ spaceId })} />
             <Field label={strings.edit.name} error={errorText('name-too-long')} hint={suggestedHint('name')}>
               <TextInput
                 testID="card-name"

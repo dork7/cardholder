@@ -3,7 +3,7 @@ import { Alert, AlertButton } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import { Note } from '../../notes/noteStore';
 import { Folder } from '../types';
-import Home from '../../../app/index';
+import Home from '../../../app/documents';
 import { FREE_CARD_LIMIT } from '../../config';
 import { strings } from '../../strings';
 
@@ -28,6 +28,7 @@ jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
     useRouter: () => ({ push: mockPush, replace: mockReplace }),
+    useLocalSearchParams: () => ({}),
     // Home counts as focused for as long as it is mounted.
     useFocusEffect: (effect: () => void | (() => void)) => useEffect(effect, [effect]),
   };
@@ -225,6 +226,7 @@ test('document search settles after 250 ms, finds Details (.md), and cancels sta
 test('adding goes to the editor', async () => {
   await renderHome();
   await fireEvent.press(screen.getByTestId('add-card'));
+  await fireEvent.press(screen.getByTestId('showcase-add-document'));
   expect(mockPush).toHaveBeenLastCalledWith('/edit/new');
 });
 
@@ -234,6 +236,7 @@ test('adding an eleventh document opens the paywall', async () => {
   await withCards(fullWallet(), async () => {
     await renderHome();
     await fireEvent.press(screen.getByTestId('add-card'));
+    await fireEvent.press(screen.getByTestId('showcase-add-document'));
     expect(mockPush).toHaveBeenLastCalledWith('/paywall');
   });
 });
@@ -339,6 +342,7 @@ describe('document library (the default view)', () => {
     expect(screen.getByTestId('tab-documents').props.accessibilityState).toEqual({ selected: true });
     expect(screen.getByTestId('tab-notes').props.accessibilityState).toEqual({ selected: false });
     await fireEvent.press(screen.getByTestId('add-card'));
+    await fireEvent.press(screen.getByTestId('showcase-add-document'));
     expect(mockPush).toHaveBeenCalledWith('/edit/new');
   });
 });
@@ -760,6 +764,7 @@ test('a purchased unlock allows adding past ten documents', async () => {
   await withCards(fullWallet(), async () => {
     await renderHome();
     await fireEvent.press(screen.getByTestId('add-card'));
+    await fireEvent.press(screen.getByTestId('showcase-add-document'));
     expect(mockPush).toHaveBeenLastCalledWith('/edit/new');
   });
 });
@@ -866,7 +871,7 @@ test.each(['list', 'gallery'])('pinned notes show only titles beside pinned docu
     expect(JSON.stringify(screen.toJSON())).not.toContain('NEVER USE BODY AS TITLE');
     await fireEvent.changeText(screen.getByTestId('search'), 'missing');
     await fireEvent.press(screen.getByTestId('pinned-note-note'));
-    expect(mockPush).toHaveBeenCalledWith('/note/note');
+    expect(mockPush).toHaveBeenCalledWith('/note-view/note');
     mockNotes = [];
     await screen.rerender(<Home />);
     expect(screen.queryByTestId('pinned-note-note')).toBeNull();
@@ -880,6 +885,6 @@ test('home offers pinned notes even when there are no documents', async () => {
     expect(screen.getByTestId('pinned-note-n')).toBeTruthy();
     expect(screen.queryByTestId('empty-state')).toBeNull();
     await fireEvent.press(screen.getByTestId('pinned-note-n'));
-    expect(mockPush).toHaveBeenCalledWith('/note/n');
+    expect(mockPush).toHaveBeenCalledWith('/note-view/n');
   });
 });

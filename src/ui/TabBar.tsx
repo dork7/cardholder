@@ -7,12 +7,13 @@ import { RADIUS, TYPE, useTheme } from './theme';
 import { GlassSurface } from './Surface';
 import { RetroIcon, RetroIconName } from './RetroIcon';
 
-export type TabKey = 'documents' | 'notes' | 'settings';
+export type TabKey = 'home' | 'documents' | 'notes' | 'spaces';
 
-const TABS: { key: TabKey; label: string; icon: RetroIconName; href: '/' | '/notes' | '/settings' }[] = [
-  { key: 'documents', label: strings.tabs.documents, icon: 'documents', href: '/' },
+const TABS: { key: TabKey; label: string; icon: RetroIconName; href: '/' | '/documents' | '/notes' | '/spaces' }[] = [
+  { key: 'home', label: strings.tabs.home, icon: 'home', href: '/' },
+  { key: 'documents', label: strings.tabs.documents, icon: 'folder', href: '/documents' },
   { key: 'notes', label: strings.tabs.notes, icon: 'note', href: '/notes' },
-  { key: 'settings', label: strings.tabs.settings, icon: 'settings', href: '/settings' },
+  { key: 'spaces', label: strings.tabs.spaces, icon: 'spaces', href: '/spaces' },
 ];
 
 // Height of the bar itself, and the gap kept under and above it; the + button floats above all that.
@@ -28,7 +29,7 @@ interface Props {
   active: TabKey;
 }
 
-// The three root destinations as a floating glass bar. In normal layout flow, so a screen's content
+// The four root destinations as a floating glass bar. In normal layout flow, so a screen's content
 // above it is never covered. The current tab is announced as selected; replacing (not pushing)
 // keeps the stack at one root screen, so Back never walks between tabs.
 export function TabBar({ active }: Props) {

@@ -7,7 +7,7 @@ import { useAppLocked } from '../security/AppLockGate';
 import { shortcutHref } from '../shortcuts/quickActions';
 
 // Opens what a tapped reminder or a home-screen shortcut points at, whether the app was running or the
-// tap launched it. Used by Home, which is mounted under every other screen once boot is done.
+// tap launched it. Mounted once inside the app-lock gate.
 export function useLaunchLinks(): void {
   const router = useRouter();
   const locked = useAppLocked();
@@ -21,7 +21,7 @@ export function useLaunchLinks(): void {
     const key = response?.notification.request.identifier ?? null;
     if ((!cardId && !noteId) || key === handled.current) return;
     handled.current = key;
-    if (noteId) router.push(`/note/${noteId}`);
+    if (noteId) router.push(`/note-view/${noteId}`);
     else router.push(`/card/${cardId}`);
   }, [response, router]);
 

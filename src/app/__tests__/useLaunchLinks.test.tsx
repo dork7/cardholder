@@ -73,7 +73,7 @@ test('a notification opens its note underneath the app lock and is handled once'
   mockResponse = { actionIdentifier: 'tap', notification: { request: { identifier: 'note:n', content: { data: { noteId: 'n' } } } } };
   const view = <AppLockGate enabled><Home /></AppLockGate>;
   await render(view);
-  expect(mockRouter.push).toHaveBeenCalledWith('/note/n');
+  expect(mockRouter.push).toHaveBeenCalledWith('/note-view/n');
   expect(screen.getByTestId('app-lock')).toBeTruthy();
   expect(screen.queryByText('Note screen')).toBeNull();
   await screen.rerender(view);

@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     end: 20,
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOW.heavy,

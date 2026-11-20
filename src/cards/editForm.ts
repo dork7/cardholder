@@ -1,9 +1,11 @@
 import { canAddCard } from '../purchases/limits';
 import { DEFAULT_REMIND_DAYS, MAX_TAGS, READ_TEXT_MAX_LENGTH, TAG_MAX_LENGTH } from '../config';
+import { spaceFor } from '../spaces/spaces';
 import { Card, CardFields, CardImage, CardText, FrontImage, ImageChanges, NewCardImages, PdfDocument } from './types';
 import { FieldError, parseRemindDays, validateCardFields } from './validate';
 
 export interface EditDraft {
+  spaceId?: CardFields['spaceId'];
   name: string;
   expiresOn: string | null;
   remindDaysBefore: string; // as typed; checked on save
@@ -35,7 +37,8 @@ export type SavePlan =
 // the fields it changes, so the rest keep their identity and a plain comparison is enough.
 const FOLLOWS_FROM_PHOTOS: (keyof EditDraft)[] = ['readText', 'unreadSides', 'documentKey'];
 export function hasChanges(initial: EditDraft, draft: EditDraft): boolean {
-  return (Object.keys(initial) as (keyof EditDraft)[]).some((k) => !FOLLOWS_FROM_PHOTOS.includes(k) && initial[k] !== draft[k]);
+  return spaceFor(initial.spaceId).id !== spaceFor(draft.spaceId).id ||
+    (Object.keys(initial) as (keyof EditDraft)[]).some((k) => k !== 'spaceId' && !FOLLOWS_FROM_PHOTOS.includes(k) && initial[k] !== draft[k]);
 }
 
 // The edit form's panels, top to bottom, and which one shows each error, so a Save that fails can
@@ -55,6 +58,7 @@ export function firstErrorPanel(errors: readonly SaveError[]): FormPanel | undef
 
 export function draftFor(card: Card | null): EditDraft {
   return {
+    ...(card?.spaceId !== undefined && { spaceId: card.spaceId }),
     name: card?.name ?? '',
     expiresOn: card?.expiresOn ?? null,
     remindDaysBefore: String(card?.remindDaysBefore ?? DEFAULT_REMIND_DAYS),

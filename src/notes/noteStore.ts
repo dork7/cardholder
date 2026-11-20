@@ -3,9 +3,11 @@ import { toHex, utf8 } from '../crypto/bytes';
 import { engine } from '../crypto/engine';
 import { SqlDb } from '../storage/sqlDb';
 import { normalizeTags } from '../cards/tags';
+import { SpaceId, spaceFor } from '../spaces/spaces';
 import { MAX_TAGS, TAG_MAX_LENGTH } from '../config';
 
 export interface NoteFields {
+  spaceId?: SpaceId;
   title: string;
   body: string;
 }
@@ -51,7 +53,7 @@ export interface NoteStore {
 }
 
 const INSERT = 'INSERT INTO notes (id, pinned, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?)';
-const seal = (aead: Aead, fields: NoteFields & { reminderAt?: number; tags?: string[]; documentId?: string | null }) => aead.seal(utf8.encode(JSON.stringify({ title: fields.title, body: fields.body, ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), tags: fields.tags ?? [], documentId: fields.documentId ?? null })));
+const seal = (aead: Aead, fields: NoteFields & { reminderAt?: number; tags?: string[]; documentId?: string | null }) => aead.seal(utf8.encode(JSON.stringify({ title: fields.title, body: fields.body, ...(fields.spaceId !== undefined && { spaceId: spaceFor(fields.spaceId).id }), ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), tags: fields.tags ?? [], documentId: fields.documentId ?? null })));
 
 // Note editors and document deletion share this queue, so a late note save cannot restore a link
 // after the document has been moved to Recently deleted.
@@ -106,7 +108,7 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
 }): NoteStore {
   const decode = (row: Row): Note => {
     const fields = JSON.parse(utf8.decode(aead.open(row.payload))) as NoteFields & { reminderAt?: number; tags?: string[]; documentId?: string | null };
-    return { ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), id: row.id, title: fields.title, body: fields.body, tags: normalizeTags(Array.isArray(fields.tags) ? fields.tags : []), documentId: typeof fields.documentId === 'string' ? fields.documentId : null, pinned: row.pinned === 1, createdAt: row.created_at, updatedAt: row.updated_at };
+    return { ...(fields.spaceId !== undefined && { spaceId: spaceFor(fields.spaceId).id }), ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), id: row.id, title: fields.title, body: fields.body, tags: normalizeTags(Array.isArray(fields.tags) ? fields.tags : []), documentId: typeof fields.documentId === 'string' ? fields.documentId : null, pinned: row.pinned === 1, createdAt: row.created_at, updatedAt: row.updated_at };
   };
   const get = async (id: string) => {
     const row = await db.getFirstAsync<Row>('SELECT * FROM notes WHERE id = ?', [id]);
@@ -125,9 +127,10 @@ export function createNoteStore({ db, aead, now = Date.now, newId = () => toHex(
     save: (id, fields) => write(async () => {
       if (isBlankNote(fields)) throw new Error('Cannot save a blank note');
       const previous = await get(id);
-      if (previous && previous.title === fields.title && previous.body === fields.body) return previous;
+      const spaceId = fields.spaceId ?? previous?.spaceId;
+      if (previous && previous.title === fields.title && previous.body === fields.body && previous.spaceId === spaceId) return previous;
       const at = Math.max(now(), (previous?.updatedAt ?? 0) + 1);
-      const note: Note = { ...fields, ...(previous?.reminderAt !== undefined && { reminderAt: previous.reminderAt }), tags: previous?.tags ?? [], documentId: previous?.documentId ?? null, id, pinned: previous?.pinned ?? false, createdAt: previous?.createdAt ?? at, updatedAt: at };
+      const note: Note = { ...fields, ...(spaceId !== undefined && { spaceId }), ...(previous?.reminderAt !== undefined && { reminderAt: previous.reminderAt }), tags: previous?.tags ?? [], documentId: previous?.documentId ?? null, id, pinned: previous?.pinned ?? false, createdAt: previous?.createdAt ?? at, updatedAt: at };
       await db.withTransactionAsync(async () => {
         if (previous) {
           await db.runAsync('UPDATE notes SET payload = ?, updated_at = ? WHERE id = ?', [seal(aead, note), at, id]);
