@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e9ebf5">
+  <title>Doc Keeper · Blue accent prototype</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="studio">
+    <header class="studio-heading">
+      <div>
+        <p class="eyebrow">Doc Keeper · visual prototype</p>
+        <h1>Blue accent study</h1>
+        <p>Four ways to bring the supplied home screen’s vivid blue, soft panels, layered folders, and floating controls into a private document library.</p>
+      </div>
+      <p class="study-note">Fictional documents · changes reset on reload</p>
+    </header>
+    <div class="phone" aria-label="Mobile app preview">
+      <div class="phone-screen">
+        <div class="status"><span>9:41</span><span class="status-icons">▂▄▆ &nbsp; ◉ &nbsp; ▰</span></div>
+        <div id="app"></div>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+    <div class="switcher" aria-label="Prototype variations">
+      <button id="previous" aria-label="Previous variation">←</button>
+      <span id="variation-label"></span>
+      <button id="next" aria-label="Next variation">→</button>
+    </div>
+    <p id="state" class="state" aria-live="polite"></p>
+  </main>
+  <script src="prototype.js"></script>
+</body>
+</html>
