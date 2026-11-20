@@ -51,7 +51,7 @@ export async function indexPdfAfterSave(store: CardStore, card: Card, read: Read
   if (card.pdf && await rereadCard(store, card, read, readPdfPages)) await refresh();
 }
 
-// "Recreate .md" on several documents picked in the gallery: each is read on its own, so one failure
+// "Recreate .md" on several documents picked in the Documents list: each is read on its own, so one failure
 // doesn't stop the rest. Returns how many failed.
 export async function rereadCards(
   store: CardStore,

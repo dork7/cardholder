@@ -55,8 +55,8 @@ export interface NoteStore {
 const INSERT = 'INSERT INTO notes (id, pinned, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?)';
 const seal = (aead: Aead, fields: NoteFields & { reminderAt?: number; tags?: string[]; documentId?: string | null }) => aead.seal(utf8.encode(JSON.stringify({ title: fields.title, body: fields.body, ...(fields.spaceId !== undefined && { spaceId: spaceFor(fields.spaceId).id }), ...(fields.reminderAt !== undefined && { reminderAt: fields.reminderAt }), tags: fields.tags ?? [], documentId: fields.documentId ?? null })));
 
-// Note editors and document deletion share this queue, so a late note save cannot restore a link
-// after the document has been moved to Recently deleted.
+// Serialize note writes with document edits, deletion and import. A late note save cannot restore
+// a deleted link, and a document edit reads the payload left by the previous write.
 const writeTails = new WeakMap<SqlDb, Promise<unknown>>();
 export function queueNoteWrite<T>(db: SqlDb, run: () => Promise<T>): Promise<T> {
   const next = (writeTails.get(db) ?? Promise.resolve()).then(run);

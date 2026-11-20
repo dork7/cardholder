@@ -14,7 +14,7 @@ export async function saveWarnIdShare(settings: Settings, on: boolean): Promise<
 // An ID is the one document worth a second thought before an unencrypted copy leaves the app, so
 // with the warning on it asks once: Cancel, Share, or Don't ask again (which shares and turns the
 // warning off). Anything else, or with the warning off, shares at once. Used by every way out:
-// Quick share, PDF, the .md file and the gallery's shared selection.
+// Quick share, PDF, the .md file and the Documents list selection.
 export function confirmIdShare(options: {
   hasId: boolean;
   warn: boolean;

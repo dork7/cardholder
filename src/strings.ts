@@ -95,15 +95,11 @@ export const strings = {
     emptyHint: 'Tap Add image to add a photo or PDF of your document.',
     addCard: 'Add document',
     addImage: 'Add image',
-    // The List / Gallery control's options.
-    galleryLabel: 'Gallery',
     pinned: 'Pinned',
     pinnedForQuickAccess: 'Pinned for quick access',
     allDocuments: 'All documents',
     documentCount: (n: number) => `${n} ${plural(n, 'document', 'documents')}`,
     metaSeparator: ' · ',
-    viewLabel: 'View',
-    listLabel: 'List',
     results: 'Results',
     searchPlaceholder: 'Search documents',
     searchLabel: 'Search document names and details',
@@ -119,7 +115,7 @@ export const strings = {
     openCard: (name: string) => `Open ${name}`,
     reorderHint: 'Long-press and drag to reorder.',
     // One-time tips on the gestures, shown until dismissed or the gesture is used.
-    galleryTip: 'Long-press to select',
+    selectionTip: 'Long-press a document to select it',
     dismissTip: 'Dismiss tip',
     selectHint: 'Long-press to select several documents.',
     selectAction: 'Select', // the screen-reader action that starts selecting, as a long-press does
@@ -152,7 +148,7 @@ export const strings = {
   },
   edit: {
     blurPreview: 'Blur preview',
-    blurPreviewHint: 'Blur this document in the gallery and pinned previews.',
+    blurPreviewHint: 'Blur this document in lists and pinned previews.',
     previewClear: 'Clear',
     previewBlurred: 'Blurred',
     shape: 'Document shape',
@@ -265,7 +261,7 @@ export const strings = {
   recreate: {
     button: 'Read text again',
     hint: 'Reads the text on this document again and rebuilds its Details.',
-    galleryHint: 'Reads the text on the selected documents again and rebuilds their Details.',
+    selectionHint: 'Reads the text on the selected documents again and rebuilds their Details.',
     working: 'Reading the document again…',
     workingMany: (done: number, n: number) => `Reading ${done} of ${n}…`,
     done: 'The document was read again.',

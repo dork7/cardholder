@@ -16,7 +16,7 @@ interface Props {
   onClose: () => void;
 }
 
-// A sheet from the bottom for adding tags to one card or to the cards picked in the gallery: tap any
+// A sheet from the bottom for adding tags to one card or to the cards picked in the Documents list: tap any
 // number of the tags already in use, or type new ones, then add them all at once.
 export function TagSheet({ visible, title, existing, onApply, onClose }: Props) {
   const theme = useTheme();

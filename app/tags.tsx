@@ -10,7 +10,7 @@ import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 
 // Every tag in use, and how many cards have it. Deleting one takes it off those cards; the cards are
-// kept. New tags are made where a card is tagged: its edit screen, its own screen, or the gallery.
+// kept. New tags are made where a card is tagged: its edit screen, its own screen, or the Documents list.
 export default function TagsScreen() {
   const { services, cards, notes = [], refresh } = useApp();
   const theme = useTheme();

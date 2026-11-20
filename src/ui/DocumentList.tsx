@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityActionEvent, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { displayName } from '../cards/display';
 import { expiryLabel, expiryStatus, needsExpiryAlert } from '../cards/expiry';
@@ -37,31 +37,64 @@ export function SectionHeading({ title, icon, count, testID }: { title: string; 
   );
 }
 
-interface ListProps {
-  cards: Card[];
+interface RowActions {
   onOpen: (card: Card) => void;
+  onToggle?: (card: Card) => void;
+  selecting?: boolean;
+  selected?: ReadonlySet<string>;
 }
 
-// Pinned documents as large panels: the photo, the name and a meta line.
-export function PinnedPanels({ cards, onOpen }: ListProps) {
-  const now = new Date();
+interface ListProps extends RowActions {
+  cards: Card[];
+}
+
+function documentActions(card: Card, name: string, meta: string, { onOpen, onToggle, selecting, selected }: RowActions) {
+  const toggle = onToggle ? () => onToggle(card) : undefined;
+  return {
+    onPress: selecting ? toggle : () => onOpen(card),
+    onLongPress: toggle,
+    accessibilityRole: selecting ? 'checkbox' as const : 'button' as const,
+    accessibilityLabel: selecting ? `${name}, ${meta}` : `${strings.home.openCard(name)}, ${meta}`,
+    accessibilityState: selecting ? { checked: selected?.has(card.id) ?? false } : undefined,
+    accessibilityHint: !selecting && toggle ? strings.home.selectHint : undefined,
+    accessibilityActions: !selecting && toggle ? [{ name: 'select', label: strings.home.selectAction }] : undefined,
+    onAccessibilityAction: toggle
+      ? (event: AccessibilityActionEvent) => {
+          if (event.nativeEvent.actionName === 'select') toggle();
+        }
+      : undefined,
+  };
+}
+
+function SelectionCheck({ checked }: { checked: boolean }) {
+  const theme = useTheme();
   return (
-    <View style={styles.panels} testID="pinned-panels">
-      {cards.map((card) => <PinnedPanel key={card.id} card={card} now={now} onPress={() => onOpen(card)} />)}
+    <View style={[styles.check, { borderColor: checked ? theme.accent : theme.rosette, backgroundColor: checked ? theme.accent : theme.surface }]}>
+      {checked && <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" accessible={false}>
+        <Path d="M5 12l4 4L19 7" stroke={theme.onAccent} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>}
     </View>
   );
 }
 
-function PinnedPanel({ card, now, onPress }: { card: Card; now: Date; onPress: () => void }) {
+// Pinned documents as large panels: the photo, the name and a meta line.
+export function PinnedPanels({ cards, ...actions }: ListProps) {
+  const now = new Date();
+  return (
+    <View style={styles.panels} testID="pinned-panels">
+      {cards.map((card) => <PinnedPanel key={card.id} card={card} now={now} actions={actions} />)}
+    </View>
+  );
+}
+
+function PinnedPanel({ card, now, actions }: { card: Card; now: Date; actions: RowActions }) {
   const theme = useTheme();
   const uri = useCardImage(card, 'thumb');
   const name = displayName(card);
   const meta = metaLine(card, now);
   return (
     <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${strings.home.openCard(name)}, ${meta}`}
+      {...documentActions(card, name, meta, actions)}
       testID={`pinned-${card.id}`}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
@@ -69,6 +102,9 @@ function PinnedPanel({ card, now, onPress }: { card: Card; now: Date; onPress: (
         <View style={[styles.photo, { backgroundColor: theme.bg }]}>
           <CardPicture uri={uri} vertical={card.vertical} blurPreview={card.blurPreview} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.photoDim }]} />
+          {actions.selecting && (
+            <View style={styles.panelCheck}><SelectionCheck checked={actions.selected?.has(card.id) ?? false} /></View>
+          )}
           {needsExpiryAlert(card, now) && (
             <View style={styles.alert}><ExpiryAlert size={22} testID={`expiry-alert-${card.id}`} /></View>
           )}
@@ -81,26 +117,23 @@ function PinnedPanel({ card, now, onPress }: { card: Card; now: Date; onPress: (
 }
 
 // Every other document as a row: small photo, name and meta line, and a chevron.
-export function DocumentRows({ cards, onOpen }: ListProps) {
+export function DocumentRows({ cards, ...actions }: ListProps) {
   const now = new Date();
-  const theme = useTheme();
   return (
     <Panel style={styles.rows} opaque testID="document-rows">
-      {cards.map((card, i) => <Row key={card.id} card={card} now={now} first={i === 0} onPress={() => onOpen(card)} />)}
+      {cards.map((card, i) => <Row key={card.id} card={card} now={now} first={i === 0} actions={actions} />)}
     </Panel>
   );
 }
 
-function Row({ card, now, first, onPress }: { card: Card; now: Date; first: boolean; onPress: () => void }) {
+function Row({ card, now, first, actions }: { card: Card; now: Date; first: boolean; actions: RowActions }) {
   const theme = useTheme();
   const uri = useCardImage(card, 'thumb');
   const name = displayName(card);
   const meta = metaLine(card, now);
   return (
     <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${strings.home.openCard(name)}, ${meta}`}
+      {...documentActions(card, name, meta, actions)}
       testID={`row-${card.id}`}
       style={({ pressed }) => [styles.row, { borderColor: theme.border, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, opacity: pressed ? 0.7 : 1 }]}
     >
@@ -112,9 +145,11 @@ function Row({ card, now, first, onPress }: { card: Card; now: Date; first: bool
         <Text style={[styles.rowName, { color: theme.text }]} numberOfLines={1}>{name}</Text>
         <Text style={[styles.meta, { color: theme.muted }]} numberOfLines={1}>{meta}</Text>
       </View>
-      <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessibilityElementsHidden importantForAccessibility="no">
-        <Path d="M9 6l6 6-6 6" stroke={theme.muted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
+      {actions.selecting ? <SelectionCheck checked={actions.selected?.has(card.id) ?? false} /> : (
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessibilityElementsHidden importantForAccessibility="no">
+          <Path d="M9 6l6 6-6 6" stroke={theme.muted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      )}
     </Pressable>
   );
 }
@@ -127,7 +162,9 @@ const styles = StyleSheet.create({
   panels: { gap: 12 },
   panel: { padding: 12, gap: 4 },
   photo: { aspectRatio: 1.585, borderRadius: RADIUS.sm, overflow: 'hidden', marginBottom: 6 },
-  alert: { position: 'absolute', top: 8, left: 8 },
+  alert: { position: 'absolute', top: 8, start: 8 },
+  panelCheck: { position: 'absolute', top: 8, end: 8 },
+  check: { width: 24, height: 24, borderRadius: RADIUS.sm, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   panelName: { fontSize: TYPE.body, fontWeight: '700' },
   meta: { fontSize: TYPE.secondary },
   rows: { paddingHorizontal: 12 },

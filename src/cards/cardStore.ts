@@ -288,7 +288,7 @@ export function createCardStore({
       return card;
     },
 
-    async update(id, fields, changes = {}) {
+    update: (id, fields, changes = {}) => queueNoteWrite(db, async () => {
       const row = await getRow(id);
       if (!row) throw new CardNotFoundError(id);
       const current = toCard(row);
@@ -302,9 +302,11 @@ export function createCardStore({
       else if (changes.pdf === null) await blobs.remove(blobName(id, 'pdf'));
 
       const backChanged = changes.back !== undefined;
+      const { spaceId, ...updates } = fields;
       const next: Card = {
         ...current,
-        ...fields,
+        ...updates,
+        ...(spaceId !== undefined && { spaceId }),
         frontAspect: changes.front?.aspect ?? current.frontAspect,
         hasBack: backChanged ? changes.back !== null : current.hasBack,
         backAspect: backChanged ? (changes.back?.aspect ?? null) : current.backAspect,
@@ -320,7 +322,7 @@ export function createCardStore({
         id,
       ]);
       return next;
-    },
+    }),
 
     moveToRecentlyDeleted(id) {
       return queueNoteWrite(db, () => db.withTransactionAsync(async () => {

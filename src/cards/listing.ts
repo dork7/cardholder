@@ -41,14 +41,14 @@ const compact = (s: string) => s.replace(/[^\p{L}\p{N}]/gu, '');
 // Shorter compacted queries would match by accident inside long numbers.
 const MIN_COMPACT_QUERY = 4;
 
-// How the gallery orders cards. "expiry" puts the soonest (or already expired) first and cards with no
+// How the Documents list orders cards. "expiry" puts the soonest (or already expired) first and cards with no
 // date last; "added" puts the newest first. Ties fall back to the name.
-export const GALLERY_SORTS = ['name', 'expiry', 'added'] as const;
-export type GallerySort = (typeof GALLERY_SORTS)[number];
+export const DOCUMENT_SORTS = ['name', 'expiry', 'added'] as const;
+export type DocumentSort = (typeof DOCUMENT_SORTS)[number];
 
-export const isGallerySort = (v: unknown): v is GallerySort => (GALLERY_SORTS as readonly unknown[]).includes(v);
+export const isDocumentSort = (v: unknown): v is DocumentSort => (DOCUMENT_SORTS as readonly unknown[]).includes(v);
 
-export function sortForGallery(cards: Card[], sort: GallerySort): Card[] {
+export function sortDocuments(cards: Card[], sort: DocumentSort): Card[] {
   const by =
     sort === 'expiry'
       ? (a: Card, b: Card) =>

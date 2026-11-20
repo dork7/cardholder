@@ -5,6 +5,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
 import { AppProvider, useApp, useBoot } from '../src/app/AppProvider';
 import { removeModelFiles } from '../src/app/removeModelFiles';
@@ -48,13 +49,15 @@ export default function RootLayout() {
 function RootNavigator() {
   const { phase } = useBoot();
   const theme = useTheme();
+  const reduceMotion = useReducedMotion();
   if (phase.status !== 'ready') return <BootScreen />;
   return (
     <LockedApp>
-      <StatusBar style="auto" />
+      <StatusBar style={theme.blurTint === 'dark' ? 'light' : 'dark'} />
       <CrashPrompt />
       <Stack
         screenOptions={{
+          animation: reduceMotion ? 'none' : 'default',
           headerStyle: { backgroundColor: theme.surface },
           headerTintColor: theme.text,
           contentStyle: { backgroundColor: theme.bg },

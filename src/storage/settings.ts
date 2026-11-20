@@ -7,7 +7,6 @@ export type SettingKey =
   | 'autoBackup'
   | 'autoBackupError'
   | 'appearance'
-  | 'homeView'
   | 'gallerySort'
   | 'galleryExpiring'
   | 'appLock'

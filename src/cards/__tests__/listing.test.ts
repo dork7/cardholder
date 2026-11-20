@@ -1,5 +1,5 @@
 import { makeCard } from '../../../test/fixtures';
-import { filterCards, isExpiringSoon, sortCards, sortForGallery, splitPinned } from '../listing';
+import { filterCards, isExpiringSoon, sortCards, sortDocuments, splitPinned } from '../listing';
 
 const cards = [
   makeCard({ id: 'a', name: 'zoo pass', pinned: false }),
@@ -48,7 +48,7 @@ test('a card is shown under each of its tags', () => {
   expect(filterCards(cards, { query: '', tag: 'ID' }).map((c) => c.id)).toEqual(['a', 'b']);
 });
 
-describe('gallery order', () => {
+describe('document order', () => {
   const cards = [
     makeCard({ id: 'b', name: 'Bravo', expiresOn: '2027-03-01', createdAt: 3 }),
     makeCard({ id: 'n', name: 'No date', expiresOn: null, createdAt: 4 }),
@@ -58,19 +58,19 @@ describe('gallery order', () => {
   const ids = (list: typeof cards) => list.map((c) => c.id);
 
   test('by name, ignoring case', () => {
-    expect(ids(sortForGallery(cards, 'name'))).toEqual(['a', 'b', 'c', 'n']);
+    expect(ids(sortDocuments(cards, 'name'))).toEqual(['a', 'b', 'c', 'n']);
   });
 
   test('by expiry: soonest first, same day by name, no date last', () => {
-    expect(ids(sortForGallery(cards, 'expiry'))).toEqual(['a', 'c', 'b', 'n']);
+    expect(ids(sortDocuments(cards, 'expiry'))).toEqual(['a', 'c', 'b', 'n']);
   });
 
   test('by date added: newest first', () => {
-    expect(ids(sortForGallery(cards, 'added'))).toEqual(['n', 'b', 'c', 'a']);
+    expect(ids(sortDocuments(cards, 'added'))).toEqual(['n', 'b', 'c', 'a']);
   });
 
   test('leaves the list it was given alone', () => {
-    sortForGallery(cards, 'name');
+    sortDocuments(cards, 'name');
     expect(ids(cards)).toEqual(['b', 'n', 'a', 'c']);
   });
 });

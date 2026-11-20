@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { Alert, AlertButton } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
 import { Note } from '../../notes/noteStore';
-import { Folder } from '../types';
+import { Folder, Person } from '../types';
+import { DocumentVisit } from '../../showcase/documentVisits';
 import Home from '../../../app/documents';
 import { FREE_CARD_LIMIT } from '../../config';
 import { strings } from '../../strings';
@@ -14,6 +15,9 @@ let mockCards = [
 ];
 
 let mockNotes: Note[] = [];
+let mockPeople: Person[] = [];
+let mockParams: { mode?: string } = {};
+let mockVisits: DocumentVisit[] = [];
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -28,7 +32,7 @@ jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
     useRouter: () => ({ push: mockPush, replace: mockReplace }),
-    useLocalSearchParams: () => ({}),
+    useLocalSearchParams: () => mockParams,
     // Home counts as focused for as long as it is mounted.
     useFocusEffect: (effect: () => void | (() => void)) => useEffect(effect, [effect]),
   };
@@ -58,6 +62,7 @@ const mockRefresh = jest.fn(() => Promise.resolve());
 jest.mock('../../analysis/readPhoto', () => ({ canReadText: true, readPhotoText: async (jpeg: string) => `TEXT ${jpeg}` }));
 // Stable across renders, as the real provider's services are.
 const mockServices = {
+  db: { getAllAsync: () => Promise.resolve(mockVisits) },
   store: {
     loadImage: (id: string, side: string) => Promise.resolve(`${id}-${side}`),
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
@@ -89,6 +94,7 @@ jest.mock('../../app/AppProvider', () => ({
     setWarnIdShare: (on: boolean) => mockSetWarnIdShare(on),
     cards: mockCards,
     notes: mockNotes,
+    people: mockPeople,
     folders: mockFolders,
     unlocked: mockUnlocked,
     services: mockServices,
@@ -105,6 +111,9 @@ const mockUndo: import('../../app/undo').Undo = jest.requireActual('../../app/un
 
 beforeEach(() => {
   mockNotes = [];
+  mockPeople = [];
+  mockParams = {};
+  mockVisits = [];
   mockWarnIdShare = true;
   mockSetWarnIdShare.mockClear();
   mockPush.mockClear();
@@ -117,7 +126,7 @@ beforeEach(() => {
   mockRefresh.mockClear();
   mockHomeView = 'list';
   // Most tests are about other things, so the gesture tips count as seen unless a test says otherwise.
-  mockSeenTips = 'gallery';
+  mockSeenTips = 'documents';
   mockGallerySort = null;
   mockGalleryExpiring = null;
   mockUnlocked = false;
@@ -140,24 +149,20 @@ async function renderHome() {
   await render(<Home />);
 }
 
-test('a saved Stack choice migrates to List without changing documents or pins', async () => {
-  mockHomeView = 'stack';
+test.each([null, 'stack', 'gallery'])('Documents opens the saved library as a list with legacy view %s', async (previousView) => {
+  mockHomeView = previousView;
   await withCards([makeCard({ id: 'pin', pinned: true }), makeCard({ id: 'other' })], async () => {
     await renderHome();
     expect(await screen.findByTestId('document-list')).toBeTruthy();
-    expect(screen.getByTestId('pinned-pin')).toBeTruthy();
-    expect(screen.getByTestId('row-other')).toBeTruthy();
-    expect(screen.queryByTestId('view-stack')).toBeNull();
-    expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'list');
+    expect(screen.queryByTestId('view-gallery')).toBeNull();
+    expect(screen.queryByTestId('view-list')).toBeNull();
+    await fireEvent.press(screen.getByTestId('pinned-pin'));
+    await fireEvent.press(screen.getByTestId('row-other'));
+    expect(mockPush.mock.calls.map(([route]) => route)).toEqual(['/card/pin', '/card/other']);
+    expect(mockSettingsSet).not.toHaveBeenCalledWith('homeView', expect.anything());
   });
 });
 
-test('a saved Gallery choice still opens the grid', async () => {
-  mockHomeView = 'gallery';
-  await renderHome();
-  expect(await screen.findByTestId('card-grid')).toBeTruthy();
-  expect(mockSettingsSet).not.toHaveBeenCalledWith('homeView', 'list');
-});
 test('home does not show a folder filter', async () => {
   mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
   await renderHome();
@@ -337,6 +342,40 @@ describe('document library (the default view)', () => {
     });
   });
 
+  test('the person filter narrows both pinned documents and the rest of the list', async () => {
+    mockPeople = [{ id: 'person', name: 'Alex', createdAt: 1 }];
+    await withCards([
+      makeCard({ id: 'mine', pinned: true, personId: 'person' }),
+      makeCard({ id: 'other-pin', pinned: true }),
+      makeCard({ id: 'my-row', personId: 'person' }),
+      makeCard({ id: 'other-row' }),
+    ], async () => {
+      await renderHome();
+      await fireEvent.press(screen.getByRole('radio', { name: 'Alex' }));
+      expect(screen.getByTestId('pinned-mine')).toBeTruthy();
+      expect(screen.getByTestId('row-my-row')).toBeTruthy();
+      expect(screen.queryByTestId('pinned-other-pin')).toBeNull();
+      expect(screen.queryByTestId('row-other-row')).toBeNull();
+    });
+  });
+
+  test('Recently visited opens saved documents in visit order and honors the tag filter', async () => {
+    mockParams = { mode: 'recent' };
+    mockVisits = [
+      { id: 'missing', visitedAt: 30 },
+      { id: 'c', visitedAt: 20 },
+      { id: 'a', visitedAt: 10 },
+    ];
+    await renderHome();
+    const visible = screen.getAllByRole('button').map((button) => button.props.accessibilityLabel);
+    expect(visible.filter((label) => label === 'Gym' || label === 'Emirates ID')).toEqual(['Gym', 'Emirates ID']);
+    expect(screen.queryByRole('button', { name: 'Health insurance' })).toBeNull();
+    await fireEvent.press(screen.getByRole('radio', { name: 'ID' }));
+    expect(screen.queryByRole('button', { name: 'Gym' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Emirates ID' }));
+    expect(mockPush).toHaveBeenCalledWith('/card/a');
+  });
+
   test('the tab bar marks Documents as the current tab and + adds a document', async () => {
     await render(<Home />);
     expect(screen.getByTestId('tab-documents').props.accessibilityState).toEqual({ selected: true });
@@ -347,7 +386,7 @@ describe('document library (the default view)', () => {
   });
 });
 
-describe('gallery view', () => {
+describe('document list actions', () => {
   let alert: jest.SpyInstance;
   beforeEach(() => {
     alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -358,46 +397,16 @@ describe('gallery view', () => {
     const buttons = alert.mock.calls.at(-1)?.[2] as AlertButton[];
     await act(async () => buttons.find((b) => b.text === text)?.onPress?.());
   };
-  const showGallery = async () => {
-    await renderHome();
-    await act(async () => fireEvent.press(screen.getByTestId('view-gallery')));
-  };
-
-  test('shows every card in a grid and remembers the choice', async () => {
-    await renderHome();
-    const gallery = screen.getByTestId('view-gallery');
-    expect(gallery.props.accessibilityRole).toBe('button');
-    expect(gallery.props.accessibilityState).toEqual({ selected: false });
-    await act(async () => fireEvent.press(gallery));
-    expect(screen.getByTestId('card-grid')).toBeTruthy();
-    expect(screen.getByTestId('view-gallery').props.accessibilityState).toEqual({ selected: true });
-    for (const id of ['a', 'b', 'c']) expect(screen.getByTestId(`grid-${id}`)).toBeTruthy();
-    // Each tile has the card's name and its tags.
-    expect(within(screen.getByTestId('grid-b')).getByText('Health insurance')).toBeTruthy();
-    expect(within(screen.getByTestId('grid-b')).getByText('Insurance')).toBeTruthy();
-    expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'gallery');
-
-    await act(async () => fireEvent.press(screen.getByTestId('view-list')));
-    expect(screen.getByTestId('document-list')).toBeTruthy();
-    expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'list');
-  });
-
-  test('opens in the gallery when that was the last choice', async () => {
-    mockHomeView = 'gallery';
-    await render(<Home />);
-    expect(await screen.findByTestId('card-grid')).toBeTruthy();
-  });
-
   test('a tap opens the card', async () => {
-    await showGallery();
-    await fireEvent.press(screen.getByTestId('grid-b'));
+    await renderHome();
+    await fireEvent.press(screen.getByTestId('row-b'));
     expect(mockPush).toHaveBeenLastCalledWith('/card/b');
   });
 
   test('a long-press starts selecting; then taps add and remove cards', async () => {
-    await showGallery();
+    await renderHome();
     expect(screen.queryByTestId('selection-bar')).toBeNull();
-    await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
+    await act(async () => fireEvent(screen.getByTestId('row-a'), 'longPress'));
     expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
     for (const [id, caption] of [
       ['selection-pin', strings.home.pinCaption],
@@ -408,10 +417,10 @@ describe('gallery view', () => {
     ]) expect(within(screen.getByTestId(id)).getByText(caption)).toBeTruthy();
     expect(screen.queryByTestId('add-card')).toBeNull();
 
-    await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
+    await act(async () => fireEvent.press(screen.getByTestId('row-c')));
     expect(screen.getByText(strings.home.selected(2))).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
-    await act(async () => fireEvent.press(screen.getByTestId('grid-a')));
+    await act(async () => fireEvent.press(screen.getByTestId('row-a')));
     expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
 
     await act(async () => fireEvent.press(screen.getByTestId('selection-cancel')));
@@ -420,22 +429,22 @@ describe('gallery view', () => {
   });
 
   test('a screen reader can start selecting from the actions menu instead of a long-press', async () => {
-    await showGallery();
-    const tile = screen.getByTestId('grid-a');
+    await renderHome();
+    const tile = screen.getByTestId('row-a');
     expect(tile.props.accessibilityActions).toEqual([{ name: 'select', label: strings.home.selectAction }]);
     await act(async () => fireEvent(tile, 'accessibilityAction', { nativeEvent: { actionName: 'select' } }));
     expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
     // While selecting, a tap is the way to add or remove a card, so the action goes.
-    expect(screen.getByTestId('grid-a').props.accessibilityActions).toBeUndefined();
+    expect(screen.getByTestId('row-a').props.accessibilityActions).toBeUndefined();
   });
 
   describe('deleting a selection', () => {
     afterEach(() => act(() => mockUndo.end()));
 
     test('deletes the selected documents at once, with no dialog, and ends selection', async () => {
-      await showGallery();
-      await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
-      await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
+      await renderHome();
+      await act(async () => fireEvent(screen.getByTestId('row-a'), 'longPress'));
+      await act(async () => fireEvent.press(screen.getByTestId('row-c')));
       await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
       expect(alert).not.toHaveBeenCalled();
       expect(mockRemove.mock.calls.map(([id]) => id).sort()).toEqual(['a', 'c']);
@@ -444,9 +453,9 @@ describe('gallery view', () => {
     });
 
     test('the Undo bar counts them, and one Undo restores every one', async () => {
-      await showGallery();
-      await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
-      await act(async () => fireEvent.press(screen.getByTestId('grid-c')));
+      await renderHome();
+      await act(async () => fireEvent(screen.getByTestId('row-a'), 'longPress'));
+      await act(async () => fireEvent.press(screen.getByTestId('row-c')));
       await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
       expect(within(screen.getByTestId('undo-bar')).getByText('Deleted 2 documents')).toBeTruthy();
       mockRefresh.mockClear();
@@ -459,8 +468,8 @@ describe('gallery view', () => {
     test('after 5 seconds the delete is final: the bar goes and nothing is restored', async () => {
       jest.useFakeTimers();
       try {
-        await showGallery();
-        await act(async () => fireEvent(screen.getByTestId('grid-b'), 'longPress'));
+        await renderHome();
+        await act(async () => fireEvent(screen.getByTestId('row-b'), 'longPress'));
         await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
         expect(screen.getByTestId('undo-bar')).toBeTruthy();
         await act(() => jest.advanceTimersByTime(5000));
@@ -472,7 +481,7 @@ describe('gallery view', () => {
     });
 
     test('a later removal replaces the offer, so Undo can only bring back the later one', async () => {
-      await showGallery();
+      await renderHome();
       await select('a', 'b');
       await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
       await select('c');
@@ -486,7 +495,7 @@ describe('gallery view', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
       mockRemove.mockImplementation((id: string) => (id === 'a' ? Promise.reject(new Error('disk')) : Promise.resolve()));
       try {
-        await showGallery();
+        await renderHome();
         await select('a', 'b', 'c');
         await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
         const { title, body } = strings.errors.deleteMany(1);
@@ -505,7 +514,7 @@ describe('gallery view', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
       mockRemove.mockImplementation(() => Promise.reject(new Error('disk')));
       try {
-        await showGallery();
+        await renderHome();
         await select('a');
         await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
         expect(alert).toHaveBeenCalledWith(strings.errors.deleteMany(1).title, strings.errors.deleteMany(1).body);
@@ -520,7 +529,7 @@ describe('gallery view', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
       mockRestore.mockImplementation((id: string) => (id === 'a' ? Promise.reject(new Error('disk')) : Promise.resolve()));
       try {
-        await showGallery();
+        await renderHome();
         await select('a', 'c');
         await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
         await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.undo.undo })));
@@ -534,9 +543,9 @@ describe('gallery view', () => {
   });
 
   test('a filter that hides a selected card leaves it out of the delete', async () => {
-    await showGallery();
-    await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
-    await act(async () => fireEvent.press(screen.getByTestId('grid-b')));
+    await renderHome();
+    await act(async () => fireEvent(screen.getByTestId('row-a'), 'longPress'));
+    await act(async () => fireEvent.press(screen.getByTestId('row-b')));
     await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Insurance' })));
     expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
@@ -544,22 +553,23 @@ describe('gallery view', () => {
     await act(() => mockUndo.end());
   });
 
-  // The grid's cards, in the order shown.
-  const gridOrder = () => screen.getAllByTestId(/^grid-/).map((el) => el.props.testID.slice('grid-'.length));
+  // The list's documents, in the order shown.
+  const rowOrder = () => screen.getAllByTestId(/^row-/).map((el) => el.props.testID.slice('row-'.length));
+  const documentTestId = (id: string) => `${mockCards.find((card) => card.id === id)?.pinned ? 'pinned' : 'row'}-${id}`;
   const select = async (...ids: string[]) => {
-    await act(async () => fireEvent(screen.getByTestId(`grid-${ids[0]}`), 'longPress'));
-    for (const id of ids.slice(1)) await act(async () => fireEvent.press(screen.getByTestId(`grid-${id}`)));
+    await act(async () => fireEvent(screen.getByTestId(documentTestId(ids[0])), 'longPress'));
+    for (const id of ids.slice(1)) await act(async () => fireEvent.press(screen.getByTestId(documentTestId(id))));
   };
 
   test('one Sort chip replaces the row of sort chips', async () => {
-    await showGallery();
+    await renderHome();
     expect(screen.getByRole('button', { name: strings.home.sortChip(strings.home.sortName) })).toBeTruthy();
     expect(screen.queryByTestId('sort-expiry')).toBeNull();
     expect(screen.queryByTestId('filter-expiring')).toBeNull();
   });
 
   test('the Sort sheet offers the order as radios and Expiring soon as a checkbox', async () => {
-    await showGallery();
+    await renderHome();
     await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
     const sheet = within(screen.getByTestId('sort-sheet'));
     expect(sheet.getByRole('radio', { name: strings.home.sortName }).props.accessibilityState).toEqual({ checked: true });
@@ -582,26 +592,26 @@ describe('gallery view', () => {
         makeCard({ id: 'c', name: 'Charlie', expiresOn: null, createdAt: 2 }),
       ],
       async () => {
-        await showGallery();
-        expect(gridOrder()).toEqual(['a', 'b', 'c']);
+        await renderHome();
+        expect(rowOrder()).toEqual(['a', 'b', 'c']);
         expect(screen.getByTestId('sort-chip').props.accessibilityLabel).toBe(strings.home.sortChip(strings.home.sortName));
         expect(screen.queryByTestId('sort-expiry')).toBeNull();
         await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
         expect(screen.getByTestId('sort-sheet')).toBeTruthy();
         expect(screen.getByRole('radio', { name: strings.home.sortName }).props.accessibilityState).toEqual({ checked: true });
         await act(async () => fireEvent.press(screen.getByTestId('sort-expiry')));
-        expect(gridOrder()).toEqual(['b', 'a', 'c']);
+        expect(rowOrder()).toEqual(['b', 'a', 'c']);
         expect(mockSettingsSet).toHaveBeenLastCalledWith('gallerySort', 'expiry');
         expect(screen.getByTestId('sort-chip').props.accessibilityLabel).toBe(strings.home.sortChip(strings.home.sortExpiry));
         await act(async () => fireEvent.press(screen.getByTestId('sort-added')));
-        expect(gridOrder()).toEqual(['b', 'c', 'a']);
+        expect(rowOrder()).toEqual(['b', 'c', 'a']);
         await act(async () => fireEvent.press(screen.getByTestId('sort-close')));
         expect(screen.queryByTestId('sort-sheet')).toBeNull();
       },
     );
   });
 
-  test('restores the saved gallery order and Expiring soon filter', async () => {
+  test('restores the saved order and Expiring soon filter', async () => {
     mockHomeView = 'gallery';
     mockGallerySort = 'expiry';
     mockGalleryExpiring = 'on';
@@ -627,26 +637,26 @@ describe('gallery view', () => {
         makeCard({ id: 'none', name: 'None' }),
       ],
       async () => {
-        await showGallery();
+        await renderHome();
         await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
         await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
-        expect(gridOrder()).toEqual(['gone', 'soon']);
+        expect(rowOrder()).toEqual(['gone', 'soon']);
         expect(mockSettingsSet).toHaveBeenLastCalledWith('galleryExpiring', 'on');
         await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
-        expect(gridOrder()).toHaveLength(4);
+        expect(rowOrder()).toHaveLength(4);
       },
     );
   });
 
   test('says so when nothing is expiring soon', async () => {
-    await showGallery();
+    await renderHome();
     await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
     await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
     expect(screen.getByText(strings.home.noneExpiring(30))).toBeTruthy();
   });
 
   test('every selection-bar action has a word under its icon, and keeps its full name for screen readers', async () => {
-    await showGallery();
+    await renderHome();
     await select('a');
     const captions: [string, string, string][] = [
       ['selection-pin', 'Pin', strings.home.pinSelected],
@@ -663,14 +673,14 @@ describe('gallery view', () => {
 
   test('the pin caption reads Unpin when every selected card is pinned', async () => {
     await withCards([makeCard({ id: 'p', name: 'Pinned', pinned: true })], async () => {
-      await showGallery();
+      await renderHome();
       await select('p');
       expect(within(screen.getByTestId('selection-pin')).getByText('Unpin')).toBeTruthy();
     });
   });
 
   test('pins the selected cards; when all are pinned, the same button unpins them', async () => {
-    await showGallery();
+    await renderHome();
     await select('a', 'c');
     expect(screen.getByRole('button', { name: strings.home.pinSelected })).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByTestId('selection-pin')));
@@ -684,7 +694,7 @@ describe('gallery view', () => {
 
   test('offers Unpin when every selected card is pinned', async () => {
     await withCards([makeCard({ id: 'p', name: 'Pinned', pinned: true }), makeCard({ id: 'q', name: 'Other' })], async () => {
-      await showGallery();
+      await renderHome();
       await select('p');
       await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.home.unpinSelected })));
       expect(mockSetPinned).toHaveBeenCalledWith('p', false);
@@ -692,7 +702,7 @@ describe('gallery view', () => {
   });
 
   test('adds the tags chosen to every selected card, leaving the rest', async () => {
-    await showGallery();
+    await renderHome();
     await select('a', 'c');
     await act(async () => fireEvent.press(screen.getByTestId('selection-tags')));
     expect(screen.getByText(strings.home.tagTo(2))).toBeTruthy();
@@ -709,7 +719,7 @@ describe('gallery view', () => {
   });
 
   test('Recreate .md reads each selected document again, then says so', async () => {
-    await showGallery();
+    await renderHome();
     await select('a', 'c');
     await act(async () => fireEvent.press(screen.getByTestId('selection-recreate')));
     expect(mockUpdate.mock.calls.map(([id, f]) => [id, (f as unknown as { readText: unknown }).readText])).toEqual([
@@ -721,7 +731,7 @@ describe('gallery view', () => {
   });
 
   test('shares the selected cards together, in the order shown, and keeps the selection', async () => {
-    await showGallery();
+    await renderHome();
     await select('c', 'b');
     await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
     // Gym and Health insurance: no ID, so no warning first.
@@ -731,7 +741,7 @@ describe('gallery view', () => {
   });
 
   test('asks first when an ID is among them', async () => {
-    await showGallery();
+    await renderHome();
     await select('a', 'b');
     await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
     expect(alert).toHaveBeenCalledWith(strings.home.shareIdsTitle, strings.home.shareIdsBody, expect.any(Array));
@@ -741,7 +751,7 @@ describe('gallery view', () => {
   });
 
   test("Don't ask again shares the selection and turns the ID warning off", async () => {
-    await showGallery();
+    await renderHome();
     await select('a', 'b');
     await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
     await answer(strings.idShare.dontAskAgain);
@@ -751,7 +761,7 @@ describe('gallery view', () => {
 
   test('with the ID warning off, a selection with an ID shares without asking', async () => {
     mockWarnIdShare = false;
-    await showGallery();
+    await renderHome();
     await select('a', 'b');
     await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
     expect(alert).not.toHaveBeenCalled();
@@ -769,43 +779,36 @@ test('a purchased unlock allows adding past ten documents', async () => {
   });
 });
 
-describe('gesture tips', () => {
-  describe('in the gallery', () => {
-    const showGallery = async () => {
-      await renderHome();
-      await act(async () => fireEvent.press(screen.getByTestId('view-gallery')));
-    };
+describe('document selection tips', () => {
+  test('the Documents list shows a tip on selecting', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    expect(await screen.findByText(strings.home.selectionTip)).toBeTruthy();
+  });
 
-    test('the first gallery shows a tip on selecting', async () => {
-      mockSeenTips = null;
-      await showGallery();
-      expect(await screen.findByText(strings.home.galleryTip)).toBeTruthy();
-    });
+  test('dismissing the selection tip hides it for good', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    await act(async () => fireEvent.press(await screen.findByRole('button', { name: strings.home.dismissTip })));
+    expect(screen.queryByText(strings.home.selectionTip)).toBeNull();
+    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)documents(,|$)/));
+  });
 
-    test('dismissing the gallery tip hides it for good', async () => {
-      mockSeenTips = null;
-      await showGallery();
-      await act(async () => fireEvent.press(await screen.findByRole('button', { name: strings.home.dismissTip })));
-      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
-      expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)gallery(,|$)/));
-    });
+  test('selecting with a long-press hides the selection tip for good', async () => {
+    mockSeenTips = null;
+    await renderHome();
+    await screen.findByText(strings.home.selectionTip);
+    await act(async () => fireEvent(screen.getByTestId('row-a'), 'longPress'));
+    await act(async () => fireEvent.press(screen.getByTestId('selection-cancel')));
+    expect(screen.queryByText(strings.home.selectionTip)).toBeNull();
+    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)documents(,|$)/));
+  });
 
-    test('selecting with a long-press hides the gallery tip for good', async () => {
-      mockSeenTips = null;
-      await showGallery();
-      await screen.findByText(strings.home.galleryTip);
-      await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
-      await act(async () => fireEvent.press(screen.getByTestId('selection-cancel')));
-      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
-      expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)gallery(,|$)/));
-    });
-
-    test('a gallery tip seen before a restart stays hidden', async () => {
-      mockSeenTips = 'gallery.read,gallery';
-      await showGallery();
-      await act(async () => {});
-      expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
-    });
+  test('a selection tip seen before a restart stays hidden', async () => {
+    mockSeenTips = 'documents.read,documents';
+    await renderHome();
+    await act(async () => {});
+    expect(screen.queryByText(strings.home.selectionTip)).toBeNull();
   });
 });
 
@@ -854,8 +857,7 @@ describe('Undo bar', () => {
 });
 
 
-test.each(['list', 'gallery'])('pinned notes show only titles beside pinned documents in %s view', async (view) => {
-  mockHomeView = view;
+test('pinned notes show only titles beside pinned documents', async () => {
   mockNotes = [
     { id: 'note', title: 'Packing', body: 'PRIVATE NOTE BODY', tags: [], documentId: null, pinned: true, createdAt: 1, updatedAt: 1 },
     { id: 'blank-title', title: ' ', body: 'NEVER USE BODY AS TITLE', tags: [], documentId: null, pinned: true, createdAt: 1, updatedAt: 1 },

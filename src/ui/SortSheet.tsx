@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { GallerySort } from '../cards/listing';
+import { DocumentSort } from '../cards/listing';
 import { strings } from '../strings';
 import { Sheet } from './Sheet';
 import { Text } from './Text';
@@ -7,14 +7,14 @@ import { TYPE, useTheme } from './theme';
 
 interface Props {
   visible: boolean;
-  sort: GallerySort;
+  sort: DocumentSort;
   expiringOnly: boolean;
-  onSort: (sort: GallerySort) => void;
+  onSort: (sort: DocumentSort) => void;
   onExpiringOnly: (on: boolean) => void;
   onClose: () => void;
 }
 
-const orders: [GallerySort, string][] = [
+const orders: [DocumentSort, string][] = [
   ['name', strings.home.sortName],
   ['expiry', strings.home.sortExpiry],
   ['added', strings.home.sortAdded],

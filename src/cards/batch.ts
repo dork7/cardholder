@@ -3,7 +3,7 @@ import { CardStore } from './cardStore';
 import { hasTag, normalizeTags, sameTag } from './tags';
 import { Card, CardFields } from './types';
 
-// Actions on several cards picked in the gallery. Each card is done on its own, so one failure doesn't
+// Actions on several cards picked in the Documents list. Each card is done on its own, so one failure doesn't
 // stop the rest; the result is how many failed.
 
 export const fieldsOf = (card: Card): CardFields => ({
@@ -37,7 +37,7 @@ async function each(cards: Card[], what: string, run: (card: Card) => Promise<un
 }
 
 // Pins them all, in the order given, after the cards already pinned; if every one is pinned already,
-// unpins them instead. The gallery's Pin button does the same, so one press can be undone by another.
+// unpins them instead. The selection's Pin button does the same, so one press can be undone by another.
 export const shouldUnpin = (cards: Card[]): boolean => cards.length > 0 && cards.every((c) => c.pinned);
 
 export function togglePinned(store: CardStore, cards: Card[]): Promise<number> {

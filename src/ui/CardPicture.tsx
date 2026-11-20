@@ -24,7 +24,7 @@ interface Props {
   blurPreview?: boolean;
 }
 
-// A card's picture filling a landscape slot (the gallery or pinned strip). A vertical
+// A card's picture filling a landscape slot (a document preview). A vertical
 // card is turned a quarter turn anticlockwise, its top to the left, so it fills the slot instead of
 // being cut to its middle; it stands upright again on the card's own screen.
 export function CardPicture({ uri, sharpUri, vertical, radius = 0, blurPreview = false }: Props) {

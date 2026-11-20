@@ -14,7 +14,7 @@ export async function deleteWithUndo(store: Store, undo: Pick<Undo, 'offer'>, ca
   if (error !== undefined) throw error;
 }
 
-// Deletes a gallery selection at once — each document goes to Recently deleted on its own, so one
+// Deletes a document selection at once — each document goes to Recently deleted on its own, so one
 // failure doesn't stop the rest — and offers one Undo for every document that went. Resolves to how
 // many couldn't be deleted; when none went, nothing is offered. Undo restores them all, then rejects
 // if any couldn't be restored (they stay in Recently deleted).
