@@ -12,7 +12,7 @@ import { Button } from '../src/ui/Button';
 import { showError } from '../src/ui/errorAlert';
 import { ConfirmSheet } from '../src/ui/ConfirmSheet';
 import { CardPicture } from '../src/ui/CardPicture';
-import { CARD_RADIUS, ID1_RATIO } from '../src/ui/stackGeometry';
+import { CARD_RADIUS, ID1_RATIO } from '../src/ui/cardDimensions';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';

@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   content: { gap: 16, paddingBottom: 96 }, // clear of the add button
   row: { gap: 12 },
   tile: { flex: 1, gap: 2, padding: 8, borderWidth: 1, borderRadius: RADIUS.md },
-  // ID-1 proportions, like the cards in the stack.
+  // ID-1 proportions for document previews.
   picture: {
     aspectRatio: 1.585,
     borderRadius: RADIUS.sm,

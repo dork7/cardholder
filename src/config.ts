@@ -42,7 +42,7 @@ export const LOCK_AFTER_BACKGROUND_MS = 30_000;
 
 export const IMAGE_MAX_EDGE = 1600;
 export const IMAGE_QUALITY = 0.8;
-// Wide enough to stay sharp on a phone-wide card in the home stack (about 1200 px on most phones).
+// Wide enough to stay sharp when a document preview fills a phone screen (about 1200 px on most phones).
 export const THUMB_WIDTH = 1000;
 export const THUMB_QUALITY = 0.85;
 // A PDF card keeps the whole file, inside every backup too.

@@ -14,7 +14,7 @@ interface Props {
   onOpen: (card: Card) => void;
 }
 
-// The pinned cards, one tap away above the stack. A pinned card close to expiry says so here, so the
+// The pinned cards, one tap away above the gallery. A pinned card close to expiry says so here, so the
 // cards that matter most never lapse unseen.
 export function PinnedStrip({ cards, onOpen }: Props) {
   const theme = useTheme();

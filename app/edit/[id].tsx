@@ -217,7 +217,7 @@ export default function EditCard() {
   };
 
   // The whole PDF is kept. Its first page is the card's picture until another is chosen, and its
-  // second page, when it has one, is the card's back (the side the home stack flips to) until removed.
+  // second page, when it has one, is the card's back until removed.
   const attachPdf = async (load: () => Promise<PdfDocument | null> = pickPdf) => {
     setBusy(strings.edit.openingPdf);
     try {

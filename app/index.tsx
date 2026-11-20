@@ -1,13 +1,13 @@
 import { PinnedNotes } from '../src/notes/PinnedNotes';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { FONT, Text } from '../src/ui/Text';
 import { useApp } from '../src/app/AppProvider';
 import { useLaunchLinks } from '../src/app/useLaunchLinks';
-import { addTags, overTagLimit, setBlurPreview, shouldUnpin, togglePinned } from '../src/cards/batch';
+import { addTags, overTagLimit, shouldUnpin, togglePinned } from '../src/cards/batch';
 import { allTags, isId, sameTag, tagOptions } from '../src/cards/tags';
 import { filterCards, isExpiringSoon, isGallerySort, sortForGallery, splitPinned } from '../src/cards/listing';
 import { useDocumentSearch } from '../src/cards/useDocumentSearch';
@@ -22,8 +22,6 @@ import { CardGrid } from '../src/ui/CardGrid';
 import { TagSheet } from '../src/ui/TagSheet';
 import { canReadText, readPhotoText } from '../src/analysis/readPhoto';
 import { rereadCards } from '../src/cards/readBackfill';
-import { CardStack } from '../src/ui/CardStack';
-import { stackGeometry } from '../src/ui/stackGeometry';
 import { AppearanceToggle } from '../src/ui/AppearanceToggle';
 import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
@@ -43,12 +41,10 @@ import { LiveText } from '../src/ui/LiveText';
 import { GestureTip, GestureTipName, useGestureTips } from '../src/ui/GestureTip';
 import { SortSheet } from '../src/ui/SortSheet';
 
-type HomeView = 'list' | 'stack' | 'gallery';
-const isHomeView = (v: unknown): v is HomeView => v === 'list' || v === 'stack' || v === 'gallery';
+type HomeView = 'list' | 'gallery';
+const isHomeView = (v: unknown): v is HomeView => v === 'list' || v === 'gallery';
 
 export default function Home() {
-  const { width: winWidth } = useWindowDimensions();
-  const stackHeight = useRef<number | null>(null);
   const {
     cards,
     notes,
@@ -63,8 +59,6 @@ export default function Home() {
     pdfBackfill,
     stopPdfBackfill,
     undo,
-    stackVertical,
-    showStack,
   } = useApp();
   const confirmIdShare = useConfirmIdShare();
   const router = useRouter();
@@ -106,9 +100,7 @@ export default function Home() {
   const shown = filterCards(searchResults, { query: '', tag, folderId }).filter((card) => !personId || card.personId === personId);
   const { pinned } = splitPinned(byPerson);
   const pinnedNotes = notes.filter((note) => note.pinned).map(({ id, title }) => ({ id, title }));
-  const [savedView, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
-  // Keep the saved choice so turning the stack back on restores the previous layout.
-  const gallery = showStack ? savedView : 'gallery';
+  const [gallery, setGallery] = useSavedChoice('homeView', isHomeView, 'list');
   const [sort, setSort] = useSavedChoice('gallerySort', isGallerySort, 'name');
   const [expiringChoice, setExpiringChoice] = useSavedChoice('galleryExpiring', (v): v is 'on' | 'off' => v === 'on' || v === 'off', 'off');
   const expiringOnly = expiringChoice === 'on';
@@ -124,7 +116,7 @@ export default function Home() {
   const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
   const selecting = gallery === 'gallery' && selected.length > 0;
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
-  // One-time tips on the stack's swipe and the gallery's long-press, which only screen readers were told about.
+  // One-time tip for the gallery's long-press, which only screen readers were told about.
   const tips = useGestureTips(services.settings);
   const tipBar = (tip: GestureTipName, text: string) =>
     tips.showing(tip) && (
@@ -136,17 +128,6 @@ export default function Home() {
         testID={`${tip}-tip`}
       />
     );
-  // The blur button on the stack's front card: saved straight away, like the choice on the edit screen.
-  const toggleBlur = async (card: Card) => {
-    try {
-      await setBlurPreview(services.store, card, !card.blurPreview);
-      await refresh();
-    } catch (e) {
-      console.warn('Changing the blur failed', e);
-      showError('blur', e);
-    }
-  };
-
   // A long-press starts selecting, so the gallery's tip has done its job.
   const toggleSelected = (card: Card) => {
     tips.done('gallery');
@@ -251,7 +232,6 @@ export default function Home() {
   const clearance = useTabBarClearance();
   const viewOptions: { key: HomeView; label: string }[] = [
     { key: 'list', label: strings.home.listLabel },
-    { key: 'stack', label: strings.home.stackLabel },
     { key: 'gallery', label: strings.home.galleryLabel },
   ];
 
@@ -294,7 +274,6 @@ export default function Home() {
         )}
         {cards.length > 0 && (
           <View style={styles.viewRow}>
-            {showStack && (
               <View accessibilityLabel={strings.home.viewLabel} style={[styles.segments, { backgroundColor: theme.glass, borderColor: theme.border }]}>
                 {viewOptions.map((option) => {
                   const on = gallery === option.key;
@@ -317,7 +296,6 @@ export default function Home() {
                   );
                 })}
               </View>
-            )}
             {gallery === 'gallery' && shown.length > 0 && (
               <Pressable
                 onPress={() => setSortSheetOpen(true)}
@@ -372,13 +350,12 @@ export default function Home() {
           <PinnedStrip cards={pinned} onOpen={(card) => router.push(`/card/${card.id}`)} />
           <PinnedNotes notes={pinnedNotes} compact onOpen={(id) => router.push(`/note/${id}`)} />
           {shown.length === 0 ? (
-            // Keeps the stack's height so nothing jumps when nothing matches.
-            <View style={[styles.noResults, gallery !== 'gallery' && { height: stackHeight.current ?? stackGeometry(winWidth - 32, cards.length, stackVertical).height }]}>
+            <View style={styles.noResults}>
               <LiveText style={[styles.promise, { color: theme.muted }]}>
                 {strings.home.noResults}
               </LiveText>
             </View>
-          ) : gallery === 'gallery' ? (
+          ) : (
             inGallery.length === 0 ? (
               <LiveText style={[styles.promise, { color: theme.muted }]}>
                 {strings.home.noneExpiring(EXPIRY_SOON_DAYS)}
@@ -394,22 +371,7 @@ export default function Home() {
                 />
               </>
             )
-          ) : (
-            // Keyed by filter and direction so the stack starts from its first card instead of carrying motion over.
-            <View onLayout={(e) => { stackHeight.current = e.nativeEvent.layout.height; }}>
-              <CardStack
-                key={`${tag ?? 'all'}|${folderId ?? 'all'}|${query.trim().toLowerCase()}|${stackVertical ? 'v' : 'h'}`}
-                cards={shown}
-                onOpen={(card) => router.push(`/card/${card.id}`)}
-                vertical={stackVertical}
-                onToggleBlur={(card) => void toggleBlur(card)}
-                onMove={() => tips.done('stack')}
-              />
-            </View>
           )}
-          {gallery === 'stack' &&
-            shown.length > 1 &&
-            tipBar('stack', stackVertical ? strings.home.stackTipVertical : strings.home.stackTip)}
         </View>
       )}
 
@@ -576,7 +538,14 @@ function useSavedChoice<T extends string>(key: 'homeView' | 'gallerySort' | 'gal
     let live = true;
     services.settings
       .get(key)
-      .then((saved) => live && isValid(saved) && setValue(saved))
+      .then((saved) => {
+        if (!live) return;
+        if (isValid(saved)) setValue(saved);
+        else if (key === 'homeView' && saved === 'stack') {
+          setValue(fallback);
+          services.settings.set(key, fallback).catch((e) => console.warn('Saving migrated home view failed', e));
+        }
+      })
       .catch(() => {});
     return () => {
       live = false;

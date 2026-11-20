@@ -1,6 +1,6 @@
 # Home is a document library; the card stack is an alternative view
 
-Status: accepted, 2026-11-17. Resolves the open question in issue #26.
+Status: amended, 2026-11-20 by issue #51. Originally accepted 2026-11-17 for issue #26.
 
 The fluid glass prototype's home is a scrolling library (pinned panels, then rows), while
 `docs/design.md` had made the wallet-style card stack the home screen's signature motion.
@@ -24,3 +24,9 @@ and hides the entire view selector, as issue #31 proposes. This explicit choice 
 List default above. The stack stays available rather than being removed entirely; turning the
 switch back on restores the previous List / Stack / Gallery choice. Hiding the stack does not
 overwrite `homeView`.
+
+## Amended 2026-11-20: List and Gallery only (#51)
+
+Home offers List and Gallery. The wallet-style Stack and its two settings switches were removed to
+keep document browsing in the library or grid. A saved `homeView: stack` is migrated to `list`;
+existing documents and pin order are unaffected. Gallery selection and sort remain gallery-only.

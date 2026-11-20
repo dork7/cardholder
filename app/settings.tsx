@@ -39,10 +39,6 @@ export default function SettingsScreen() {
     setHomeFolders,
     cardBrightness,
     setCardBrightness,
-    stackVertical,
-    setStackVertical,
-    showStack,
-    setShowStack,
     warnIdShare,
     setWarnIdShare,
   } = useApp();
@@ -130,13 +126,6 @@ export default function SettingsScreen() {
             onChange={(on) => void setCardBrightness(on).catch(() => {})}
             testID="card-brightness-switch"
           />
-          <SwitchRow
-            label={strings.settings.verticalSwipe}
-            hint={strings.settings.verticalSwipeHint}
-            value={stackVertical}
-            onChange={(on) => void setStackVertical(on).catch(() => {})}
-            testID="stack-vertical-switch"
-          />
         </Section>
         <Section title={strings.tagsScreen.title}>
           <Button
@@ -179,13 +168,6 @@ export default function SettingsScreen() {
           {Platform.OS === 'android' && <Button variant="secondary" label={strings.autoBackup.title} onPress={() => router.push('/auto-backup')} />}
         </Section>
         <Section title={strings.settings.home}>
-          <SwitchRow
-            label={strings.settings.showStack}
-            hint={strings.settings.showStackHint}
-            value={showStack}
-            onChange={(on) => void setShowStack(on).catch(() => {})}
-            testID="show-stack-switch"
-          />
           {FOLDERS_ENABLED && (
             <>
               <SwitchRow

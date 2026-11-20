@@ -54,8 +54,6 @@ let mockLastExportAt: string | null = null;
 const mockSettingsSet = jest.fn(() => Promise.resolve());
 let mockHomeView: string | null = null;
 let mockSeenTips: string | null = null;
-let mockStackVertical = false;
-let mockShowStack = true;
 let mockGallerySort: string | null = null;
 let mockGalleryExpiring: string | null = null;
 const mockRemove = jest.fn((_id: string) => Promise.resolve());
@@ -106,8 +104,6 @@ jest.mock('../../app/AppProvider', () => ({
     setAppearance: mockSetAppearance,
     homeFolders: mockHomeFolders,
     refresh: mockRefresh,
-    stackVertical: mockStackVertical,
-    showStack: mockShowStack,
     undo: mockUndo,
   }),
 }));
@@ -125,11 +121,9 @@ beforeEach(() => {
   mockSetPinned.mockClear();
   mockUpdate.mockClear();
   mockRefresh.mockClear();
-  mockHomeView = 'stack'; // most tests exercise the stack; the list is the default and has its own tests
+  mockHomeView = 'list';
   // Most tests are about other things, so the gesture tips count as seen unless a test says otherwise.
-  mockSeenTips = 'stack,gallery';
-  mockStackVertical = false;
-  mockShowStack = true;
+  mockSeenTips = 'gallery';
   mockGallerySort = null;
   mockGalleryExpiring = null;
   mockUnlocked = false;
@@ -149,90 +143,31 @@ async function withCards(cards: typeof mockCards, run: () => Promise<void>) {
   }
 }
 
-async function layoutStack() {
-  await act(async () => {
-    fireEvent(screen.getByTestId('card-stack-frame'), 'layout', {
-      nativeEvent: { layout: { width: 340, height: 0, x: 0, y: 0 } },
-    });
-  });
-}
-
 async function renderHome() {
   await render(<Home />);
-  if (mockCards.length > 0) await layoutStack();
 }
 
-test.each([null, 'list', 'stack', 'gallery'])('hiding the stack uses only the gallery with saved view %s', async (saved) => {
-  mockHomeView = saved;
-  mockShowStack = false;
-  await render(<Home />);
-  expect(await screen.findByTestId('card-grid')).toBeTruthy();
-  expect(screen.queryByTestId('document-list')).toBeNull();
-  expect(screen.queryByTestId('card-stack')).toBeNull();
-  for (const view of ['list', 'stack', 'gallery']) {
-    expect(screen.queryByTestId(`view-${view}`)).toBeNull();
-  }
-  expect(screen.getByTestId('sort-chip')).toBeTruthy();
-});
-
-test('hiding the stack updates a mounted Home and restoring it preserves the saved view', async () => {
-  const view = await render(<Home />);
-  expect(screen.getByTestId('view-stack').props.accessibilityState).toEqual({ selected: true });
-  mockShowStack = false;
-  await view.rerender(<Home />);
-  expect(screen.getByTestId('card-grid')).toBeTruthy();
-  expect(screen.queryByTestId('view-stack')).toBeNull();
-  mockShowStack = true;
-  await view.rerender(<Home />);
-  expect(screen.getByTestId('view-stack').props.accessibilityState).toEqual({ selected: true });
-  expect(screen.queryByTestId('card-grid')).toBeNull();
-  expect(mockSettingsSet).not.toHaveBeenCalledWith('homeView', 'gallery');
-});
-
-test('the stack shows every card until a tag is chosen', async () => {
-  await renderHome();
-  expect(screen.getByTestId('card-stack').props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 3) });
-});
-
-test('choosing a tag narrows the stack to the cards that have it', async () => {
-  await renderHome();
-  await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Insurance' })));
-  await act(async () => {
-    fireEvent(screen.getByTestId('card-stack-frame'), 'layout', {
-      nativeEvent: { layout: { width: 340, height: 0, x: 0, y: 0 } },
-    });
+test('a saved Stack choice migrates to List without changing documents or pins', async () => {
+  mockHomeView = 'stack';
+  await withCards([makeCard({ id: 'pin', pinned: true }), makeCard({ id: 'other' })], async () => {
+    await renderHome();
+    expect(await screen.findByTestId('document-list')).toBeTruthy();
+    expect(screen.getByTestId('pinned-pin')).toBeTruthy();
+    expect(screen.getByTestId('row-other')).toBeTruthy();
+    expect(screen.queryByTestId('view-stack')).toBeNull();
+    expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'list');
   });
-  const stack = screen.getByTestId('card-stack');
-  expect(stack.props.accessibilityLabel).toBe('Health insurance');
-  expect(stack.props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 1) });
 });
 
+test('a saved Gallery choice still opens the grid', async () => {
+  mockHomeView = 'gallery';
+  await renderHome();
+  expect(await screen.findByTestId('card-grid')).toBeTruthy();
+  expect(mockSettingsSet).not.toHaveBeenCalledWith('homeView', 'list');
+});
 test('with no folders there is no folder filter', async () => {
   await renderHome();
   expect(screen.queryByTestId('folder-filter-all')).toBeNull();
-});
-
-test('choosing a folder narrows the stack to its cards', async () => {
-  mockFolders = [{ id: 'f1', name: 'Health', createdAt: 1 }];
-  mockCards = mockCards.map((c) => (c.id === 'b' ? { ...c, folderId: 'f1' } : c));
-  await renderHome();
-  let folderGroup = screen.getByTestId('folder-filter-f1').parent;
-  while (folderGroup && folderGroup.props.accessibilityRole !== 'radiogroup') folderGroup = folderGroup.parent;
-  expect(folderGroup?.props.accessibilityLabel).toBe(strings.folders.title);
-  if (!folderGroup) throw new Error('Missing folder radio group');
-  expect(within(folderGroup).getByRole('radio', { name: 'Health' })).toBeTruthy();
-  expect(within(folderGroup).queryByRole('button', { name: strings.folders.manage })).toBeNull();
-  await act(async () => fireEvent.press(screen.getByTestId('folder-filter-f1')));
-  await act(async () => {
-    fireEvent(screen.getByTestId('card-stack-frame'), 'layout', {
-      nativeEvent: { layout: { width: 340, height: 0, x: 0, y: 0 } },
-    });
-  });
-  const stack = screen.getByTestId('card-stack');
-  expect(stack.props.accessibilityLabel).toBe('Health insurance');
-  expect(stack.props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 1) });
-  await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.folders.manage })));
-  expect(mockReplace).toHaveBeenCalledWith('/folders');
 });
 
 test('folder choices are radios in a group; Manage is a button outside it', async () => {
@@ -294,19 +229,6 @@ test('the appearance toggle says what is on and moves to the next choice', async
   expect(toggle.props.accessibilityValue).toEqual({ text: strings.home.appearances.system });
   await fireEvent.press(toggle);
   expect(mockSetAppearance).toHaveBeenCalledWith('light');
-});
-
-test('search narrows the stack by name, and says so when nothing matches', async () => {
-  await renderHome();
-  await act(async () => fireEvent.changeText(screen.getByTestId('search'), 'gym'));
-  await layoutStack();
-  expect(screen.getByTestId('card-stack').props.accessibilityLabel).toBe('Gym');
-  await act(async () => fireEvent.changeText(screen.getByTestId('search'), 'passport'));
-  expect(screen.queryByTestId('card-stack')).toBeNull();
-  expect(screen.getByText(strings.home.noResults)).toBeTruthy();
-  await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.home.clearSearch })));
-  await layoutStack();
-  expect(screen.getByTestId('card-stack').props.accessibilityValue).toEqual({ text: strings.home.cardOf(1, 3) });
 });
 
 test('document search adds Details (.md) matches after 500 ms and cancels stale searches', async () => {
@@ -436,7 +358,6 @@ describe('document library (the default view)', () => {
       expect(screen.getByTestId('pinned-a')).toBeTruthy();
       expect(screen.getByTestId('row-b')).toBeTruthy();
       expect(screen.queryByTestId('row-a')).toBeNull();
-      expect(screen.queryByTestId('card-stack')).toBeNull();
       await fireEvent.press(screen.getByTestId('row-b'));
       expect(mockPush).toHaveBeenCalledWith('/card/b');
     });
@@ -450,15 +371,6 @@ describe('document library (the default view)', () => {
       expect(screen.queryByTestId('row-b')).toBeNull();
       expect(screen.getByText(strings.home.documentCount(1))).toBeTruthy();
       expect(screen.getByTestId('pinned-a')).toBeTruthy();
-    });
-  });
-
-  test('switching view to the stack is remembered', async () => {
-    await withCards(cards, async () => {
-      await render(<Home />);
-      await act(async () => fireEvent.press(screen.getByTestId('view-stack')));
-      expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'stack');
-      expect(screen.queryByTestId('document-list')).toBeNull();
     });
   });
 
@@ -487,7 +399,7 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(screen.getByTestId('view-gallery')));
   };
 
-  test('shows every card in a grid instead of the stack, and remembers the choice', async () => {
+  test('shows every card in a grid and remembers the choice', async () => {
     await renderHome();
     const gallery = screen.getByTestId('view-gallery');
     expect(gallery.props.accessibilityRole).toBe('button');
@@ -495,16 +407,15 @@ describe('gallery view', () => {
     await act(async () => fireEvent.press(gallery));
     expect(screen.getByTestId('card-grid')).toBeTruthy();
     expect(screen.getByTestId('view-gallery').props.accessibilityState).toEqual({ selected: true });
-    expect(screen.queryByTestId('card-stack')).toBeNull();
     for (const id of ['a', 'b', 'c']) expect(screen.getByTestId(`grid-${id}`)).toBeTruthy();
     // Each tile has the card's name and its tags.
     expect(within(screen.getByTestId('grid-b')).getByText('Health insurance')).toBeTruthy();
     expect(within(screen.getByTestId('grid-b')).getByText('Insurance')).toBeTruthy();
     expect(mockSettingsSet).toHaveBeenCalledWith('homeView', 'gallery');
 
-    await act(async () => fireEvent.press(screen.getByTestId('view-stack')));
-    expect(screen.queryByTestId('card-grid')).toBeNull();
-    expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'stack');
+    await act(async () => fireEvent.press(screen.getByTestId('view-list')));
+    expect(screen.getByTestId('document-list')).toBeTruthy();
+    expect(mockSettingsSet).toHaveBeenLastCalledWith('homeView', 'list');
   });
 
   test('opens in the gallery when that was the last choice', async () => {
@@ -894,59 +805,6 @@ test('a purchased unlock allows adding past ten documents', async () => {
 });
 
 describe('gesture tips', () => {
-  test('the first stack shows a tip on how to browse it', async () => {
-    mockSeenTips = null;
-    await renderHome();
-    expect(await screen.findByText(strings.home.stackTip)).toBeTruthy();
-  });
-
-  test('dismissing the stack tip hides it for good', async () => {
-    mockSeenTips = null;
-    await renderHome();
-    await act(async () => fireEvent.press(await screen.findByRole('button', { name: strings.home.dismissTip })));
-    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
-    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)stack(,|$)/));
-  });
-
-  test('swiping the stack hides its tip for good', async () => {
-    mockSeenTips = null;
-    await renderHome();
-    await screen.findByText(strings.home.stackTip);
-    fireEvent(screen.getByTestId('card-stack'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
-    await waitFor(() => expect(screen.queryByText(strings.home.stackTip)).toBeNull());
-    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', expect.stringMatching(/(^|,)stack(,|$)/));
-  });
-
-  test('a stack tip seen before a restart stays hidden', async () => {
-    mockSeenTips = 'stack.read,stack';
-    await renderHome();
-    await act(async () => {});
-    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
-  });
-
-  test('with vertical swipe on, the tip says to swipe up', async () => {
-    mockSeenTips = null;
-    mockStackVertical = true;
-    await renderHome();
-    expect(await screen.findByText(strings.home.stackTipVertical)).toBeTruthy();
-    expect(screen.queryByText(strings.home.stackTip)).toBeNull();
-  });
-
-  test('the tip is read out to screen readers only the first time it shows', async () => {
-    mockSeenTips = null;
-    await renderHome();
-    const first = await screen.findByText(strings.home.stackTip);
-    expect(first.props.accessibilityLiveRegion).toBe('polite');
-    expect(mockSettingsSet).toHaveBeenCalledWith('seenTips', 'stack.read');
-  });
-
-  test('a tip already read out once stays quiet on the next visit', async () => {
-    mockSeenTips = 'stack.read';
-    await renderHome();
-    const again = await screen.findByText(strings.home.stackTip);
-    expect(again.props.accessibilityLiveRegion).toBe('none');
-  });
-
   describe('in the gallery', () => {
     const showGallery = async () => {
       await renderHome();
@@ -954,15 +812,13 @@ describe('gesture tips', () => {
     };
 
     test('the first gallery shows a tip on selecting', async () => {
-      mockSeenTips = 'stack';
+      mockSeenTips = null;
       await showGallery();
       expect(await screen.findByText(strings.home.galleryTip)).toBeTruthy();
-      // Each view has its own tip.
-      expect(screen.queryByText(strings.home.stackTip)).toBeNull();
     });
 
     test('dismissing the gallery tip hides it for good', async () => {
-      mockSeenTips = 'stack';
+      mockSeenTips = null;
       await showGallery();
       await act(async () => fireEvent.press(await screen.findByRole('button', { name: strings.home.dismissTip })));
       expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
@@ -970,7 +826,7 @@ describe('gesture tips', () => {
     });
 
     test('selecting with a long-press hides the gallery tip for good', async () => {
-      mockSeenTips = 'stack';
+      mockSeenTips = null;
       await showGallery();
       await screen.findByText(strings.home.galleryTip);
       await act(async () => fireEvent(screen.getByTestId('grid-a'), 'longPress'));
@@ -980,7 +836,7 @@ describe('gesture tips', () => {
     });
 
     test('a gallery tip seen before a restart stays hidden', async () => {
-      mockSeenTips = 'stack,gallery.read,gallery';
+      mockSeenTips = 'gallery.read,gallery';
       await showGallery();
       await act(async () => {});
       expect(screen.queryByText(strings.home.galleryTip)).toBeNull();
@@ -1033,7 +889,7 @@ describe('Undo bar', () => {
 });
 
 
-test.each(['list', 'stack', 'gallery'])('pinned notes show only titles beside pinned documents in %s view', async (view) => {
+test.each(['list', 'gallery'])('pinned notes show only titles beside pinned documents in %s view', async (view) => {
   mockHomeView = view;
   mockNotes = [
     { id: 'note', title: 'Packing', body: 'PRIVATE NOTE BODY', tags: [], documentId: null, pinned: true, createdAt: 1, updatedAt: 1 },

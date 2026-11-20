@@ -29,9 +29,6 @@ const mockSetAppLock = jest.fn(async (on: boolean) => {
 });
 const mockSetHomeFolders = jest.fn(() => Promise.resolve());
 const mockSetCardBrightness = jest.fn(() => Promise.resolve());
-const mockSetStackVertical = jest.fn(() => Promise.resolve());
-let mockShowStack = true;
-const mockSetShowStack = jest.fn(() => Promise.resolve());
 let mockWarnIdShare = true;
 const mockSetWarnIdShare = jest.fn(() => Promise.resolve());
 const mockServices = { settings: { getNumber: () => Promise.resolve(null) }, store: {
@@ -48,10 +45,6 @@ jest.mock('../../app/AppProvider', () => ({
     setHomeFolders: mockSetHomeFolders,
     cardBrightness: true,
     setCardBrightness: mockSetCardBrightness,
-    stackVertical: false,
-    setStackVertical: mockSetStackVertical,
-    showStack: mockShowStack,
-    setShowStack: mockSetShowStack,
     warnIdShare: mockWarnIdShare,
     setWarnIdShare: mockSetWarnIdShare,
   }),
@@ -63,7 +56,6 @@ beforeEach(() => {
   mockFoldersEnabled = true;
   mockAppLock = false;
   mockWarnIdShare = true;
-  mockShowStack = true;
   mockAvailable.mockResolvedValue(true);
   mockAuthenticate.mockResolvedValue('success');
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -131,30 +123,6 @@ test('full brightness for an open card can be turned off and back on', async () 
   expect(mockSetCardBrightness).toHaveBeenCalledWith(false);
   await fireEvent(toggle, 'valueChange', true);
   expect(mockSetCardBrightness).toHaveBeenCalledWith(true);
-});
-
-test('the home stack can be switched to swipe up and down', async () => {
-  await render(<SettingsScreen />);
-  const toggle = screen.getByTestId('stack-vertical-switch');
-  expect(toggle.props.value).toBe(false);
-  await fireEvent(toggle, 'valueChange', true);
-  expect(mockSetStackVertical).toHaveBeenCalledWith(true);
-});
-
-test('Home settings can hide and restore the stack even with folders disabled', async () => {
-  mockFoldersEnabled = false;
-  const view = await render(<SettingsScreen />);
-  expect(screen.getByText(strings.settings.home)).toBeTruthy();
-  const toggle = screen.getByRole('switch', { name: 'Show stack view' });
-  expect(toggle.props.value).toBe(true);
-  await fireEvent(toggle, 'valueChange', false);
-  expect(mockSetShowStack).toHaveBeenCalledWith(false);
-
-  mockShowStack = false;
-  await view.rerender(<SettingsScreen />);
-  expect(screen.getByRole('switch', { name: 'Show stack view' }).props.value).toBe(false);
-  await fireEvent(screen.getByRole('switch', { name: 'Show stack view' }), 'valueChange', true);
-  expect(mockSetShowStack).toHaveBeenCalledWith(true);
 });
 
 test('the switch shows whether sharing an ID warns first, and turns the warning back on', async () => {

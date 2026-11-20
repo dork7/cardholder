@@ -7,7 +7,7 @@ import { strings } from '../strings';
 import { Text } from './Text';
 import { TYPE, useTheme } from './theme';
 
-export type GestureTipName = 'stack' | 'gallery';
+export type GestureTipName = 'gallery';
 
 // The one-time gesture tips, kept in settings as a comma-separated record: a tip's name once it was
 // dismissed or its gesture used, and `<name>.read` once it was read out to screen readers.
@@ -71,7 +71,7 @@ interface Props {
   testID?: string;
 }
 
-// A small bar near the stack or grid that names a gesture sighted users couldn't otherwise discover.
+// A small bar near the grid that names a gesture sighted users couldn't otherwise discover.
 export function GestureTip({ text, announce, onAnnounced, onDismiss, testID }: Props) {
   const theme = useTheme();
   // Decided when the tip first shows, so marking it as read doesn't silence it mid-announcement.

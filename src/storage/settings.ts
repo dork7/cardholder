@@ -8,14 +8,12 @@ export type SettingKey =
   | 'autoBackupError'
   | 'appearance'
   | 'homeView'
-  | 'showStack'
   | 'gallerySort'
   | 'galleryExpiring'
   | 'appLock'
   | 'homeFolderFilter'
   | 'homeManageFolders'
   | 'cardBrightness'
-  | 'stackVertical'
   | 'warnIdShare'
   | 'seenTips';
 

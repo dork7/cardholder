@@ -1,16 +1,30 @@
-// Draws the app icons from the same 8-bit mark the app shows (LOGO_PIXELS in src/ui/PixelLogo.tsx),
-// so the launcher icon and the in-app logo never drift apart. Run: node scripts/make-icons.mjs
-import { readFileSync, writeFileSync } from 'node:fs';
+// Draws the app icons from their 16x16 pixel mark. Run: node scripts/make-icons.mjs
+import { writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
 const root = new URL('..', import.meta.url);
-const source = readFileSync(new URL('src/ui/PixelLogo.tsx', root), 'utf8');
-const block = source.match(/LOGO_PIXELS = \[([\s\S]*?)\]/)[1];
-const PIXELS = [...block.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+const PIXELS = [
+  '..ooooooooo.....',
+  '..opppppppoo....',
+  '..opppppppoao...',
+  '..opppppppoaao..',
+  '..opppppppooooo.',
+  '..opppppppppppos',
+  '..opllllllllppos',
+  '..opppppppppppos',
+  '..opllllllppppos',
+  '..opppppppppppos',
+  '..opllllpaaappos',
+  '..oppppppaaappos',
+  '..oppppppapappos',
+  '..opppppppppppos',
+  '..ooooooooooooos',
+  '...sssssssssssss',
+];
 
-// The dark palette from src/ui/theme.ts.
-const BG = '#121212';
-const COLOURS = { o: '#FDFDFD', p: '#1F1F1F', l: '#B3B3B3', a: '#F5B83D', s: '#7C7C7C' };
+// White launcher paper with dark ink and the app's blue ornament.
+const BG = '#FFFFFF';
+const COLOURS = { o: '#121212', p: '#F7F6F3', l: '#5C5C5C', a: '#8AA7D1', s: '#808080' };
 const WHITE = '#FFFFFF';
 
 const rgba = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).concat(255);
@@ -77,7 +91,7 @@ function crc32(bytes) {
 const colour = (c) => COLOURS[c];
 const out = (name, data) => writeFileSync(new URL(`assets/${name}`, root), data);
 
-// iOS and the store listing: full-bleed dark square; the OS rounds the corners.
+// iOS and the store listing: full-bleed white square; the OS rounds the corners.
 out('icon.png', draw({ size: 1024, cell: 44, bg: BG, fill: colour }));
 // Android adaptive icon: the mark stays inside the 66/108 safe circle every launcher mask keeps.
 out('android-icon-foreground.png', draw({ size: 512, cell: 14, bg: null, fill: colour }));
