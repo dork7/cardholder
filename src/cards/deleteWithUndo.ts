@@ -49,9 +49,16 @@ async function deleteEachWithUndo(
     undo.offer({
       message: deleted.length === 1 ? strings.undo.deleted(displayName(deleted[0])) : strings.undo.deletedMany(deleted.length),
       undo: async () => {
-        const results = await Promise.allSettled(deleted.map((card) => store.restore(card.id)));
+        let failed = 0;
+        // Each restore opens a transaction on the same SQLite connection.
+        for (const card of deleted) {
+          try {
+            await store.restore(card.id);
+          } catch {
+            failed += 1;
+          }
+        }
         await refreshAfter(refresh, 'undo');
-        const failed = results.filter((r) => r.status === 'rejected').length;
         if (failed > 0) throw new Error(`${failed} of ${deleted.length} documents couldn't be restored`);
       },
     });

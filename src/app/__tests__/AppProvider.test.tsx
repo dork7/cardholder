@@ -11,7 +11,7 @@ import { strings } from '../../strings';
 import { Text } from '../../ui/Text';
 import { AppContextValue, AppProvider, useApp, useBoot } from '../AppProvider';
 import { BootScreen } from '../BootScreen';
-import { deleteWithUndo } from '../../cards/deleteWithUndo';
+import { deleteAllWithUndo, deleteWithUndo } from '../../cards/deleteWithUndo';
 
 let mockOpenDatabase: () => Promise<SqlDb>;
 let mockBlobs: BlobStore;
@@ -222,6 +222,28 @@ describe('Undo', () => {
     await screen.findByText('cards:1');
     expect(await app.services.store.get(card.id)).toMatchObject({ name: 'Passport', tags: ['ID'] });
     expect(await app.services.store.loadImage(card.id, 'front')).toBeTruthy();
+  });
+
+  test('one Undo restores both documents from a bulk deletion', async () => {
+    await renderApp();
+    await screen.findByText('cards:0');
+    const app = captured[captured.length - 1];
+    const { store } = app.services;
+    const first = await store.create(fields({ name: 'Passport' }), images('passport'));
+    const second = await store.create(fields({ name: 'Licence' }), images('licence'));
+    await act(() => app.refresh());
+    await screen.findByText('cards:2');
+
+    await act(() => deleteAllWithUndo(store, app.undo, [first, second], app.refresh));
+    await screen.findByText('cards:0');
+    expect(app.undo.current()?.message).toBe('Deleted 2 documents');
+    expect(await store.listRecentlyDeleted()).toHaveLength(2);
+
+    await act(() => app.undo.undo());
+    await screen.findByText('cards:2');
+    expect(await store.get(first.id)).toMatchObject({ name: 'Passport' });
+    expect(await store.get(second.id)).toMatchObject({ name: 'Licence' });
+    expect(await store.listRecentlyDeleted()).toEqual([]);
   });
 
   test('going to the background ends the Undo offer; the document stays in Recently deleted', async () => {
