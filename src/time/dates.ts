@@ -37,6 +37,14 @@ export function formatAgo(then: number, now: number): string {
   return strings.ago.years(Math.floor(days / 365));
 }
 
+export function formatActivityAgo(then: number, now: number): string {
+  const minutes = Math.floor(Math.max(0, now - then) / 60_000);
+  if (minutes === 0) return strings.ago.justNow;
+  if (minutes < 60) return strings.ago.minutes(minutes);
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? strings.ago.hours(hours) : formatAgo(then, now);
+}
+
 export function formatDate(ms: number): string {
   // The phone's own locale, so a date reads the way the user writes dates.
   return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });

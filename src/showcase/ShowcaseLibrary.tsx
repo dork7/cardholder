@@ -29,7 +29,7 @@ export function ShowcaseDocumentRow({ card, subtitle }: { card: Card; subtitle?:
   const name = displayName(card);
   const pin = () => void services.store.setPinned(card.id, !card.pinned).then(refresh).catch(() => showError(card.pinned ? 'unpin' : 'pin', null));
   return <View style={[styles.row, { borderColor: theme.border }]}>
-    <Pressable style={styles.rowLink} accessibilityRole="button" accessibilityLabel={name} onPress={() => router.push(`/card/${card.id}`)}>
+    <Pressable style={styles.rowLink} accessibilityRole="button" accessibilityLabel={name} accessibilityHint={subtitle} onPress={() => router.push(`/card/${card.id}`)}>
       <View style={styles.thumb}><DocumentArtwork card={card} /></View>
       <RowText name={name} spaceId={card.spaceId} subtitle={subtitle} />
     </Pressable>
@@ -37,18 +37,18 @@ export function ShowcaseDocumentRow({ card, subtitle }: { card: Card; subtitle?:
   </View>;
 }
 
-export function ShowcaseNoteRow({ note }: { note: Note }) {
+export function ShowcaseNoteRow({ note, subtitle }: { note: Note; subtitle?: string }) {
   const { services, refresh } = useApp();
   const theme = useTheme();
   const router = useRouter();
   const name = note.title.trim() || strings.notes.untitled;
   const pin = () => void services.notes.setPinned(note.id, !note.pinned).then(refresh).catch(() => showError(note.pinned ? 'unpin' : 'pin', null));
   return <View style={[styles.row, { borderColor: theme.border }]}>
-    <Pressable style={styles.rowLink} accessibilityRole="button" accessibilityLabel={name} onPress={() => router.push(`/note-view/${note.id}`)}>
+    <Pressable style={styles.rowLink} accessibilityRole="button" accessibilityLabel={name} accessibilityHint={subtitle} onPress={() => router.push(`/note-view/${note.id}`)}>
       <View style={[styles.thumb, styles.noteIcon, { backgroundColor: theme.showcase.spaces[spaceFor(note.spaceId).id] }]}>
         <RetroIcon name="note" color={theme.accent} />
       </View>
-      <RowText name={name} spaceId={note.spaceId} />
+      <RowText name={name} spaceId={note.spaceId} subtitle={subtitle} />
     </Pressable>
     <ShowcasePin pinned={note.pinned} onPress={pin} />
   </View>;

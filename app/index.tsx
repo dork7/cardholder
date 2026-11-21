@@ -12,7 +12,7 @@ import { ShowcaseIcon, useShowcaseAdd } from '../src/showcase/ShowcaseActions';
 import { DocumentArtwork, EmptySection, ShowcaseDocumentRow, ShowcaseNoteRow, ShowcaseSectionHeading, SpaceCarousel } from '../src/showcase/ShowcaseLibrary';
 import { spaceFor } from '../src/spaces/spaces';
 import { strings } from '../src/strings';
-import { formatAgo } from '../src/time/dates';
+import { formatActivityAgo } from '../src/time/dates';
 import { Button } from '../src/ui/Button';
 import { Fab } from '../src/ui/Fab';
 import { RetroIcon } from '../src/ui/RetroIcon';
@@ -21,6 +21,10 @@ import { TabBar, useTabBarClearance } from '../src/ui/TabBar';
 import { Text } from '../src/ui/Text';
 import { RADIUS, TYPE, useTheme } from '../src/ui/theme';
 import { UndoBar } from '../src/ui/UndoBar';
+
+const PAGE_INSET = 16;
+const HOME_MAX_WIDTH = 600;
+const FAVORITE_GAP = 12;
 
 export default function Home() {
   const { cards, notes, services, undo, openImportOnReady, clearOpenImport, pdfBackfill, stopPdfBackfill } = useApp();
@@ -46,6 +50,7 @@ export default function Home() {
     const card = byId.get(visit.id);
     return card ? [{ card, visitedAt: visit.visitedAt }] : [];
   }).slice(0, 3);
+  const now = Date.now();
   const recentNotes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 2);
   return <Screen style={{ paddingTop: insets.top }}>
     <View style={styles.header}>
@@ -71,17 +76,18 @@ export default function Home() {
       <View style={[styles.panel, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
         <ShowcaseSectionHeading title="Recently visited" onPress={() => router.push('/documents?mode=recent')} />
         {recent.length ? recent.map(({ card, visitedAt }) => (
-          <ShowcaseDocumentRow key={card.id} card={card} subtitle={`Opened ${formatAgo(visitedAt, Date.now()).toLowerCase()}`} />
+          <ShowcaseDocumentRow key={card.id} card={card} subtitle={`Opened ${formatActivityAgo(visitedAt, now)}`} />
         )) : <EmptySection>Open a document to see it here.</EmptySection>}
       </View>
       <View style={[styles.panel, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
         <ShowcaseSectionHeading title="Notes" onPress={() => router.replace('/notes')} />
-        {recentNotes.length ? recentNotes.map((note) => <ShowcaseNoteRow key={note.id} note={note} />)
+        {recentNotes.length ? recentNotes.map((note) => <ShowcaseNoteRow key={note.id} note={note} subtitle={`Changed ${formatActivityAgo(note.updatedAt, now)}`} />)
           : <EmptySection>Write a note to keep it close.</EmptySection>}
       </View>
       <View style={[styles.panel, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
         <ShowcaseSectionHeading title="Spaces" onPress={() => router.replace('/spaces')} />
         <SpaceCarousel cards={cards} notes={notes} onSelect={(id) => router.replace(`/spaces?space=${id}`)} />
+        {cards.length === 0 && notes.length === 0 && <EmptySection>Choose a space to add documents and notes.</EmptySection>}
       </View>
     </ScrollView>
     <View pointerEvents="box-none" style={[styles.undo, { bottom: clearance }]}><UndoBar undo={undo} /></View>
@@ -95,17 +101,25 @@ function Favorites({ cards }: { cards: readonly Card[] }) {
   const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const widthPerCard = Math.max(130, Math.min(width, 600) * 0.68);
-  const step = widthPerCard + 12;
+  const viewportWidth = Math.min(width, HOME_MAX_WIDTH) - 2 * PAGE_INSET;
+  const widthPerCard = viewportWidth - 2 * PAGE_INSET - FAVORITE_GAP - Math.round(viewportWidth * 0.14);
+  const step = widthPerCard + FAVORITE_GAP;
+  const previousStep = useRef(step);
   const list = useRef<ComponentRef<typeof ScrollView>>(null);
   const [slide, setSlide] = useState(0);
   const current = Math.min(slide, Math.max(0, cards.length - 1));
   useEffect(() => {
-    if (slide !== current) {
+    if (slide !== current || step !== previousStep.current) {
+      previousStep.current = step;
       setSlide(current);
       list.current?.scrollTo({ x: current * step, animated: false });
     }
   }, [current, slide, step]);
+
+  const selectSlide = (index: number) => {
+    setSlide(index);
+    list.current?.scrollTo({ x: index * step, animated: false });
+  };
   return <View style={[styles.favorites, { backgroundColor: theme.showcase.end }]} testID="showcase-favorites">
     <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
       <Defs><LinearGradient id="favorite-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -121,9 +135,13 @@ function Favorites({ cards }: { cards: readonly Card[] }) {
       <RetroIcon name="pin" color={theme.showcase.ink} size={30} />
       <Text style={{ color: theme.showcase.ink, fontSize: TYPE.body }}>Pin a document to keep it here.</Text>
     </View> : <>
-      <ScrollView ref={list} horizontal snapToInterval={step} decelerationRate="fast"
-        showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.featureList, { paddingEnd: Math.max(16, width - widthPerCard - 48) }]}
-        onMomentumScrollEnd={(event) => setSlide(Math.round(event.nativeEvent.contentOffset.x / step))}>
+      <ScrollView ref={list} horizontal testID="favorites-carousel" snapToInterval={step} decelerationRate="fast"
+        showsHorizontalScrollIndicator={false} scrollEventThrottle={16}
+        contentContainerStyle={[styles.featureList, { paddingEnd: viewportWidth - widthPerCard - PAGE_INSET }]}
+        onScroll={(event) => {
+          const index = Math.round(event.nativeEvent.contentOffset.x / step);
+          setSlide(Math.min(cards.length - 1, Math.max(0, index)));
+        }}>
         {cards.map((card) => <Pressable key={card.id} accessibilityRole="button"
           accessibilityLabel={displayName(card)} onPress={() => router.push(`/card/${card.id}`)}
           style={[styles.featureCard, { width: widthPerCard, backgroundColor: theme.surface }]}>
@@ -140,7 +158,7 @@ function Favorites({ cards }: { cards: readonly Card[] }) {
       {cards.length > 1 && <View style={styles.dots}>
         {cards.map((card, index) => <Pressable key={card.id} accessibilityRole="button"
           accessibilityLabel={`Show favorite ${index + 1}`} accessibilityState={{ selected: index === current }}
-          onPress={() => { setSlide(index); list.current?.scrollTo({ x: index * step, animated: false }); }}
+          onPress={() => selectSlide(index)}
           style={styles.dotTarget}>
           <View style={[styles.dot, { backgroundColor: theme.showcase.ink, opacity: index === current ? 1 : 0.48 }]} />
         </Pressable>)}
@@ -155,13 +173,13 @@ const styles = StyleSheet.create({
   brandDot: { position: 'absolute', width: 10, height: 10, borderRadius: 5 },
   brand: { flex: 1, minWidth: 0 },
   brandName: { fontWeight: '700', fontSize: TYPE.section, letterSpacing: -0.4 },
-  content: { padding: 16, paddingTop: 0, paddingBottom: 88, gap: 16, width: '100%', maxWidth: 600, alignSelf: 'center' },
+  content: { padding: PAGE_INSET, paddingTop: 0, paddingBottom: 88, gap: 16, width: '100%', maxWidth: HOME_MAX_WIDTH, alignSelf: 'center' },
   panel: { borderRadius: RADIUS.lg, borderWidth: 1, padding: 16, gap: 4 },
   favorites: { borderRadius: RADIUS.lg, overflow: 'hidden', paddingTop: 16, paddingBottom: 5, gap: 12 },
   favoriteHeading: { paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
   favoriteTitle: { flex: 1, fontSize: TYPE.section + 3, fontWeight: '700' },
   favoriteEmpty: { minHeight: 126, padding: 16, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  featureList: { gap: 12, paddingStart: 16, paddingBottom: 4 },
+  featureList: { gap: FAVORITE_GAP, paddingStart: PAGE_INSET, paddingBottom: 4 },
   featureCard: { borderRadius: RADIUS.md, overflow: 'hidden' },
   featureArtwork: { aspectRatio: 2.55 },
   featureLabel: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 },

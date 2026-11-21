@@ -652,6 +652,9 @@ export const strings = {
     channelName: 'Reminders',
   },
   ago: {
+    justNow: 'just now',
+    minutes: (n: number) => `${n} ${plural(n, 'minute', 'minutes')} ago`,
+    hours: (n: number) => `${n} ${plural(n, 'hour', 'hours')} ago`,
     today: 'today',
     yesterday: 'yesterday',
     days: (n: number) => `${n} days ago`,

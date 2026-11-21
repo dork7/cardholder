@@ -39,7 +39,7 @@ import { SortSheet } from '../src/ui/SortSheet';
 import { DocumentVisit, listDocumentVisits } from '../src/showcase/documentVisits';
 import { useShowcaseAdd } from '../src/showcase/ShowcaseActions';
 import { ShowcaseDocumentRow } from '../src/showcase/ShowcaseLibrary';
-import { formatAgo } from '../src/time/dates';
+import { formatActivityAgo } from '../src/time/dates';
 import { useDebouncedQuery } from '../src/ui/useDebouncedQuery';
 
 const isExpiryChoice = (value: unknown): value is 'on' | 'off' => value === 'on' || value === 'off';
@@ -243,7 +243,7 @@ export default function Documents() {
           {mode === 'favorites' ? shown.filter((card) => card.pinned).map((card) => <ShowcaseDocumentRow key={card.id} card={card} />)
             : visits.map(({ id, visitedAt }) => {
               const card = shown.find((item) => item.id === id);
-              return card ? <ShowcaseDocumentRow key={id} card={card} subtitle={`Opened ${formatAgo(visitedAt, now.getTime()).toLowerCase()}`} /> : null;
+              return card ? <ShowcaseDocumentRow key={id} card={card} subtitle={`Opened ${formatActivityAgo(visitedAt, now.getTime())}`} /> : null;
             })}
           {(mode === 'favorites' ? !shown.some((card) => card.pinned) : !visits.some(({ id }) => shown.some((card) => card.id === id))) &&
             <LiveText style={[styles.promise, { color: theme.muted }]}>{query.trim() ? strings.home.noResults :
