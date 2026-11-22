@@ -46,6 +46,8 @@ interface RowActions {
 
 interface ListProps extends RowActions {
   cards: Card[];
+  // Replaces the usual "ID · Expires in 9 days" line, as Recently visited does to add when.
+  meta?: (card: Card, now: Date) => string;
 }
 
 function documentActions(card: Card, name: string, meta: string, { onOpen, onToggle, selecting, selected }: RowActions) {
@@ -117,20 +119,19 @@ function PinnedPanel({ card, now, actions }: { card: Card; now: Date; actions: R
 }
 
 // Every other document as a row: small photo, name and meta line, and a chevron.
-export function DocumentRows({ cards, ...actions }: ListProps) {
+export function DocumentRows({ cards, meta = metaLine, ...actions }: ListProps) {
   const now = new Date();
   return (
     <Panel style={styles.rows} opaque testID="document-rows">
-      {cards.map((card, i) => <Row key={card.id} card={card} now={now} first={i === 0} actions={actions} />)}
+      {cards.map((card, i) => <Row key={card.id} card={card} meta={meta(card, now)} first={i === 0} actions={actions} />)}
     </Panel>
   );
 }
 
-function Row({ card, now, first, actions }: { card: Card; now: Date; first: boolean; actions: RowActions }) {
+function Row({ card, meta, first, actions }: { card: Card; meta: string; first: boolean; actions: RowActions }) {
   const theme = useTheme();
   const uri = useCardImage(card, 'thumb');
   const name = displayName(card);
-  const meta = metaLine(card, now);
   return (
     <Pressable
       {...documentActions(card, name, meta, actions)}

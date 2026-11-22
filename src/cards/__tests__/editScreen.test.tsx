@@ -7,7 +7,7 @@ import { Removal } from '../../app/undo';
 import { strings } from '../../strings';
 import { setPendingShared, takePendingShared } from '../../share/sharedIn';
 
-let mockParams: { id: string } = { id: 'new' };
+let mockParams: { id: string; space?: string } = { id: 'new' };
 const mockBack = jest.fn();
 const mockDismissAll = jest.fn();
 const mockReplace = jest.fn();
@@ -1034,5 +1034,45 @@ describe('taking a photo with the camera', () => {
     expect(screen.queryByTestId('front-camera')).toBeNull();
     await fireEvent.press(screen.getByTestId('front-library'));
     expect(screen.queryByTestId('back-camera')).toBeNull();
+  });
+});
+
+describe('Space', () => {
+  const chip = (id: string) => screen.getByTestId(`assign-space-${id}`).props.accessibilityState;
+
+  test('a new document starts in Personal and saves the Space chosen', async () => {
+    await fillNewCard();
+    expect(chip('personal')).toMatchObject({ checked: true });
+    await fireEvent.press(screen.getByTestId('assign-space-family'));
+    expect(chip('family')).toMatchObject({ checked: true });
+    await save();
+    expect(mockCreate.mock.calls[0][0]).toMatchObject({ spaceId: 'family' });
+  });
+
+  test('a document added from inside a Space starts in that Space', async () => {
+    mockParams = { id: 'new', space: 'travel' };
+    await fillNewCard();
+    expect(chip('travel')).toMatchObject({ checked: true });
+    await save();
+    expect(mockCreate.mock.calls[0][0]).toMatchObject({ spaceId: 'travel' });
+  });
+
+  test('an unknown Space in the link falls back to Personal', async () => {
+    mockParams = { id: 'new', space: 'office' };
+    await fillNewCard();
+    expect(chip('personal')).toMatchObject({ checked: true });
+  });
+
+  test('moving a saved document to another Space counts as a change and keeps its other fields', async () => {
+    mockParams = { id: 'card1' };
+    mockCards = [makeCard({ name: 'Gym', tags: ['Membership'], spaceId: 'home' })];
+    await render(<EditCard />);
+    expect(chip('home')).toMatchObject({ checked: true });
+    expect(mockGuard.on).toBe(false);
+    await fireEvent.press(screen.getByTestId('assign-space-travel'));
+    expect(mockGuard.on).toBe(true);
+    await save();
+    expect(mockUpdate.mock.calls[0][0]).toBe('card1');
+    expect(mockUpdate.mock.calls[0][1]).toMatchObject({ spaceId: 'travel', name: 'Gym', tags: ['Membership'] });
   });
 });

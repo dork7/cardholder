@@ -48,13 +48,20 @@ export default function NoteDetail() {
       <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{note.title.trim() || strings.notes.untitled}</Text>
       <NoteBody body={note.body} disabled={busy} onChange={(body) => void act(() => services.notes.save(id, { title: note.title, body }))} />
       <Text style={{ color: theme.muted }}>Updated {formatAgo(note.updatedAt, Date.now()).toLowerCase()}</Text>
+      {note.reminderAt !== undefined && note.reminderAt > Date.now() && <View style={styles.reminder}>
+        <RetroIcon name="expiry" size={20} color={theme.accent} />
+        <Text style={{ color: theme.text, flex: 1 }}>{strings.notes.reminderScheduled(new Date(note.reminderAt).toLocaleString())}</Text>
+      </View>}
       {note.tags.length > 0 && <Text style={{ color: theme.muted }}>{note.tags.join(' · ')}</Text>}
       {linked && <Button label={linked.name || strings.card.unnamed} variant="secondary" onPress={() => router.push(`/card/${linked.id}`)} />}
       {failed && <Text accessibilityRole="alert" style={{ color: theme.danger }}>{strings.notes.failed}</Text>}
+      {/* Away from Edit and Pin in the footer, so it is never pressed by mistake for them. */}
+      <View style={[styles.danger, { borderColor: theme.border }]}>
+        <Button label={strings.notes.remove} variant="danger" onPress={remove} disabled={busy} />
+      </View>
     </ScrollView>
-    <ActionFooter style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+    <ActionFooter testID="note-actions" style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
       <ShowcasePin pinned={note.pinned} disabled={busy} onPress={() => void act(() => services.notes.setPinned(id, !note.pinned))} />
-      <View style={styles.action}><Button label={strings.notes.remove} variant="danger" onPress={remove} disabled={busy} /></View>
       <View style={styles.action}><Button label={strings.notes.editTitle} onPress={() => router.push(`/note/${id}`)} disabled={busy} /></View>
     </ActionFooter>
   </Screen>;
@@ -68,4 +75,6 @@ const styles = StyleSheet.create({
   title: { fontSize: TYPE.title, fontWeight: '700' },
   footer: { padding: 12, gap: 8, flexDirection: 'row', alignItems: 'center' },
   action: { flex: 1 },
+  reminder: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  danger: { marginTop: 24, paddingTop: 24, borderTopWidth: StyleSheet.hairlineWidth },
 });

@@ -17,6 +17,7 @@ import { NoteStore } from '../noteStore';
 import { strings } from '../../strings';
 
 let mockId = 'new';
+let mockSpace: string | undefined;
 let mockPrevented: ((options: { repeat: () => void }) => void) | undefined;
 const mockBack = jest.fn();
 const mockRepeat = jest.fn();
@@ -29,7 +30,7 @@ jest.mock('expo-router', () => {
   return {
     Stack: { Screen: () => null },
     useRouter: () => mockRouter,
-    useLocalSearchParams: () => ({ id: mockId }),
+    useLocalSearchParams: () => ({ id: mockId, space: mockSpace }),
     useFocusEffect: (effect: () => void | (() => void)) => React.useEffect(effect, [effect]),
     usePreventRemove: (prevent: boolean, callback: typeof mockPrevented) => { mockPrevented = prevent ? callback : undefined; },
   };
@@ -44,6 +45,7 @@ beforeEach(async () => {
   jest.clearAllMocks();
   appState.mockImplementation(() => ({ remove: jest.fn() }));
   mockId = 'new';
+  mockSpace = undefined;
   mockPrevented = undefined;
   const { notes } = await makeStore();
   mockServices = { notes, noteEditors: createNoteEditors(notes) };
@@ -328,4 +330,32 @@ test('past reminder dates are rejected before permission is requested', async ()
   await act(async () => fireEvent.press(screen.getByText(strings.notes.reminderSave)));
   expect(screen.getByText(strings.notes.reminderInvalid)).toBeTruthy();
   expect(requestReminderPermissionOnce).not.toHaveBeenCalled();
+});
+
+test('a new note starts in Personal and keeps the Space chosen in the editor', async () => {
+  await render(<NoteScreen />);
+  await write('Packing', 'Passport');
+  expect(screen.getByTestId('assign-space-personal').props.accessibilityState).toMatchObject({ checked: true });
+  await fireEvent.press(screen.getByTestId('assign-space-home'));
+  await act(async () => fireEvent.press(screen.getByTestId('note-done')));
+  const [note] = await mockServices.notes.list();
+  expect(note).toMatchObject({ title: 'Packing', spaceId: 'home' });
+});
+
+test('a note written from inside a Space is saved there, and a later edit keeps it there', async () => {
+  mockSpace = 'travel';
+  await render(<NoteScreen />);
+  expect(screen.getByTestId('assign-space-travel').props.accessibilityState).toMatchObject({ checked: true });
+  await write('Hotel', 'Room 12');
+  await act(async () => fireEvent.press(screen.getByTestId('note-done')));
+  const [note] = await mockServices.notes.list();
+  expect(note.spaceId).toBe('travel');
+
+  await screen.unmount();
+  mockSpace = undefined;
+  mockId = note.id;
+  await render(<NoteScreen />);
+  await fireEvent.changeText(await screen.findByTestId('note-body'), 'Room 14');
+  await act(async () => fireEvent.press(screen.getByTestId('note-done')));
+  expect((await mockServices.notes.get(note.id))).toMatchObject({ body: 'Room 14', spaceId: 'travel' });
 });

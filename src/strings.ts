@@ -145,6 +145,16 @@ export const strings = {
     noneExpiring: (days: number) => `Nothing expires in the next ${days} days.`,
     moveUp: 'Move up',
     moveDown: 'Move down',
+    favoritesTitle: 'Pinned documents',
+    recentTitle: 'Recently visited',
+    sortRecent: 'Recently visited', // the fixed order of the Recently visited list
+    showAll: 'Show all documents',
+    favoritesEmpty: 'Pin a document to keep it here.',
+    recentEmpty: 'Open a document to see it here.',
+    notesEmpty: 'Write a note to keep it close.',
+    spacesEmpty: 'Choose a space to add documents and notes.',
+    recentLoading: 'Loading recent documents…',
+    opened: (ago: string) => `Opened ${ago}`,
   },
   edit: {
     blurPreview: 'Blur preview',
