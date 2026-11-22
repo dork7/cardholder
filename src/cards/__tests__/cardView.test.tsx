@@ -132,6 +132,18 @@ test('a card without a back shows only the front', async () => {
   expect(mockLoadImage).not.toHaveBeenCalledWith('card1', 'back');
 });
 
+test('a profile shows its drawn card full width with no expiry, and Edit opens the profile form', async () => {
+  mockCards = [makeCard({ id: 'card1', name: 'Sara', personId: 'sara', profile: { dateOfBirth: '1990-05-04', bloodGroup: 'AB-', template: 'medical' } })];
+  await render(<CardView />);
+  const picture = within(screen.getByTestId('profile-picture')).getByLabelText(/^Profile of Sara\. .*Blood group AB−$/);
+  await waitFor(() => expect(picture.props.source?.uri ?? picture.props.source?.[0]?.uri).toBe('data:image/jpeg;base64,card1-front'));
+  expect(screen.queryByText(strings.card.front)).toBeNull();
+  expect(screen.queryByTestId('card-expiry')).toBeNull();
+  await fireEvent.press(screen.getByTestId('more-card'));
+  await fireEvent.press(screen.getByTestId('edit-card'));
+  expect(mockPush).toHaveBeenCalledWith('/profile/card1');
+});
+
 describe('actions', () => {
   let alert: jest.SpyInstance;
   beforeEach(() => {

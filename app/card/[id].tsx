@@ -43,6 +43,7 @@ import { ShowcaseIcon } from '../../src/showcase/ShowcaseActions';
 import { recordDocumentVisit } from '../../src/showcase/documentVisits';
 import { spaceFor } from '../../src/spaces/spaces';
 import { UndoBar } from '../../src/ui/UndoBar';
+import { profileSummary } from '../../src/profiles/ProfileCard';
 
 export default function CardView() {
   const { id, show } = useLocalSearchParams<{ id: string; show?: string }>();
@@ -347,12 +348,12 @@ export default function CardView() {
               </Text>
             </View>
             <Text style={[styles.meta, { color: theme.muted }]}>{spaceFor(card.spaceId).name} space</Text>
-            <View style={styles.expiryRow}>
+            {!card.profile && <View style={styles.expiryRow}>
               {needsExpiryAlert(card, now) && <ExpiryAlert size={18} pop testID="card-expiry-alert" />}
               <Text style={[styles.meta, { color: expiryColor }]} testID="card-expiry">
                 {expiryLabel(card, now)}
               </Text>
-            </View>
+            </View>}
             {owner && <Text style={[styles.meta, { color: theme.muted }]}>{strings.people.belongsTo(owner.name)}</Text>}
             {!staff && (
               <View style={styles.tags} testID="card-tags">
@@ -384,6 +385,13 @@ export default function CardView() {
     <View style={[styles.inset, styles.sides, landscape && styles.sidesRow]} testID="card-sides">
           {card.pdf ? (
             <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} initialPage={pdfPage} onPageChange={setPdfPage} />
+          ) : card.profile ? (
+            // A profile is its drawn card, shown full width; it has no back.
+            <View style={styles.side} testID="profile-picture">
+              <View style={styles.frame}>
+                <ZoomableImage uri={frontUri} accessibilityLabel={profileSummary(displayName(card), card.profile, now)} />
+              </View>
+            </View>
           ) : sides.map((side) => (
             <View key={side.label} style={styles.side}>
               <Text style={{ fontSize: 14, color: theme.muted, textAlign: 'center' }}>{side.label}</Text>
@@ -475,7 +483,9 @@ export default function CardView() {
         testID="card-more-sheet"
         actions={[
           { key: 'pdf', icon: 'pdf', label: strings.card.exportPdf, hint: strings.card.exportPdfHint, onPress: exportPdf, testID: 'export-pdf' },
-          { key: 'edit', icon: 'edit', label: strings.card.edit, onPress: () => router.push(`/edit/${card.id}`), testID: 'edit-card' },
+          card.profile
+            ? { key: 'edit', icon: 'edit', label: strings.profiles.edit, onPress: () => router.push(`/profile/${card.id}`), testID: 'edit-card' }
+            : { key: 'edit', icon: 'edit', label: strings.card.edit, onPress: () => router.push(`/edit/${card.id}`), testID: 'edit-card' },
           { key: 'delete', icon: 'trash', variant: 'danger', label: strings.edit.deleteCard, onPress: () => void deleteCard(), testID: 'delete-card' },
         ]}
       />

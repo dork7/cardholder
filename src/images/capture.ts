@@ -18,6 +18,12 @@ const CROP_OPTIONS: Omit<Parameters<typeof ImagePicker.openCropper>[0], 'path'> 
   compressImageQuality: IMAGE_QUALITY,
 };
 
+// A square crop, for a profile photo: the cropper is held to 1:1 and gives this many pixels a side.
+const SQUARE_EDGE = 800;
+const SQUARE_OPTIONS: Partial<typeof CROP_OPTIONS> = { freeStyleCropEnabled: false, width: SQUARE_EDGE, height: SQUARE_EDGE };
+
+export type CropShape = 'free' | 'square';
+
 const toFileUri = (path: string) => (path.startsWith('file://') ? path : `file://${path}`);
 
 // Best effort; the OS also clears the cache folder.
@@ -78,9 +84,9 @@ export interface PickedPhoto {
   original: string | null;
 }
 
-// Photo library → freeform crop, starting around the card when its edges can be found. Returns null
-// when the user cancels.
-export async function pickImage(): Promise<PickedPhoto | null> {
+// Photo library → freeform crop, starting around the card when its edges can be found. A square crop
+// starts from the whole photo, since it is not cutting out a document. Returns null when the user cancels.
+export async function pickImage(shape: CropShape = 'free'): Promise<PickedPhoto | null> {
   let picked: PickedImage;
   try {
     picked = (await ImagePicker.openPicker({ mediaType: 'photo', cropping: false, forceJpg: true })) as PickedImage;
@@ -91,9 +97,9 @@ export async function pickImage(): Promise<PickedPhoto | null> {
   let original: File | null = null;
   try {
     const uri = toFileUri(picked.path);
-    const precut = await cutAroundCard(uri);
+    const precut = shape === 'free' ? await cutAroundCard(uri) : null;
     if (precut) original = await keepOriginal(uri);
-    const image = await crop(precut ?? uri, precut);
+    const image = await crop(precut ?? uri, precut, shape);
     if (!image) return null;
     const kept = original;
     original = null;
@@ -132,9 +138,10 @@ export async function cropSharedImage(path: string): Promise<FrontImage | null> 
 }
 
 // Opens the cropper on `path`; `precut`, when given, is a temporary cut that is deleted afterwards.
-async function crop(path: string, precut: string | null): Promise<FrontImage | null> {
+async function crop(path: string, precut: string | null, shape: CropShape = 'free'): Promise<FrontImage | null> {
   try {
-    return await finish((await ImagePicker.openCropper({ ...CROP_OPTIONS, path })) as PickedImage);
+    const options = shape === 'square' ? { ...CROP_OPTIONS, ...SQUARE_OPTIONS } : CROP_OPTIONS;
+    return await finish((await ImagePicker.openCropper({ ...options, path })) as PickedImage);
   } catch (e) {
     if (isCancel(e)) return null;
     throw e;

@@ -10,6 +10,7 @@ import { parseRemindDays, toCardText } from './validate';
 import { normalizeTags, withLegacyCategory } from './tags';
 import { spaceFor } from '../spaces/spaces';
 import { personName, samePersonName } from '../people/names';
+import { toProfile } from '../profiles/profile';
 import { Card, CardFields, CardPdf, DeletedCard, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument, Person } from './types';
 
 export class FolderNotFoundError extends Error {
@@ -23,6 +24,14 @@ export class CardNotFoundError extends Error {
   constructor(id: string) {
     super(`Card ${id} not found`);
     this.name = 'CardNotFoundError';
+  }
+}
+
+// A Person has at most one profile, and a profile always belongs to one.
+export class ProfileExistsError extends Error {
+  constructor(personId: string) {
+    super(`Person ${personId} already has a profile`);
+    this.name = 'ProfileExistsError';
   }
 }
 
@@ -142,12 +151,14 @@ export function createCardStore({
       readText: card.readText,
       vertical: card.vertical,
       blurPreview: card.blurPreview,
+      ...(card.profile && { profile: card.profile }),
     };
     return aead.seal(utf8.encode(JSON.stringify(payload)));
   };
 
   const toCard = (row: Row): Card => {
     const payload = JSON.parse(utf8.decode(aead.open(row.payload))) as Payload;
+    const profile = toProfile(payload.profile);
     // Built field by field: older payloads can still hold a card number and notes, and a category
     // from before categories became tags, which is read as the card's first tag.
     return {
@@ -164,6 +175,7 @@ export function createCardStore({
       readText: toCardText(payload.readText), // null for cards saved before text was kept
       blurPreview: payload.blurPreview === true,
       vertical: typeof payload.vertical === 'boolean' ? payload.vertical : looksVertical(payload.frontAspect),
+      ...(profile && { profile }),
       id: row.id,
       pinned: row.pinned === 1,
       position: row.position,
@@ -186,6 +198,14 @@ export function createCardStore({
   const toPerson = (row: FolderRow): Person => ({ id: row.id, name: (JSON.parse(utf8.decode(aead.open(row.payload))) as { name: string }).name, createdAt: row.created_at });
 
   const getRow = (id: string) => db.getFirstAsync<Row>(`SELECT * FROM cards WHERE id = ? AND ${CURRENT}`, [id]);
+
+  // A profile needs a person who has no other current profile. Only that person's documents are opened.
+  const checkProfileOwner = async (fields: CardFields, id: string | null) => {
+    if (!fields.profile) return;
+    if (!fields.personId) throw new Error('A profile needs a person');
+    const rows = await db.getAllAsync<Row>(`SELECT * FROM cards WHERE person_id = ? AND ${CURRENT}`, [fields.personId]);
+    if (rows.some((row) => row.id !== id && toCard(row).profile)) throw new ProfileExistsError(fields.personId);
+  };
 
   const putImage = (id: string, kind: BlobKind, base64Data: string) =>
     blobs.put(blobName(id, kind), aead.seal(base64.decode(base64Data)));
@@ -269,6 +289,7 @@ export function createCardStore({
     loadPdf: (id) => load(id, 'pdf'),
 
     async create(fields, images) {
+      await checkProfileOwner(fields, null);
       const id = newId();
       const t = now();
       await writeImages(id, images);
@@ -292,6 +313,7 @@ export function createCardStore({
       const row = await getRow(id);
       if (!row) throw new CardNotFoundError(id);
       const current = toCard(row);
+      await checkProfileOwner({ ...current, ...fields, profile: fields.profile ?? current.profile }, id);
       if (changes.front) {
         await putImage(id, 'front', changes.front.jpegBase64);
         await putImage(id, 'thumb', changes.front.thumbJpegBase64);

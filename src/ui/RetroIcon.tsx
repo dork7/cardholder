@@ -7,7 +7,7 @@ export type RetroIconName =
   | 'backup' | 'documents' | 'lock' | 'appearance' | 'blur' | 'expiry' | 'import' | 'settings'
   | 'plus' | 'note' | 'gallery' | 'folder' | 'search' | 'home' | 'spaces' | 'arrow' | 'back';
 export type ActionIconName =
-  | 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'tag' | 'pdf' | 'refresh' | 'more';
+  | 'trash' | 'share' | 'edit' | 'pin' | 'unpin' | 'present' | 'tag' | 'pdf' | 'refresh' | 'more' | 'profile';
 type IconName = RetroIconName | ActionIconName;
 
 export const ICON_PATHS: Record<Exclude<IconName, 'appearance' | 'documents' | 'gallery' | 'more'>, string> = {
@@ -33,6 +33,8 @@ export const ICON_PATHS: Record<Exclude<IconName, 'appearance' | 'documents' | '
   present: 'M3 4h18v13H3zM9 21h6M12 17v4',
   tag: 'M3 3h8l10 10-8 8L3 11z',
   pdf: 'M14 3H5v18h14V8zM14 3v6h5M8 13h8M8 17h5',
+  // A small ID card with a head and shoulders on it.
+  profile: 'M3 5h18v14H3zM9 8.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM5.5 16a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3',
   refresh: 'M20 7v5h-5M4 17v-5h5M5.5 9A7 7 0 0 1 18 6l2 1M4 17l2 1a7 7 0 0 0 12.5-3',
 };
 
