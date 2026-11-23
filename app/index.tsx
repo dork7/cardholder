@@ -63,7 +63,7 @@ export default function Home() {
         <Text style={[styles.brandName, { color: theme.text }]}>doc keeper</Text>
         <Text style={{ color: theme.muted, fontSize: TYPE.caption }}>Your private space</Text>
       </View>
-      <ShowcaseIcon icon="search" label="Search documents" onPress={() => router.push('/documents?search=1')} />
+      <ShowcaseIcon icon="search" label="Search documents" onPress={() => router.replace('/documents?search=1')} />
       <ShowcaseIcon icon="plus" label="Add document or note" onPress={add.open} />
       <ShowcaseIcon icon="settings" label={strings.home.settings} onPress={() => router.push('/settings')} />
     </View>
@@ -74,20 +74,20 @@ export default function Home() {
       </View>}
       <Favorites cards={splitPinned(cards).pinned} />
       <View style={[styles.panel, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
-        <ShowcaseSectionHeading title="Recently visited" onPress={() => router.push('/documents?mode=recent')} />
+        <ShowcaseSectionHeading title={strings.home.recentTitle} onPress={() => router.replace('/documents?mode=recent')} />
         {recent.length ? recent.map(({ card, visitedAt }) => (
-          <ShowcaseDocumentRow key={card.id} card={card} subtitle={`Opened ${formatActivityAgo(visitedAt, now)}`} />
-        )) : <EmptySection>Open a document to see it here.</EmptySection>}
+          <ShowcaseDocumentRow key={card.id} card={card} subtitle={strings.home.opened(formatActivityAgo(visitedAt, now))} />
+        )) : <EmptySection>{strings.home.recentEmpty}</EmptySection>}
       </View>
       <View style={[styles.panel, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
         <ShowcaseSectionHeading title="Notes" onPress={() => router.replace('/notes')} />
         {recentNotes.length ? recentNotes.map((note) => <ShowcaseNoteRow key={note.id} note={note} subtitle={`Changed ${formatActivityAgo(note.updatedAt, now)}`} />)
-          : <EmptySection>Write a note to keep it close.</EmptySection>}
+          : <EmptySection>{strings.home.notesEmpty}</EmptySection>}
       </View>
       <View style={[styles.panel, { backgroundColor: theme.glassStrong, borderColor: theme.border }]}>
         <ShowcaseSectionHeading title="Spaces" onPress={() => router.replace('/spaces')} />
         <SpaceCarousel cards={cards} notes={notes} onSelect={(id) => router.replace(`/spaces?space=${id}`)} />
-        {cards.length === 0 && notes.length === 0 && <EmptySection>Choose a space to add documents and notes.</EmptySection>}
+        {cards.length === 0 && notes.length === 0 && <EmptySection>{strings.home.spacesEmpty}</EmptySection>}
       </View>
     </ScrollView>
     <View pointerEvents="box-none" style={[styles.undo, { bottom: clearance }]}><UndoBar undo={undo} /></View>
@@ -129,11 +129,11 @@ function Favorites({ cards }: { cards: readonly Card[] }) {
     </Svg>
     <View style={styles.favoriteHeading}>
       <Text accessibilityRole="header" style={[styles.favoriteTitle, { color: theme.showcase.ink }]}>My favorites</Text>
-      <ShowcaseIcon icon="arrow" label="View pinned documents" onPress={() => router.push('/documents?mode=favorites')} />
+      <ShowcaseIcon icon="arrow" label="View pinned documents" onPress={() => router.replace('/documents?mode=favorites')} />
     </View>
     {!cards.length ? <View style={styles.favoriteEmpty}>
       <RetroIcon name="pin" color={theme.showcase.ink} size={30} />
-      <Text style={{ color: theme.showcase.ink, fontSize: TYPE.body }}>Pin a document to keep it here.</Text>
+      <Text style={{ color: theme.showcase.ink, fontSize: TYPE.body }}>{strings.home.favoritesEmpty}</Text>
     </View> : <>
       <ScrollView ref={list} horizontal testID="favorites-carousel" snapToInterval={step} decelerationRate="fast"
         showsHorizontalScrollIndicator={false} scrollEventThrottle={16}

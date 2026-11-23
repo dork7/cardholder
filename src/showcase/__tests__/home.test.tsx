@@ -11,6 +11,8 @@ import { DocumentVisit } from '../documentVisits';
 let mockCards: Card[];
 let mockNotes: Note[];
 let mockVisits: DocumentVisit[];
+let mockOpenImport = false;
+const mockClearOpenImport = jest.fn(() => { mockOpenImport = false; });
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockSetPinned = jest.fn(() => Promise.resolve());
@@ -29,7 +31,8 @@ jest.mock('expo-router', () => {
   };
 });
 jest.mock('../../app/AppProvider', () => ({
-  useApp: () => ({ cards: mockCards, notes: mockNotes, services: mockServices, refresh: mockRefresh, undo: mockUndo }),
+  useApp: () => ({ cards: mockCards, notes: mockNotes, services: mockServices, refresh: mockRefresh, undo: mockUndo,
+    openImportOnReady: mockOpenImport, clearOpenImport: mockClearOpenImport }),
 }));
 jest.mock('../../hooks/useCardImage', () => ({ useCardImage: () => 'data:image/jpeg;base64,AA==' }));
 
@@ -38,6 +41,7 @@ beforeEach(() => {
   mockCards = [];
   mockNotes = [];
   mockVisits = [];
+  mockOpenImport = false;
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -110,9 +114,9 @@ test('the empty dashboard offers real library, search, space and creation routes
   expect(screen.getByText('Choose a space to add documents and notes.')).toBeTruthy();
 
   await fireEvent.press(screen.getByRole('button', { name: 'View pinned documents' }));
-  expect(mockPush).toHaveBeenLastCalledWith('/documents?mode=favorites');
+  expect(mockReplace).toHaveBeenLastCalledWith('/documents?mode=favorites');
   await fireEvent.press(screen.getByRole('button', { name: 'View recently visited' }));
-  expect(mockPush).toHaveBeenLastCalledWith('/documents?mode=recent');
+  expect(mockReplace).toHaveBeenLastCalledWith('/documents?mode=recent');
   await fireEvent.press(screen.getByRole('button', { name: 'View notes' }));
   expect(mockReplace).toHaveBeenLastCalledWith('/notes');
   await fireEvent.press(screen.getByRole('button', { name: 'View spaces' }));
@@ -120,7 +124,7 @@ test('the empty dashboard offers real library, search, space and creation routes
   await fireEvent.press(screen.getByTestId('browse-space-travel'));
   expect(mockReplace).toHaveBeenLastCalledWith('/spaces?space=travel');
   await fireEvent.press(screen.getByRole('button', { name: 'Search documents' }));
-  expect(mockPush).toHaveBeenLastCalledWith('/documents?search=1');
+  expect(mockReplace).toHaveBeenLastCalledWith('/documents?search=1');
 
   await fireEvent.press(screen.getByTestId('showcase-add-button'));
   await fireEvent.press(screen.getByTestId('showcase-add-document'));
@@ -128,4 +132,19 @@ test('the empty dashboard offers real library, search, space and creation routes
   await fireEvent.press(screen.getByTestId('showcase-add-button'));
   await fireEvent.press(screen.getByTestId('showcase-add-note'));
   expect(mockPush).toHaveBeenLastCalledWith('/note/new');
+});
+
+test('a pending backup recovery opens Import once Home is ready', async () => {
+  mockOpenImport = true;
+  await render(<Home />);
+  expect(mockClearOpenImport).toHaveBeenCalledTimes(1);
+  expect(mockPush).toHaveBeenCalledWith('/import');
+});
+
+test('space cards tell a screen reader their name and live counts', async () => {
+  mockCards = [makeCard({ id: 'a', spaceId: 'travel' }), makeCard({ id: 'b', spaceId: 'travel' })];
+  mockNotes = [{ id: 'n', title: '', body: '', tags: [], documentId: null, pinned: false, createdAt: 1, updatedAt: 1, spaceId: 'travel' }];
+  await render(<Home />);
+  expect(screen.getByTestId('browse-space-travel').props.accessibilityLabel).toBe('Travel space, 2 documents, 1 note');
+  expect(screen.getByTestId('browse-space-home').props.accessibilityLabel).toBe('Home space, 0 documents, 0 notes');
 });

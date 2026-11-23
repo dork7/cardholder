@@ -367,13 +367,76 @@ describe('document library (the default view)', () => {
       { id: 'a', visitedAt: 10 },
     ];
     await renderHome();
-    const visible = screen.getAllByRole('button').map((button) => button.props.accessibilityLabel);
-    expect(visible.filter((label) => label === 'Gym' || label === 'Emirates ID')).toEqual(['Gym', 'Emirates ID']);
-    expect(screen.queryByRole('button', { name: 'Health insurance' })).toBeNull();
+    expect(screen.getAllByTestId(/^row-/).map((row) => row.props.testID)).toEqual(['row-c', 'row-a']);
+    expect(screen.getByTestId('row-c').props.accessibilityLabel).toMatch(/^Open Gym, Opened /);
+    expect(screen.queryByTestId('row-b')).toBeNull();
     await fireEvent.press(screen.getByRole('radio', { name: 'ID' }));
-    expect(screen.queryByRole('button', { name: 'Gym' })).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Emirates ID' }));
+    expect(screen.queryByTestId('row-c')).toBeNull();
+    await fireEvent.press(screen.getByTestId('row-a'));
     expect(mockPush).toHaveBeenCalledWith('/card/a');
+  });
+
+  test('Recently visited waits for visits instead of saying there are none', async () => {
+    mockParams = { mode: 'recent' };
+    let finish!: (visits: DocumentVisit[]) => void;
+    const getAllAsync = jest.spyOn(mockServices.db, 'getAllAsync').mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    await renderHome();
+    expect(screen.getByText(strings.home.recentLoading)).toBeTruthy();
+    expect(screen.queryByText(strings.home.recentEmpty)).toBeNull();
+    await act(async () => finish([{ id: 'b', visitedAt: 10 }]));
+    expect(screen.queryByText(strings.home.recentLoading)).toBeNull();
+    expect(screen.getByTestId('row-b')).toBeTruthy();
+    getAllAsync.mockRestore();
+  });
+
+  test('Recently visited keeps its order but offers Expiring soon and selection', async () => {
+    mockParams = { mode: 'recent' };
+    mockVisits = [{ id: 'c', visitedAt: 20 }, { id: 'a', visitedAt: 10 }];
+    await withCards([
+      makeCard({ id: 'a', name: 'Alpha', expiresOn: '2000-01-01' }),
+      makeCard({ id: 'c', name: 'Charlie' }),
+    ], async () => {
+      await renderHome();
+      expect(screen.getByTestId('sort-chip').props.accessibilityLabel).toBe(strings.home.sortChip(strings.home.sortRecent));
+      await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
+      expect(screen.queryByTestId('sort-name')).toBeNull();
+      await act(async () => fireEvent.press(screen.getByTestId('filter-expiring')));
+      expect(screen.getAllByTestId(/^row-/).map((row) => row.props.testID)).toEqual(['row-a']);
+      await act(async () => fireEvent(screen.getByTestId('row-a'), 'longPress'));
+      expect(screen.getByText(strings.home.selected(1))).toBeTruthy();
+      await act(async () => fireEvent.press(screen.getByTestId('selection-pin')));
+      expect(mockSetPinned).toHaveBeenCalledWith('a', true);
+    });
+  });
+
+  test('Favorites lists only pinned documents in the chosen order, with selection and batch actions', async () => {
+    mockParams = { mode: 'favorites' };
+    mockGallerySort = 'name';
+    await withCards([
+      makeCard({ id: 'z', name: 'Zulu', pinned: true, createdAt: 3 }),
+      makeCard({ id: 'm', name: 'Mike', pinned: true, createdAt: 1 }),
+      makeCard({ id: 'x', name: 'X-ray', createdAt: 2 }),
+    ], async () => {
+      await renderHome();
+      expect(screen.getAllByTestId(/^row-/).map((row) => row.props.testID)).toEqual(['row-m', 'row-z']);
+      await act(async () => fireEvent.press(screen.getByTestId('sort-chip')));
+      await act(async () => fireEvent.press(screen.getByTestId('sort-added')));
+      expect(screen.getAllByTestId(/^row-/).map((row) => row.props.testID)).toEqual(['row-z', 'row-m']);
+      await act(async () => fireEvent.press(screen.getByTestId('sort-close')));
+      await act(async () => fireEvent(screen.getByTestId('row-z'), 'longPress'));
+      await act(async () => fireEvent.press(screen.getByTestId('row-m')));
+      expect(screen.getByText(strings.home.selected(2))).toBeTruthy();
+      await act(async () => fireEvent.press(screen.getByTestId('selection-pin')));
+      expect(mockSetPinned.mock.calls).toEqual(expect.arrayContaining([['z', false], ['m', false]]));
+    });
+  });
+
+  test('Favorites says so when nothing is pinned', async () => {
+    mockParams = { mode: 'favorites' };
+    await renderHome();
+    expect(screen.getByText(strings.home.favoritesEmpty)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: strings.home.showAll }));
+    expect(mockReplace).toHaveBeenCalledWith('/documents');
   });
 
   test('the tab bar marks Documents as the current tab and + adds a document', async () => {

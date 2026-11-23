@@ -24,7 +24,7 @@ import { TagChips } from '../src/ui/TagChips';
 import { ChipRow } from '../src/ui/ChipRow';
 import { Fab } from '../src/ui/Fab';
 import { TabBar, useTabBarClearance } from '../src/ui/TabBar';
-import { PinnedPanels, DocumentRows, SectionHeading } from '../src/ui/DocumentList';
+import { PinnedPanels, DocumentRows, SectionHeading, metaLine } from '../src/ui/DocumentList';
 import { UndoBar } from '../src/ui/UndoBar';
 import { deleteAllWithUndo } from '../src/cards/deleteWithUndo';
 import { IconButton } from '../src/ui/IconButton';
@@ -38,7 +38,6 @@ import { GestureTip, useGestureTips } from '../src/ui/GestureTip';
 import { SortSheet } from '../src/ui/SortSheet';
 import { DocumentVisit, listDocumentVisits } from '../src/showcase/documentVisits';
 import { useShowcaseAdd } from '../src/showcase/ShowcaseActions';
-import { ShowcaseDocumentRow } from '../src/showcase/ShowcaseLibrary';
 import { formatActivityAgo } from '../src/time/dates';
 import { useDebouncedQuery } from '../src/ui/useDebouncedQuery';
 
@@ -62,11 +61,12 @@ export default function Documents() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ mode?: string; search?: string }>();
   const mode = params.mode === 'favorites' || params.mode === 'recent' ? params.mode : 'all';
-  const [visits, setVisits] = useState<DocumentVisit[]>([]);
+  // Null until the visits have loaded, so the list never flashes its empty message first.
+  const [visits, setVisits] = useState<DocumentVisit[] | null>(null);
   useFocusEffect(useCallback(() => {
     if (mode !== 'recent') return;
     let active = true;
-    void listDocumentVisits(services.db).then((next) => { if (active) setVisits(next); }).catch(() => {});
+    void listDocumentVisits(services.db).then((next) => { if (active) setVisits(next); }).catch(() => { if (active) setVisits([]); });
     return () => { active = false; };
   }, [mode, services]));
   const [query, setQuery] = useState('');
@@ -92,12 +92,23 @@ export default function Documents() {
   // filters apply to both sections.
   const { pinned } = splitPinned(byPerson.filter(matchesExpiry));
   const rest = sortDocuments(shown.filter((card) => !card.pinned && matchesExpiry(card)), sort);
+  // Favorites and Recently visited are narrower lists under the same search, filters and selection.
+  // Favorites follow the chosen order; Recently visited always reads newest visit first.
+  const visitedAt = new Map((visits ?? []).map((visit) => [visit.id, visit.visitedAt]));
+  const modeCards = mode === 'favorites'
+    ? sortDocuments(shown.filter((card) => card.pinned && matchesExpiry(card)), sort)
+    : mode === 'recent'
+      ? shown.filter((card) => visitedAt.has(card.id) && matchesExpiry(card)).sort((a, b) => visitedAt.get(b.id)! - visitedAt.get(a.id)!)
+      : [];
+  const listed = mode === 'all' ? [...pinned, ...rest] : modeCards;
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const selected = [...pinned, ...rest].filter((card) => selectedIds.has(card.id));
+  const selected = listed.filter((card) => selectedIds.has(card.id));
   const [choosingTags, setChoosingTags] = useState(false);
   const [rereading, setRereading] = useState<{ done: number; of: number } | null>(null);
-  const selecting = mode === 'all' && selected.length > 0;
+  const selecting = selected.length > 0;
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  // A selection belongs to the list it was made in.
+  useEffect(() => clearSelection(), [mode, clearSelection]);
   const tips = useGestureTips(services.settings);
   const toggleSelected = (card: Card) => {
     tips.done('documents');
@@ -184,7 +195,8 @@ export default function Documents() {
     });
   };
 
-  const sortName = sort === 'name' ? strings.home.sortName : sort === 'expiry' ? strings.home.sortExpiry : strings.home.sortAdded;
+  const sortName = mode === 'recent' ? strings.home.sortRecent
+    : sort === 'name' ? strings.home.sortName : sort === 'expiry' ? strings.home.sortExpiry : strings.home.sortAdded;
 
   const add = useShowcaseAdd();
 
@@ -222,7 +234,7 @@ export default function Documents() {
           chips={[{ key: 'all', label: strings.people.everyone, selected: personId === null, onPress: () => setChosenPerson(null) },
             ...people.map((person) => ({ key: person.id, label: person.name, selected: personId === person.id,
               onPress: () => setChosenPerson(person.id), testID: `person-filter-${person.id}` }))]} />}
-        {mode === 'all' && cards.length > 0 && (
+        {cards.length > 0 && (
           <Pressable
             onPress={() => setSortSheetOpen(true)}
             accessibilityRole="button"
@@ -237,17 +249,37 @@ export default function Documents() {
       </View>
 
       {mode !== 'all' ? (
-        <ScrollView style={styles.fill} contentContainerStyle={[styles.inset, styles.library, { paddingBottom: 84 }]}>
-          <SectionHeading title={mode === 'favorites' ? 'Pinned documents' : 'Recently visited'} />
-          <Button variant="secondary" label="Show all documents" onPress={() => router.replace('/documents')} />
-          {mode === 'favorites' ? shown.filter((card) => card.pinned).map((card) => <ShowcaseDocumentRow key={card.id} card={card} />)
-            : visits.map(({ id, visitedAt }) => {
-              const card = shown.find((item) => item.id === id);
-              return card ? <ShowcaseDocumentRow key={id} card={card} subtitle={`Opened ${formatActivityAgo(visitedAt, now.getTime())}`} /> : null;
-            })}
-          {(mode === 'favorites' ? !shown.some((card) => card.pinned) : !visits.some(({ id }) => shown.some((card) => card.id === id))) &&
-            <LiveText style={[styles.promise, { color: theme.muted }]}>{query.trim() ? strings.home.noResults :
-              mode === 'favorites' ? 'Pin a document to keep it here.' : 'Open a document to see it here.'}</LiveText>}
+        <ScrollView
+          style={styles.fill}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.inset, styles.library, { paddingBottom: selecting ? 16 : 84 }]}
+          testID="document-list"
+        >
+          <View style={styles.section}>
+            <SectionHeading
+              title={mode === 'favorites' ? strings.home.favoritesTitle : strings.home.recentTitle}
+              count={mode === 'recent' && visits === null ? undefined : strings.home.documentCount(modeCards.length)}
+            />
+            {!selecting && <Button variant="secondary" label={strings.home.showAll} onPress={() => router.replace('/documents')} />}
+            {mode === 'recent' && visits === null ? (
+              <LiveText style={[styles.promise, { color: theme.muted }]}>{strings.home.recentLoading}</LiveText>
+            ) : modeCards.length > 0 ? (
+              <DocumentRows
+                cards={modeCards}
+                {...listActions}
+                meta={mode === 'recent'
+                  ? (card, at) => `${strings.home.opened(formatActivityAgo(visitedAt.get(card.id)!, at.getTime()))}${strings.home.metaSeparator}${metaLine(card, at)}`
+                  : undefined}
+              />
+            ) : (
+              <LiveText style={[styles.promise, { color: theme.muted }]}>
+                {searchPending ? strings.home.searching
+                  : query.trim() || tag || personId ? strings.home.noResults
+                  : expiringOnly && listedWithoutExpiry(mode, shown, visitedAt) ? strings.home.noneExpiring(EXPIRY_SOON_DAYS)
+                  : mode === 'favorites' ? strings.home.favoritesEmpty : strings.home.recentEmpty}
+              </LiveText>
+            )}
+          </View>
         </ScrollView>
       ) : cards.length === 0 && pinnedNotes.length === 0 ? (
         <View style={[styles.inset, styles.body]}>
@@ -301,6 +333,7 @@ export default function Documents() {
         visible={sortSheetOpen}
         sort={sort}
         expiringOnly={expiringOnly}
+        showOrder={mode !== 'recent'}
         onSort={setSort}
         onExpiringOnly={(on) => setExpiringChoice(on ? 'on' : 'off')}
         onClose={() => setSortSheetOpen(false)}
@@ -388,6 +421,11 @@ export default function Documents() {
       )}
     </Screen>
   );
+}
+
+// Whether the mode's list would have anything without the Expiring soon filter.
+function listedWithoutExpiry(mode: 'favorites' | 'recent', shown: Card[], visitedAt: ReadonlyMap<string, number>): boolean {
+  return shown.some((card) => (mode === 'favorites' ? card.pinned : visitedAt.has(card.id)));
 }
 
 // Pill search, as the style asks: a filled field two steps up, with a clear button once there's text.

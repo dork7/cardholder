@@ -9,6 +9,7 @@ interface Props {
   visible: boolean;
   sort: DocumentSort;
   expiringOnly: boolean;
+  showOrder?: boolean; // false where the list has a fixed order, such as Recently visited
   onSort: (sort: DocumentSort) => void;
   onExpiringOnly: (on: boolean) => void;
   onClose: () => void;
@@ -20,7 +21,7 @@ const orders: [DocumentSort, string][] = [
   ['added', strings.home.sortAdded],
 ];
 
-export function SortSheet({ visible, sort, expiringOnly, onSort, onExpiringOnly, onClose }: Props) {
+export function SortSheet({ visible, sort, expiringOnly, showOrder = true, onSort, onExpiringOnly, onClose }: Props) {
   const theme = useTheme();
   return (
     <Sheet visible={visible} onClose={onClose} backdropLabel={strings.common.close} style={styles.sheet} testID="sort-sheet">
@@ -30,7 +31,7 @@ export function SortSheet({ visible, sort, expiringOnly, onSort, onExpiringOnly,
           <Text style={{ color: theme.text, fontSize: TYPE.secondary }}>{strings.common.close}</Text>
         </Pressable>
       </View>
-      <View accessibilityRole="radiogroup" accessibilityLabel={strings.home.sortLabel}>
+      {showOrder && <View accessibilityRole="radiogroup" accessibilityLabel={strings.home.sortLabel}>
         {orders.map(([key, label]) => (
           <Pressable
             key={key}
@@ -45,7 +46,7 @@ export function SortSheet({ visible, sort, expiringOnly, onSort, onExpiringOnly,
             <Text style={{ color: theme.selection, fontSize: TYPE.body }}>{sort === key ? '■' : '□'}</Text>
           </Pressable>
         ))}
-      </View>
+      </View>}
       <Pressable
         onPress={() => onExpiringOnly(!expiringOnly)}
         accessibilityRole="checkbox"

@@ -95,13 +95,15 @@ export function SpaceCarousel({ cards, notes, selected, onSelect }: {
     {SPACES.map(({ id, name }) => {
       const documents = cards.filter((card) => spaceFor(card.spaceId).id === id).length;
       const noteCount = notes.filter((note) => spaceFor(note.spaceId).id === id).length;
-      return <Pressable key={id} testID={`browse-space-${id}`} accessibilityRole="button" accessibilityState={{ selected: selected === id }}
+      const counts = `${strings.home.documentCount(documents)}, ${noteCount} ${noteCount === 1 ? 'note' : 'notes'}`;
+      return <Pressable key={id} testID={`browse-space-${id}`} accessibilityRole="button" accessibilityLabel={`${name} space, ${counts}`}
+        accessibilityState={{ selected: selected === id }}
         onPress={() => onSelect(id)} style={styles.space}>
         <View style={[styles.spaceBack, { backgroundColor: theme.showcase.spaces[id] }]} />
         <View style={[styles.spaceFront, { backgroundColor: theme.showcase.spaces[id], borderColor: selected === id ? theme.accent : theme.border }]}>
           <RetroIcon name="folder" color={theme.accent} />
           <Text style={[styles.rowTitle, { color: theme.text }]}>{name}</Text>
-          <Text style={{ color: theme.text, fontSize: TYPE.caption }}>{strings.home.documentCount(documents)}, {noteCount} {noteCount === 1 ? 'note' : 'notes'}</Text>
+          <Text style={{ color: theme.text, fontSize: TYPE.caption }}>{counts}</Text>
         </View>
       </Pressable>;
     })}
