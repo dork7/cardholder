@@ -1,9 +1,12 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { Person } from '../src/cards/types';
 import { PERSON_NAME_MAX_LENGTH } from '../src/config';
 import { personName } from '../src/people/names';
+import { profileOf } from '../src/profiles/profile';
+import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
 import { Field, useInputStyle } from '../src/ui/Field';
@@ -12,7 +15,8 @@ import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 
 export default function PeopleScreen() {
-  const { cards, people, services, refresh } = useApp();
+  const { cards, people, services, refresh, unlocked } = useApp();
+  const router = useRouter();
   const theme = useTheme();
   const inputStyle = useInputStyle();
   const [editing, setEditing] = useState<string | null>(null);
@@ -58,6 +62,8 @@ export default function PeopleScreen() {
         {editing === person.id ? editor : <>
           <Text accessibilityRole="header" style={{ color: theme.text, fontSize: TYPE.section, fontWeight: '700' }}>{person.name}</Text>
           <Text style={{ color: theme.muted, fontSize: TYPE.secondary }}>{strings.people.count(cards.filter((card) => card.personId === person.id).length)}</Text>
+          <ProfileButton profileId={profileOf(cards, person.id)?.id} onOpen={(id) => router.push(`/card/${id}`)}
+            onCreate={() => router.push(canAddCard(cards.length, unlocked) ? `/profile/new?person=${person.id}` : '/paywall')} personId={person.id} />
           <View style={styles.actions}>
             <Button variant="secondary" label={strings.people.rename} onPress={() => start(person)} testID={`rename-person-${person.id}`} />
             <Button variant="danger" label={strings.common.delete} onPress={() => remove(person)} disabled={busy} testID={`delete-person-${person.id}`} />
@@ -66,6 +72,13 @@ export default function PeopleScreen() {
       </Panel>)}
     </ScrollView>
   </Screen>;
+}
+
+// A Person has at most one profile: open it, or start one for them.
+function ProfileButton({ profileId, personId, onOpen, onCreate }: { profileId?: string; personId: string; onOpen(id: string): void; onCreate(): void }) {
+  return profileId
+    ? <Button variant="secondary" label={strings.profiles.open} onPress={() => onOpen(profileId)} testID={`open-profile-${personId}`} />
+    : <Button variant="secondary" label={strings.profiles.create} onPress={onCreate} testID={`create-profile-${personId}`} />;
 }
 
 const styles = StyleSheet.create({

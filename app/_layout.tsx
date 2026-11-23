@@ -68,6 +68,7 @@ function RootNavigator() {
          <Stack.Screen name="spaces" options={{ title: strings.tabs.spaces, headerShown: false }} />
          <Stack.Screen name="edit/[id]" options={{ gestureEnabled: false }} />
          <Stack.Screen name="card/[id]" options={{ headerShown: false }} />
+         <Stack.Screen name="profile/[id]" options={{ gestureEnabled: false }} />
          <Stack.Screen name="notes" options={{ title: strings.notes.title, headerShown: false }} />
          <Stack.Screen name="note/[id]" options={{ title: strings.notes.editTitle }} />
          <Stack.Screen name="auto-backup" options={{ title: strings.autoBackup.title }} />

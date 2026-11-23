@@ -6,8 +6,14 @@ contracts. Nothing leaves the phone.
 ## Keeping documents
 
 **Document**:
-One thing the user keeps: photos of something physical, or a PDF.
+One thing the user keeps: photos of something physical, a PDF, or a profile.
 _Avoid_: card, item, file
+
+**Profile**:
+A document holding one Person's own details (date of birth, blood group), which Doc Keeper draws as a
+card from a template; the drawn card is its front. A profile always belongs to a Person, and a Person
+has at most one. Its name is its Person's name. The details are sealed with the rest of the document.
+_Avoid_: medical ID, contact card
 
 **Front**:
 The main photo of a photo document, the side that identifies it.

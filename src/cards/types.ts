@@ -1,3 +1,4 @@
+import type { ProfileDetails } from '../profiles/profile';
 import { SpaceId } from '../spaces/spaces';
 
 export interface CardFields {
@@ -12,6 +13,9 @@ export interface CardFields {
   readText: CardText | null; // what was read off the photos, for search; null until the card has been read
   blurPreview: boolean; // blur pictures in home previews; the opened document stays readable
   vertical: boolean; // an upright card: shown turned on its side in the landscape slots of the home screen
+  // Present only on a profile: the Person's details, drawn as the document's front picture. A profile
+  // always has a person. Omitted on update = unchanged.
+  profile?: ProfileDetails;
 }
 
 // A picture taller than it is wide starts as a vertical card; the user can change it on the edit screen.
