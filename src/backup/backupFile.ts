@@ -5,6 +5,7 @@ import { Card, CardImage, Folder, Person, looksVertical, PdfDocument } from '../
 import { validateCardFields } from '../cards/validate';
 import { normalizeTags } from '../cards/tags';
 import { personName } from '../people/names';
+import { profileFromBackup } from '../profiles/profile';
 import { FOLDER_NAME_MAX_LENGTH, MAX_TAGS, PBKDF2_ITERATIONS, TAG_MAX_LENGTH } from '../config';
 import { createAead } from '../crypto/aead';
 import { concat, utf8 } from '../crypto/bytes';
@@ -158,9 +159,11 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
   if (c.hasBack !== (back !== null)) invalid();
   if (back ? !isPositive(c.backAspect) : c.backAspect !== null) invalid();
   const pdf = parsePdf(imgs.pdf);
+  const profile = profileFromBackup(c.profile);
 
   const card: Card = {
     ...fields.value,
+    ...(profile && { profile }),
     // Backups made before the setting: as the card's picture looks.
     vertical: typeof c.vertical === 'boolean' ? c.vertical : looksVertical(c.frontAspect as number),
     id: c.id,
@@ -210,11 +213,17 @@ export function parseSnapshot(value: unknown): BackupSnapshot {
   const folderIds = new Set(folders.map((f) => f.id));
   const personIds = new Set(people.map((p) => p.id));
   const seen = new Set<string>();
+  const profiledPeople = new Set<string>();
   const cards = value.cards.map((entry) => {
     const parsed = parseEntry(entry, seen);
     // A card pointing at a folder the file doesn't hold is kept, outside any folder.
     if (parsed.card.folderId !== null && !folderIds.has(parsed.card.folderId)) parsed.card.folderId = null;
     if (parsed.card.personId !== null && !personIds.has(parsed.card.personId)) parsed.card.personId = null;
+    if (parsed.card.profile) {
+      const owner = parsed.card.personId;
+      if (!owner || profiledPeople.has(owner)) delete parsed.card.profile;
+      else profiledPeople.add(owner);
+    }
     return parsed;
   });
   const cardIds = new Set(cards.map((entry) => entry.card.id));

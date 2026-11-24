@@ -22,6 +22,58 @@ test('export from one phone, replace-import on another', async () => {
   expect(text(await phoneB.store.loadImage('card2', 'thumb'))).toBe('THUMB:gym');
 });
 
+test('encrypted backup replace restores a profile, its details and drawn card', async () => {
+  const source = await makeStore();
+  const person = await source.store.createPerson('Sara');
+  const profile = { dateOfBirth: '1990-05-04', bloodGroup: 'AB-' as const, template: 'medical' as const,
+    conditions: ['Asthma'], allergies: ['Pollen'], medications: ['Ventolin'], medicalNotes: 'Carry inhaler',
+    mobile: '+971500000000', email: 'sara@example.com', address: 'Dubai' };
+  const made = await source.store.create(fields({ name: 'Sara', personId: person.id, profile }), images('drawn'));
+  const bytes = await encodeBackup(await buildSnapshot(source.store, 42), 'travel pass', { iterations: 1_000 });
+  const target = await makeStore();
+  await applySnapshot(target.store, await decodeBackup(bytes, 'travel pass'), 'replace');
+  expect((await target.store.get(made.id))?.profile).toEqual(profile);
+  expect(text(await target.store.loadImage(made.id, 'front'))).toBe('JPEG:drawn');
+  expect(text(await target.store.loadImage(made.id, 'thumb'))).toBe('THUMB:drawn');
+  expect(await target.store.listPeople()).toEqual(await source.store.listPeople());
+});
+
+test('merge maps matching People and does not give one Person two profiles', async () => {
+  const source = await makeStore();
+  const incomingPerson = await source.store.createPerson('Sara');
+  await source.store.create(fields({ name: 'Sara', personId: incomingPerson.id,
+    profile: { dateOfBirth: null, bloodGroup: 'O+', template: 'medical' } }), images('incoming'));
+  const snapshot = await decodeBackup(await encodeBackup(await buildSnapshot(source.store, 42), 'pass', { iterations: 1_000 }), 'pass');
+  const target = await makeStore();
+  const currentPerson = await target.store.createPerson('Sara');
+  const current = await target.store.create(fields({ name: 'Sara', personId: currentPerson.id,
+    profile: { dateOfBirth: null, bloodGroup: 'A+', template: 'medical' } }), images('current'));
+  // The two stores both issue card1, so give the incoming document a distinct id.
+  snapshot.cards[0].card.id = 'fromBackup';
+  snapshot.people![0].id = 'fromBackupPerson';
+  snapshot.cards[0].card.personId = 'fromBackupPerson';
+  expect(await applySnapshot(target.store, snapshot, 'merge')).toMatchObject({ added: 0, skipped: 1 });
+  expect((await target.store.list()).filter((card) => card.profile)).toHaveLength(1);
+  expect((await target.store.get(current.id))?.profile?.bloodGroup).toBe('A+');
+  expect(await target.store.listPeople()).toEqual([currentPerson]);
+});
+
+test('merge attaches an incoming profile to the existing Person by name', async () => {
+  const source = await makeStore();
+  const person = await source.store.createPerson('Sara');
+  await source.store.create(fields({ name: 'Sara', personId: person.id,
+    profile: { dateOfBirth: null, bloodGroup: 'O+', template: 'medical' } }), images('incoming'));
+  const snapshot = await decodeBackup(await encodeBackup(await buildSnapshot(source.store, 42), 'pass', { iterations: 1_000 }), 'pass');
+  const target = await makeStore();
+  const existing = await target.store.createPerson('sara');
+  snapshot.cards[0].card.id = 'fromBackup';
+  snapshot.people![0].id = 'fromBackupPerson';
+  snapshot.cards[0].card.personId = 'fromBackupPerson';
+  expect(await applySnapshot(target.store, snapshot, 'merge')).toMatchObject({ added: 1 });
+  expect((await target.store.get('fromBackup'))?.personId).toBe(existing.id);
+  expect(await target.store.listPeople()).toEqual([existing]);
+});
+
 test('verifying an encrypted backup reports its contents without changing the phone', async () => {
   const phone = await makeStore();
   await phone.store.create(fields({ name: 'Current' }), images('current'));

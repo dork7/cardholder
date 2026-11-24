@@ -73,6 +73,23 @@ test('valid encryption around invalid contents is rejected', async () => {
 });
 
 describe('parseSnapshot', () => {
+  test('older backups have no profile, and damaged or unknown profile details leave the document', () => {
+    const old = rawSnapshot();
+    expect(parseSnapshot(old).cards[0].card.profile).toBeUndefined();
+    old.people = [{ id: 'sara', name: 'Sara', createdAt: 1 }];
+    old.cards[0].card.personId = 'sara';
+    for (const profile of [
+      { dateOfBirth: null, bloodGroup: 'A+', template: 'future' },
+      { dateOfBirth: null, bloodGroup: 'A+', template: 'medical', conditions: [42] },
+      { dateOfBirth: '2026-02-30', bloodGroup: 'A+', template: 'medical' },
+    ]) {
+      old.cards[0].card.profile = profile;
+      const parsed = parseSnapshot(old);
+      expect(parsed.cards[0].card.profile).toBeUndefined();
+      expect(parsed.cards[0].card.name).toBe(old.cards[0].card.name);
+      expect(parsed.cards[0].images.front).toEqual(old.cards[0].images.front);
+    }
+  });
   test('accepts a valid snapshot', async () => {
     expect(await parseCode(rawSnapshot())).toBe('resolved');
   });
