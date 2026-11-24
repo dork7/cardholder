@@ -96,6 +96,19 @@ test('search finds a profile by its name, date of birth and blood group', async 
   }
 });
 
+test('optional medical and contact details stay sealed, reopen unchanged and are searchable', async () => {
+  const { store, db, person } = await withPerson();
+  const profile = details({ conditions: ['Asthma'], allergies: ['Pollen'], medications: ['Ventolin'],
+    medicalNotes: 'Carry inhaler', mobile: '+971500000000', email: 'sara@example.com', address: 'Dubai Marina' });
+  const saved = await store.create(fields({ name: 'Sara', personId: person.id, profile }), images('drawn'));
+  expect((await store.get(saved.id))?.profile).toEqual(profile);
+  const row = await db.getFirstAsync<Record<string, unknown>>('SELECT * FROM cards WHERE id = ?', [saved.id]);
+  expect(JSON.stringify(row)).not.toContain('Carry inhaler');
+  for (const query of ['Asthma', 'Pollen', 'Ventolin', 'inhaler', '+971500000000', 'sara@example.com', 'Dubai Marina']) {
+    expect((await searchDocumentDetails(await store.list(), [], query, new Set())).map((card) => card.id)).toEqual([saved.id]);
+  }
+});
+
 test('age is counted in whole years on the calendar day', () => {
   expect(ageOn('1990-05-04', new Date(2026, 4, 3))).toBe(35);
   expect(ageOn('1990-05-04', new Date(2026, 4, 4))).toBe(36);

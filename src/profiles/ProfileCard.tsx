@@ -22,6 +22,8 @@ export function profileSummary(name: string, profile: ProfileDetails, now: Date)
     ...(age !== null ? [s.age(age)] : []),
     ...(profile.dateOfBirth ? [s.born(formatDate(fromIsoDate(profile.dateOfBirth).getTime()))] : []),
     `${s.bloodGroup} ${s.bloodGroups[profile.bloodGroup]}`,
+    ...(['conditions', 'allergies', 'medications'] as const).filter((key) => profile[key]?.length).map((key) => `${s[key]}: ${profile[key]!.join(', ')}`),
+    ...(['medicalNotes', 'mobile', 'email', 'address'] as const).filter((key) => profile[key]).map((key) => `${s[key]}: ${profile[key]}`),
   ];
   return strings.profiles.pictureLabel(name, parts.join(', '));
 }
@@ -37,6 +39,7 @@ export function ProfileCard({ name, profile, now, ref }: { name: string; profile
     <View ref={ref} collapsable={false} testID="profile-card"
       accessible accessibilityRole="image" accessibilityLabel={profileSummary(name, profile, now)}
       style={[styles.card, { backgroundColor: theme.showcase.start }]}>
+      <View style={styles.top}>
       <View style={styles.main}>
         <Text allowFontScaling={false} style={[styles.kind, { color: ink }]}>{s.medical.toUpperCase()}</Text>
         <Text allowFontScaling={false} numberOfLines={2} style={[styles.name, { color: ink }]}>{name}</Text>
@@ -53,15 +56,25 @@ export function ProfileCard({ name, profile, now, ref }: { name: string; profile
           {s.bloodGroups[profile.bloodGroup]}
         </Text>
       </View>
+      </View>
+      {(['allergies', 'conditions', 'medications', 'medicalNotes', 'mobile', 'email', 'address'] as const).map((key) => {
+        const value = profile[key];
+        const content = Array.isArray(value) ? value.filter(Boolean).join(', ') : value;
+        return content ? <View key={key} style={styles.detail}>
+          <Text allowFontScaling={false} style={[styles.detailLabel, { color: ink }]}>{s[key]}</Text>
+          <Text allowFontScaling={false} style={[styles.detailValue, { color: ink }]}>{content}</Text>
+        </View> : null;
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    width: PROFILE_CARD_WIDTH, height: PROFILE_CARD_HEIGHT, borderRadius: PROFILE_CARD_WIDTH * CARD_RADIUS,
-    overflow: 'hidden', flexDirection: 'row',
+    width: PROFILE_CARD_WIDTH, borderRadius: PROFILE_CARD_WIDTH * CARD_RADIUS,
+    overflow: 'hidden',
   },
+  top: { height: PROFILE_CARD_HEIGHT, flexDirection: 'row' },
   main: { flex: 1, padding: 18, gap: 6 },
   kind: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, opacity: 0.8 },
   name: { fontSize: 24, fontWeight: '700', letterSpacing: TRACKING.tight, marginTop: 'auto' },
@@ -70,4 +83,7 @@ const styles = StyleSheet.create({
   bloodLabel: { fontSize: 11, fontWeight: '700', opacity: 0.85, textAlign: 'center' },
   bloodValue: { fontSize: 40, fontWeight: '700', letterSpacing: TRACKING.tight },
   bloodUnknown: { fontSize: 18 },
+  detail: { paddingHorizontal: 18, paddingVertical: 8 },
+  detailLabel: { fontSize: 11, fontWeight: '700' },
+  detailValue: { fontSize: 14, fontWeight: '600' },
 });

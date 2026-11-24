@@ -14,22 +14,48 @@ export interface ProfileDetails {
   dateOfBirth: string | null; // YYYY-MM-DD, local calendar day
   bloodGroup: BloodGroup;
   template: ProfileTemplate;
+  conditions?: string[];
+  allergies?: string[];
+  medications?: string[];
+  medicalNotes?: string;
+  mobile?: string;
+  email?: string;
+  address?: string;
 }
 
 export const emptyProfile = (): ProfileDetails => ({ dateOfBirth: null, bloodGroup: 'unknown', template: 'medical' });
 
 const isIsoDate = (v: unknown): v is string => typeof v === 'string' && isValidIsoDate(v);
+const lists = ['conditions', 'allergies', 'medications'] as const;
+const texts = ['medicalNotes', 'mobile', 'email', 'address'] as const;
+const validList = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 100 && v.every((entry) => typeof entry === 'string' && entry.length <= 200);
+const validText = (v: unknown): v is string => typeof v === 'string' && v.length <= 5000;
 
 // Reads sealed profile details back. Anything unrecognised falls back to its default, so a profile
 // written by a newer version still opens; a value that is not profile details at all gives null.
 export function toProfile(value: unknown): ProfileDetails | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
-  return {
+  const profile: ProfileDetails = {
     dateOfBirth: isIsoDate(v.dateOfBirth) ? v.dateOfBirth : null,
     bloodGroup: (BLOOD_GROUPS as readonly unknown[]).includes(v.bloodGroup) ? (v.bloodGroup as BloodGroup) : 'unknown',
     template: (PROFILE_TEMPLATES as readonly unknown[]).includes(v.template) ? (v.template as ProfileTemplate) : 'medical',
   };
+  for (const key of lists) if (validList(v[key])) profile[key] = v[key];
+  for (const key of texts) if (validText(v[key])) profile[key] = v[key];
+  return profile;
+}
+
+// Backups are untrusted. Keep a profile only when every recognised field is valid; unknown
+// templates or damaged details leave the document and its front picture intact.
+export function profileFromBackup(value: unknown): ProfileDetails | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (v.template !== 'medical' || !(v.dateOfBirth === null || isIsoDate(v.dateOfBirth)) ||
+      !(BLOOD_GROUPS as readonly unknown[]).includes(v.bloodGroup)) return null;
+  for (const key of lists) if (v[key] !== undefined && !validList(v[key])) return null;
+  for (const key of texts) if (v[key] !== undefined && !validText(v[key])) return null;
+  return toProfile(v);
 }
 
 // Whole years on `now`'s calendar day; null without a date of birth or for one in the future.

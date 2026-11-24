@@ -22,6 +22,12 @@ export function profileDetails(profile: ProfileDetails): [string, string][] {
   const out: [string, string][] = [];
   if (profile.dateOfBirth) out.push([s.dateOfBirth, profile.dateOfBirth]);
   out.push([s.bloodGroup, strings.profiles.bloodGroups[profile.bloodGroup]]);
+  for (const key of ['conditions', 'allergies', 'medications'] as const) {
+    if (profile[key]?.length) out.push([strings.profiles[key], profile[key]!.join(', ')]);
+  }
+  for (const key of ['medicalNotes', 'mobile', 'email', 'address'] as const) {
+    if (profile[key]) out.push([strings.profiles[key], profile[key]!]);
+  }
   return out;
 }
 

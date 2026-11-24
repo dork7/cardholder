@@ -176,6 +176,32 @@ describe('profile form', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
+  test('medical lists can be added, edited and removed; contact fields reopen and appear on the card', async () => {
+    mockCards = [makeCard({ ...sarasProfile(), profile: profile({ conditions: ['Old'], mobile: '123' }) })];
+    mockParams = { id: 'p1' };
+    await render(<ProfileForm />);
+    expect(screen.getByTestId('profile-conditions-0').props.value).toBe('Old');
+    expect(screen.getByTestId('profile-mobile').props.value).toBe('123');
+    await fireEvent.changeText(screen.getByTestId('profile-conditions-0'), 'Asthma');
+    await fireEvent.changeText(screen.getByTestId('profile-allergies-new'), 'Pollen');
+    await fireEvent.press(screen.getByTestId('profile-allergies-add'));
+    await fireEvent.press(screen.getByTestId('profile-allergies-remove-0'));
+    await fireEvent.changeText(screen.getByTestId('profile-medications-new'), 'Ventolin');
+    await fireEvent.press(screen.getByTestId('profile-medications-add'));
+    await fireEvent.changeText(screen.getByTestId('profile-medicalNotes'), 'Carry inhaler');
+    await fireEvent.changeText(screen.getByTestId('profile-mobile'), '+971500000000');
+    await fireEvent.changeText(screen.getByTestId('profile-email'), 'sara@example.com');
+    await fireEvent.changeText(screen.getByTestId('profile-address'), 'Dubai');
+    expect(screen.getByTestId('profile-card').props.accessibilityLabel).toContain('Asthma');
+    expect(screen.getByTestId('profile-card').props.accessibilityLabel).toContain('sara@example.com');
+    expect(screen.getByTestId('profile-conditions-0').props.accessibilityLabel).toBe('Conditions entry 1');
+    expect(screen.getByTestId('profile-medications-new').props.accessibilityLabel).toBe('New medications entry');
+    await save();
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    expect(mockUpdate.mock.calls[0][1].profile).toMatchObject({ conditions: ['Asthma'], allergies: [], medications: ['Ventolin'],
+      medicalNotes: 'Carry inhaler', mobile: '+971500000000', email: 'sara@example.com', address: 'Dubai' });
+  });
+
   test('a failed drawing keeps the form open and reports the failed save', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});

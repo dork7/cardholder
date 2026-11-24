@@ -29,7 +29,38 @@ interface Draft {
   newName: string | null; // or a name to make a new Person from on save; null when not adding one
   dateOfBirth: string | null;
   bloodGroup: BloodGroup;
+  conditions?: string[];
+  allergies?: string[];
+  medications?: string[];
+  medicalNotes?: string;
+  mobile?: string;
+  email?: string;
+  address?: string;
   spaceId?: SpaceId;
+}
+
+type ListKey = 'conditions' | 'allergies' | 'medications';
+
+function ListField({ label, id, entries, onChange }: {
+  label: string; id: ListKey; entries: string[]; onChange(entries: string[]): void;
+}) {
+  const [newEntry, setNewEntry] = useState('');
+  const inputStyle = useInputStyle();
+  return <Field label={label}>
+    {entries.map((entry, index) => <View key={index} style={styles.entry}>
+      <TextInput accessibilityLabel={`${label} entry ${index + 1}`} testID={`profile-${id}-${index}`}
+        value={entry} onChangeText={(value) => onChange(entries.map((item, at) => at === index ? value : item))}
+        style={[inputStyle, styles.entryInput]} maxLength={200} />
+      <Button variant="secondary" label={`Remove ${label.toLowerCase()} entry ${index + 1}`}
+        testID={`profile-${id}-remove-${index}`} onPress={() => onChange(entries.filter((_, at) => at !== index))} />
+    </View>)}
+    <View style={styles.entry}>
+      <TextInput accessibilityLabel={`New ${label.toLowerCase()} entry`} testID={`profile-${id}-new`}
+        value={newEntry} onChangeText={setNewEntry} style={[inputStyle, styles.entryInput]} maxLength={200} />
+      <Button variant="secondary" label={`Add ${label.toLowerCase()} entry`} testID={`profile-${id}-add`}
+        onPress={() => { if (newEntry.trim()) { onChange([...entries, newEntry.trim()]); setNewEntry(''); } }} />
+    </View>
+  </Field>;
 }
 
 // The profile form: who it is for and their details. Saving draws the card shown at the top as the
@@ -56,6 +87,13 @@ export default function ProfileForm() {
       newName: null,
       dateOfBirth: details.dateOfBirth,
       bloodGroup: details.bloodGroup,
+      ...(details.conditions && { conditions: details.conditions }),
+      ...(details.allergies && { allergies: details.allergies }),
+      ...(details.medications && { medications: details.medications }),
+      ...(details.medicalNotes !== undefined && { medicalNotes: details.medicalNotes }),
+      ...(details.mobile !== undefined && { mobile: details.mobile }),
+      ...(details.email !== undefined && { email: details.email }),
+      ...(details.address !== undefined && { address: details.address }),
       ...(spaceId !== undefined && { spaceId }),
     };
   });
@@ -92,7 +130,15 @@ export default function ProfileForm() {
 
   const chosen = people.find((p) => p.id === draft.personId);
   const name = draft.newName !== null ? (personName(draft.newName) ?? '') : (chosen?.name ?? '');
-  const details: ProfileDetails = { ...emptyProfile(), ...existing?.profile, dateOfBirth: draft.dateOfBirth, bloodGroup: draft.bloodGroup };
+  const details: ProfileDetails = { ...emptyProfile(), ...existing?.profile, dateOfBirth: draft.dateOfBirth, bloodGroup: draft.bloodGroup,
+    ...(draft.conditions !== undefined && { conditions: draft.conditions }),
+    ...(draft.allergies !== undefined && { allergies: draft.allergies }),
+    ...(draft.medications !== undefined && { medications: draft.medications }),
+    ...(draft.medicalNotes !== undefined && { medicalNotes: draft.medicalNotes }),
+    ...(draft.mobile !== undefined && { mobile: draft.mobile }),
+    ...(draft.email !== undefined && { email: draft.email }),
+    ...(draft.address !== undefined && { address: draft.address }),
+  };
 
   const save = async () => {
     if (writing.current) return;
@@ -190,6 +236,16 @@ export default function ProfileForm() {
             <Field label={strings.profiles.bloodGroup}>
               <ChipRow chips={bloodChips} accessibilityLabel={strings.profiles.bloodGroup} />
             </Field>
+            {(['conditions', 'allergies', 'medications'] as const).map((key) =>
+              <ListField key={key} id={key} label={strings.profiles[key]} entries={draft[key] ?? []}
+                onChange={(entries) => update({ [key]: entries })} />)}
+            {(['medicalNotes', 'mobile', 'email', 'address'] as const).map((key) =>
+              <Field key={key} label={strings.profiles[key]}>
+                <TextInput accessibilityLabel={strings.profiles[key]} testID={`profile-${key}`}
+                  value={draft[key] ?? ''} onChangeText={(value) => update({ [key]: value })}
+                  style={inputStyle} maxLength={5000} multiline={key === 'medicalNotes' || key === 'address'}
+                  keyboardType={key === 'email' ? 'email-address' : key === 'mobile' ? 'phone-pad' : 'default'} />
+              </Field>)}
             <SpaceField value={draft.spaceId} onChange={(spaceId) => update({ spaceId })} />
           </Panel>
         </ScrollView>
@@ -216,4 +272,6 @@ const styles = StyleSheet.create({
   inset: { paddingHorizontal: 16, paddingTop: 8 },
   bar: { flexDirection: 'row', gap: 12 },
   action: { flex: 1 },
+  entry: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  entryInput: { flex: 1 },
 });
