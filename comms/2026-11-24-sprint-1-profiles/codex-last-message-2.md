@@ -1,0 +1,3 @@
+Implemented #78 and #79 on `codex/sprint-1-profiles-v2`. Encrypted backups now validate and restore profiles, and merge prevents a Person from receiving a second profile. The profile form, drawn card, accessible summary, and search now include the optional medical and contact details.
+
+`npm run typecheck`, full Jest (98 suites, 895 tests), and `git diff --check` passed. I added both requested worklogs and appended the results to `chat.md`. Native card capture and device restore still need a device check. No commit or push was made.
