@@ -67,6 +67,7 @@ export function sortDocuments(cards: Card[], sort: DocumentSort): Card[] {
 
 // Expired, or due within the reminder window: the cards worth renewing now.
 export function isExpiringSoon(card: Card, now: Date): boolean {
+  if (card.profile) return false;
   const kind = expiryStatus(card, now).kind;
   return kind === 'expired' || kind === 'today' || kind === 'soon';
 }

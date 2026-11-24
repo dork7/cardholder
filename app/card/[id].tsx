@@ -98,12 +98,12 @@ export default function CardView() {
     );
   }
 
-  // An ID asks once before an unencrypted copy leaves the app, unless the warning is turned off.
+  // IDs and profiles ask before an unencrypted copy leaves the app.
   const confirmIfId = (go: () => unknown) =>
     confirmIdShare({
-      hasId: isId(card),
-      title: strings.card.shareIdTitle,
-      body: strings.card.shareIdBody,
+      hasId: isId(card) || !!card.profile,
+      title: card.profile ? strings.profiles.shareTitle : strings.card.shareIdTitle,
+      body: card.profile ? strings.profiles.shareBody : strings.card.shareIdBody,
       go,
     });
 
@@ -486,7 +486,7 @@ export default function CardView() {
           card.profile
             ? { key: 'edit', icon: 'edit', label: strings.profiles.edit, onPress: () => router.push(`/profile/${card.id}`), testID: 'edit-card' }
             : { key: 'edit', icon: 'edit', label: strings.card.edit, onPress: () => router.push(`/edit/${card.id}`), testID: 'edit-card' },
-          { key: 'delete', icon: 'trash', variant: 'danger', label: strings.edit.deleteCard, onPress: () => void deleteCard(), testID: 'delete-card' },
+          { key: 'delete', icon: 'trash', variant: 'danger', separate: !!card.profile, label: strings.edit.deleteCard, onPress: () => void deleteCard(), testID: 'delete-card' },
         ]}
       />
       <TagSheet

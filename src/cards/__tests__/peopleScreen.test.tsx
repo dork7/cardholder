@@ -2,25 +2,42 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { Alert } from 'react-native';
 import PeopleScreen from '../../../app/people';
 import { Person } from '../types';
+import { makeCard } from '../../../test/fixtures';
 import { strings } from '../../strings';
 
 let mockPeople: Person[] = [];
+let mockCards: ReturnType<typeof makeCard>[] = [];
 const mockCreate = jest.fn();
 const mockRename = jest.fn();
 const mockRemove = jest.fn();
 const mockRefresh = jest.fn();
 jest.mock('../../app/AppProvider', () => ({ useApp: () => ({
-  cards: [], people: mockPeople, refresh: mockRefresh,
+  cards: mockCards, people: mockPeople, refresh: mockRefresh,
   services: { store: { createPerson: mockCreate, renamePerson: mockRename, removePerson: mockRemove } },
 }) }));
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockPeople = [];
+  mockCards = [];
   mockCreate.mockResolvedValue({ id: 'sara', name: 'Sara', createdAt: 1 });
   mockRename.mockResolvedValue({ id: 'sara', name: 'Sarah', createdAt: 1 });
   mockRemove.mockResolvedValue(undefined);
   mockRefresh.mockResolvedValue(undefined);
+});
+
+test('removing a Person with a profile explains that its profile goes to Recently deleted', async () => {
+  mockPeople = [{ id: 'sara', name: 'Sara', createdAt: 1 }];
+  mockCards = [makeCard({ id: 'profile', personId: 'sara', profile: { dateOfBirth: null, bloodGroup: 'unknown', template: 'medical' } })];
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await render(<PeopleScreen />);
+  await fireEvent.press(screen.getByTestId('delete-person-sara'));
+  expect(alert).toHaveBeenCalledWith(strings.people.deleteTitle('Sara'), strings.people.deleteWithProfileBody, expect.any(Array));
+  expect(mockRemove).not.toHaveBeenCalled();
+  const actions = alert.mock.calls.at(-1)?.[2] as { onPress?: () => void }[];
+  actions[1].onPress?.();
+  await waitFor(() => expect(mockRemove).toHaveBeenCalledWith('sara'));
+  alert.mockRestore();
 });
 
 test('profiles can be created, renamed and removed without deleting documents', async () => {

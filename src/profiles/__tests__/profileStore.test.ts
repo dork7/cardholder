@@ -5,6 +5,8 @@ import { searchDocumentDetails } from '../../cards/documentSearch';
 import { canAddCard } from '../../purchases/limits';
 import { FREE_CARD_LIMIT } from '../../config';
 import { ageOn, ProfileDetails, toProfile } from '../profile';
+import { isExpiringSoon } from '../../cards/listing';
+import { planReminders } from '../../reminders/plan';
 
 const details = (overrides: Partial<ProfileDetails> = {}): ProfileDetails => ({
   dateOfBirth: '1990-05-04', bloodGroup: 'AB-', template: 'medical', ...overrides,
@@ -114,4 +116,28 @@ test('age is counted in whole years on the calendar day', () => {
   expect(ageOn('1990-05-04', new Date(2026, 4, 4))).toBe(36);
   expect(ageOn('2030-01-01', new Date(2026, 0, 1))).toBeNull();
   expect(ageOn(null, new Date())).toBeNull();
+});
+
+test('deleting a Person moves their profile to Recently deleted and restores its owner, fields and picture', async () => {
+  const { store, person } = await withPerson();
+  const profile = await store.create(fields({ name: 'Sara', personId: person.id, profile: details({ allergies: ['Pollen'] }), tags: ['Family'] }), images('profile'));
+  await store.setPinned(profile.id, true);
+  const passport = await store.create(fields({ name: 'Passport', personId: person.id }), images('passport'));
+  await store.removePerson(person.id);
+  expect(await store.listPeople()).toEqual([]);
+  expect(await store.get(profile.id)).toBeNull();
+  expect(await store.listRecentlyDeleted()).toEqual([expect.objectContaining({ id: profile.id, personId: person.id, profile: details({ allergies: ['Pollen'] }) })]);
+  expect((await store.get(passport.id))?.personId).toBeNull();
+  await store.restore(profile.id);
+  expect(await store.listPeople()).toEqual([expect.objectContaining({ id: person.id, name: person.name })]);
+  expect(await store.get(profile.id)).toMatchObject({ personId: person.id, profile: details({ allergies: ['Pollen'] }), tags: ['Family'], pinned: true });
+  expect(utf8.decode(Buffer.from((await store.loadImage(profile.id, 'front'))!, 'base64'))).toBe('JPEG:profile');
+});
+
+test('a profile never expires, even if an older payload carries an expiry date', async () => {
+  const { store, person } = await withPerson();
+  const profile = await store.create(fields({ name: 'Sara', personId: person.id, profile: details(), expiresOn: '2026-11-25' }), images('profile'));
+  expect(profile.expiresOn).toBeNull();
+  expect(isExpiringSoon(profile, new Date(2026, 10, 24))).toBe(false);
+  expect(planReminders([profile], new Date(2026, 10, 24))).toEqual([]);
 });

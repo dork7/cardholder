@@ -179,14 +179,14 @@ export default function Documents() {
   const deleteSelected = () =>
     onSelection((cards) => deleteAllWithUndo(services.store, undo, cards, refresh), strings.errors.deleteMany);
 
-  // One PDF of every selected card. An ID asks first, as on the card's own screen, unless the
+  // One PDF of every selected card. An ID or profile asks first, as on its own screen, unless the
   // warning is turned off. Selection stays, so the same cards can be sent elsewhere.
   const shareSelected = () => {
     const picked = selected;
     confirmIdShare({
-      hasId: picked.some(isId),
-      title: strings.home.shareIdsTitle,
-      body: strings.home.shareIdsBody,
+      hasId: picked.some((card) => isId(card) || !!card.profile),
+      title: picked.some((card) => !!card.profile) ? strings.profiles.shareTitle : strings.home.shareIdsTitle,
+      body: picked.some((card) => !!card.profile) ? strings.profiles.shareBody : strings.home.shareIdsBody,
       go: () =>
         shareCards(services.store, picked).catch((e) => {
           console.warn('Share failed', e);

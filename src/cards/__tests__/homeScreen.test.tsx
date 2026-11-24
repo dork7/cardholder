@@ -813,6 +813,30 @@ describe('document list actions', () => {
     expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['a', 'b']);
   });
 
+  test('a selected profile can be pinned, tagged, shared with a warning, and deleted', async () => {
+    await withCards([makeCard({ id: 'profile', name: 'Sara', profile: { dateOfBirth: null, bloodGroup: 'unknown', template: 'medical' } })], async () => {
+      await renderHome();
+      await select('profile');
+      await act(async () => fireEvent.press(screen.getByTestId('selection-pin')));
+      expect(mockSetPinned).toHaveBeenCalledWith('profile', true);
+      await select('profile');
+      await act(async () => fireEvent.press(screen.getByTestId('selection-tags')));
+      await act(async () => fireEvent.changeText(screen.getByTestId('tag-input'), 'Family'));
+      await act(async () => fireEvent.press(screen.getByTestId('tag-input-add')));
+      await act(async () => fireEvent.press(screen.getByTestId('tag-sheet-apply')));
+      expect(mockUpdate).toHaveBeenCalledWith('profile', expect.objectContaining({ tags: ['Family'] }));
+      await select('profile');
+      await act(async () => fireEvent.press(screen.getByTestId('selection-share')));
+      expect(alert).toHaveBeenCalledWith(strings.profiles.shareTitle, strings.profiles.shareBody, expect.any(Array));
+      expect(mockShareCards).not.toHaveBeenCalled();
+      await answer(strings.idShare.share);
+      expect(mockShareCards.mock.calls[0][1].map((c) => c.id)).toEqual(['profile']);
+      await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
+      expect(mockRemove).toHaveBeenCalledWith('profile');
+      await act(() => mockUndo.end());
+    });
+  });
+
   test("Don't ask again shares the selection and turns the ID warning off", async () => {
     await renderHome();
     await select('a', 'b');

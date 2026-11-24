@@ -164,7 +164,7 @@ export function createCardStore({
     return {
       name: payload.name,
       ...(payload.spaceId !== undefined && { spaceId: spaceFor(payload.spaceId).id }),
-      expiresOn: payload.expiresOn,
+      expiresOn: profile ? null : payload.expiresOn,
       remindDaysBefore: parseRemindDays(payload.remindDaysBefore) ?? DEFAULT_REMIND_DAYS, // cards saved before the setting
       tags: withLegacyCategory(Array.isArray(payload.tags) ? payload.tags : [], (payload as { category?: unknown }).category), // cards saved before tags have none
       documentKey: payload.documentKey ?? null,
@@ -295,6 +295,7 @@ export function createCardStore({
       await writeImages(id, images);
       const card: Card = {
         ...fields,
+        expiresOn: fields.profile ? null : fields.expiresOn,
         id,
         pinned: false,
         position: 0,
@@ -328,6 +329,7 @@ export function createCardStore({
       const next: Card = {
         ...current,
         ...updates,
+        expiresOn: (updates.profile ?? current.profile) ? null : updates.expiresOn,
         ...(spaceId !== undefined && { spaceId }),
         frontAspect: changes.front?.aspect ?? current.frontAspect,
         hasBack: backChanged ? changes.back !== null : current.hasBack,
@@ -369,6 +371,12 @@ export function createCardStore({
       await db.withTransactionAsync(async () => {
         const row = await db.getFirstAsync<Row>('SELECT * FROM cards WHERE id = ?', [id]);
         if (!row || row.deleted_at === null) return;
+        const card = toCard(row);
+        if (card.profile && card.personId) {
+          const owner = await db.getFirstAsync<FolderRow>('SELECT * FROM people WHERE id = ?', [card.personId]);
+          if (!owner) await db.runAsync(INSERT_PERSON_SQL, [card.personId, sealPerson({ id: card.personId, name: card.name, createdAt: card.createdAt }), card.createdAt]);
+          await checkProfileOwner(card, id);
+        }
         await db.runAsync('UPDATE cards SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL', [id]);
         await db.runAsync("INSERT INTO settings (key, value) VALUES ('documentsChangedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(now())]);
       });
@@ -541,12 +549,23 @@ export function createCardStore({
       });
       return person;
     },
-    async removePerson(id) {
-      await db.withTransactionAsync(async () => {
-        await db.runAsync('UPDATE cards SET person_id = NULL WHERE person_id = ?', [id]);
+    removePerson(id) {
+      return queueNoteWrite(db, () => db.withTransactionAsync(async () => {
+        const rows = await db.getAllAsync<Row>('SELECT * FROM cards WHERE person_id = ?', [id]);
+        const at = now();
+        for (const row of rows) {
+          if (toCard(row).profile) {
+            if (row.deleted_at === null) {
+              await db.runAsync(`UPDATE cards SET deleted_at = ? WHERE id = ? AND ${CURRENT}`, [at, row.id]);
+              await unlinkNotesFromDocument(db, aead, row.id, at);
+            }
+          } else {
+            await db.runAsync('UPDATE cards SET person_id = NULL WHERE id = ?', [row.id]);
+          }
+        }
         await db.runAsync('DELETE FROM people WHERE id = ?', [id]);
         await markDocumentsChanged();
-      });
+      }));
     },
   };
 }

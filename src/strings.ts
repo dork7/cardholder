@@ -549,6 +549,7 @@ export const strings = {
     count: (n: number) => `${n} ${plural(n, 'document', 'documents')}`,
     deleteTitle: (name: string) => `Remove ${name}?`,
     deleteBody: 'Their documents stay here, without a person assigned.',
+    deleteWithProfileBody: 'Their profile moves to Recently deleted. Their other documents stay here without a person assigned.',
     invalidName: 'Enter a name of up to 60 characters.',
     changeFailed: "Couldn't change the person. Try again.",
     ownedDocument: (name: string, document: string) => `${name}'s ${document}`,
@@ -691,6 +692,8 @@ export const strings = {
   },
   profiles: {
     add: 'Add profile',
+    shareTitle: 'Share this profile?',
+    shareBody: 'This shares an unencrypted image or PDF of the profile, including any medical or contact details shown on it.',
     newTitle: 'New profile',
     editTitle: 'Edit profile',
     create: 'Create profile',

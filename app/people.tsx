@@ -36,7 +36,8 @@ export default function PeopleScreen() {
     } catch { setError(strings.people.changeFailed); }
     finally { setBusy(false); }
   };
-  const remove = (person: Person) => Alert.alert(strings.people.deleteTitle(person.name), strings.people.deleteBody, [
+  const remove = (person: Person) => Alert.alert(strings.people.deleteTitle(person.name),
+    profileOf(cards, person.id) ? strings.people.deleteWithProfileBody : strings.people.deleteBody, [
     { text: strings.common.cancel, style: 'cancel' },
     { text: strings.common.delete, style: 'destructive', onPress: () => {
       setBusy(true);

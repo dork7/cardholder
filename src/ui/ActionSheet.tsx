@@ -12,6 +12,7 @@ export interface SheetAction {
   label: string; // shown and spoken
   hint?: string;
   variant?: 'danger';
+  separate?: boolean;
   onPress: () => void;
   testID?: string;
 }
@@ -50,6 +51,7 @@ export function ActionSheet({ visible, title, actions, onClose, testID }: Props)
             testID={action.testID}
             style={({ pressed }) => [
               styles.row,
+              action.separate && styles.separate,
               { backgroundColor: theme.surface, borderColor: outline, opacity: pressed ? 0.7 : 1 },
             ]}
           >
@@ -81,5 +83,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
     borderWidth: 1,
   },
+  separate: { marginTop: 16 },
   label: { flex: 1, fontSize: TYPE.body, fontWeight: '600' },
 });

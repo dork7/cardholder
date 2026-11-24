@@ -267,6 +267,31 @@ describe('actions', () => {
     expect(mockShareCard).toHaveBeenCalled();
   });
 
+  test('sharing a profile asks before sending its card as an image or PDF', async () => {
+    mockCards = [makeCard({ id: 'card1', name: 'Sara', profile: { dateOfBirth: null, bloodGroup: 'unknown', template: 'medical' } })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('share-card'));
+    expect(alert).toHaveBeenCalledWith(strings.profiles.shareTitle, strings.profiles.shareBody, expect.any(Array));
+    expect(mockShareCard).not.toHaveBeenCalled();
+    await pressInAlert(strings.idShare.share);
+    expect(mockShareCard).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+    alert.mockClear();
+    await pressInMore(strings.card.exportPdf);
+    expect(alert).toHaveBeenCalledWith(strings.profiles.shareTitle, strings.profiles.shareBody, expect.any(Array));
+    expect(mockExportPdf).not.toHaveBeenCalled();
+    await pressInAlert(strings.idShare.share);
+    expect(mockExportPdf).toHaveBeenCalledWith(mockServices.store, mockCards[0]);
+  });
+
+  test('a profile places Delete apart from Edit in the details actions', async () => {
+    mockCards = [makeCard({ id: 'card1', name: 'Sara', profile: { dateOfBirth: null, bloodGroup: 'unknown', template: 'medical' } })];
+    await render(<CardView />);
+    await fireEvent.press(screen.getByTestId('more-card'));
+    const edit = screen.getByTestId('edit-card');
+    const remove = screen.getByTestId('delete-card');
+    expect(StyleSheet.flatten(remove.props.style).marginTop).toBeGreaterThan(StyleSheet.flatten(edit.props.style).marginTop ?? 0);
+  });
+
   test('a failed share says the share failed and what to try', async () => {
     mockShareCard.mockRejectedValueOnce(new Error('share sheet closed badly'));
     await render(<CardView />);
