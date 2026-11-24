@@ -218,6 +218,12 @@ export function parseSnapshot(value: unknown): BackupSnapshot {
     return parsed;
   });
   const cardIds = new Set(cards.map((entry) => entry.card.id));
+  const profiledPeople = new Set<string>();
+  for (const { card } of cards) {
+    if (!card.profile) continue;
+    if (!card.personId || profiledPeople.has(card.personId)) delete card.profile;
+    else profiledPeople.add(card.personId);
+  }
   for (const note of notes) if (note.documentId && !cardIds.has(note.documentId)) note.documentId = null;
   return { formatVersion: 1, exportedAt: value.exportedAt, cards, folders, people, notes };
 }

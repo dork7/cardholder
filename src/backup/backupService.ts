@@ -2,6 +2,7 @@ import { NoteStore } from '../notes/noteStore';
 import { CardStore } from '../cards/cardStore';
 import { convertFolderToTag } from '../cards/folderMigration';
 import { BackupCard, BackupSnapshot, decodeBackup } from './backupFile';
+import { samePersonName } from '../people/names';
 
 export type ImportMode = 'merge' | 'replace';
 
@@ -60,9 +61,23 @@ export async function applySnapshot(store: CardStore, snapshot: BackupSnapshot, 
     return { added: snapshot.cards.length, skipped: 0, notesAdded, notesSkipped };
   }
   const existing = new Set(await store.ids());
-  const fresh = converted.filter((entry) => !existing.has(entry.card.id));
+  const currentPeople = await store.listPeople();
+  const currentCards = await store.list();
+  const personMap = new Map((snapshot.people ?? []).map((person) => [person.id,
+    currentPeople.find((current) => current.id === person.id || samePersonName(current.name, person.name))?.id ?? person.id]));
+  const remapped = converted.map(({ card, images }) => ({ card: { ...card, personId: card.personId ? personMap.get(card.personId) ?? null : null }, images }));
+  const profiledPeople = new Set(currentCards.filter((card) => card.profile && card.personId).map((card) => card.personId));
+  const fresh = remapped.filter((entry) => {
+    if (existing.has(entry.card.id)) return false;
+    if (entry.card.profile && entry.card.personId) {
+      if (profiledPeople.has(entry.card.personId)) return false;
+      profiledPeople.add(entry.card.personId);
+    }
+    return true;
+  });
+  const newPeople = (snapshot.people ?? []).filter((person) => personMap.get(person.id) === person.id && !currentPeople.some((current) => current.id === person.id));
   if (fresh.length > 0 || (snapshot.people?.length ?? 0) > 0 || notesAdded > 0) {
-    await store.insertMany(fresh, { replace: false, people: snapshot.people, notes: incomingNotes, notesBackedUpAt: snapshot.exportedAt });
+    await store.insertMany(fresh, { replace: false, people: newPeople, notes: incomingNotes, notesBackedUpAt: snapshot.exportedAt });
   }
   return { added: fresh.length, skipped: snapshot.cards.length - fresh.length, notesAdded, notesSkipped };
 }

@@ -179,3 +179,34 @@ describe('Recently deleted', () => {
     expect((await store.listRecentlyDeleted()).map((c) => c.name)).toEqual(['Gone']);
   });
 });
+
+test('profile details and card picture survive encrypted replace restore', async () => {
+  const source = await makeStore();
+  const person = await source.store.createPerson('Sara');
+  const profile = { template: 'medical' as const, dateOfBirth: '1990-05-12', bloodGroup: 'A+' as const };
+  const saved = await source.store.create(fields({ name: 'Sara', personId: person.id, profile }), images('profile'));
+  const bytes = await encodeBackup(await buildSnapshot(source.store, 42), 'passphrase', { iterations: 1_000 });
+  const target = await makeStore();
+  await applySnapshot(target.store, await decodeBackup(bytes, 'passphrase'), 'replace');
+  expect((await target.store.list())[0].profile).toEqual(profile);
+  expect(text(await target.store.loadImage(saved.id, 'front'))).toBe('JPEG:profile');
+});
+
+test('merge skips another profile for a Person already profiled on the phone', async () => {
+  const source = await makeStore();
+  const person = await source.store.createPerson('Sara');
+  await source.store.create(fields({ name: 'Sara', personId: person.id, profile: { template: 'medical', dateOfBirth: null, bloodGroup: 'A+' } }), images('incoming'));
+  const snapshot = await decodeBackup(await encodeBackup(await buildSnapshot(source.store, 42), 'passphrase', { iterations: 1_000 }), 'passphrase');
+  snapshot.cards[0].card.id = 'incoming';
+  const target = await makeStore();
+  await target.store.createPerson('Sara');
+  await target.store.create(fields({ name: 'Sara', personId: person.id, profile: { template: 'medical', dateOfBirth: null, bloodGroup: 'O+' } }), images('existing'));
+  expect(await applySnapshot(target.store, snapshot, 'merge')).toMatchObject({ added: 0, skipped: 1 });
+  expect((await target.store.list()).filter((card) => card.profile)).toHaveLength(1);
+});
+
+test('malformed profile details are dropped while the document restores', () => {
+  const snapshot = JSON.parse(JSON.stringify(backupSnapshot()));
+  snapshot.cards[0].card.profile = { template: 'unknown', dateOfBirth: 'bad', bloodGroup: 'X' };
+  expect(parseSnapshot(snapshot).cards[0].card.profile).toBeUndefined();
+});
