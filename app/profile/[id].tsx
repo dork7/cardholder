@@ -1,10 +1,11 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { fieldsOf } from '../../src/cards/batch';
-import { CardFields } from '../../src/cards/types';
+import { CardFields, CardImage, FrontImage } from '../../src/cards/types';
+import { canTakePhoto, cropSharedImage, discardFile, pickImage, takePhoto } from '../../src/images/capture';
 import { DEFAULT_REMIND_DAYS, PERSON_NAME_MAX_LENGTH } from '../../src/config';
 import { personName, samePersonName } from '../../src/people/names';
 import { drawCard } from '../../src/profiles/drawCard';
@@ -78,6 +79,21 @@ export default function ProfileForm() {
   const writing = useRef(false); // synchronous guard against a fast double tap
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<CardImage | null>(null);
+  const [photoChange, setPhotoChange] = useState<CardImage | null | undefined>(undefined);
+  const photoEdited = useRef(false);
+  const [photoLoading, setPhotoLoading] = useState(!!existing);
+  useEffect(() => {
+    if (!existing) return;
+    let active = true;
+    void services.store.loadImage(existing.id, 'profilePhoto').then((jpegBase64) => {
+      if (active && !photoEdited.current && jpegBase64) setPhoto({ jpegBase64, aspect: 1 });
+    }).catch((e) => console.warn('Loading profile photo failed', e))
+      .finally(() => { if (active) setPhotoLoading(false); });
+    return () => { active = false; };
+    // Load the saved photo once; local replacements must not be overwritten by a later refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const [draft, setDraft] = useState<Draft>(() => {
     const details = existing?.profile ?? emptyProfile();
@@ -98,11 +114,41 @@ export default function ProfileForm() {
     };
   });
   const initial = useRef(draft).current;
-  const changed = (Object.keys(draft) as (keyof Draft)[]).some((key) => draft[key] !== initial[key]);
+  const changed = photoChange !== undefined || (Object.keys(draft) as (keyof Draft)[]).some((key) => draft[key] !== initial[key]);
   const leave = useConfirmDiscard(changed);
   const update = (patch: Partial<Draft>) => {
     setDraft((d) => ({ ...d, ...patch }));
     setError(null);
+  };
+  const usePhoto = (image: FrontImage) => {
+    photoEdited.current = true;
+    const next = { jpegBase64: image.jpegBase64, aspect: image.aspect };
+    setPhoto(next);
+    setPhotoChange(next);
+  };
+  const choosePhoto = async () => {
+    try {
+      const picked = await pickImage('square');
+      if (picked) usePhoto(picked.image);
+    } catch (e) {
+      console.warn('Choosing a profile photo failed', e);
+      Alert.alert(strings.edit.captureFailed);
+    }
+  };
+  const shootPhoto = async () => {
+    let path: string | null = null;
+    try {
+      path = await takePhoto();
+      if (path) {
+        const image = await cropSharedImage(path, 'square');
+        if (image) usePhoto(image);
+      }
+    } catch (e) {
+      console.warn('Taking a profile photo failed', e);
+      Alert.alert(strings.edit.cameraFailed);
+    } finally {
+      if (path) discardFile(path);
+    }
   };
 
   // A Person has one profile: starting one for someone who has it opens theirs instead.
@@ -163,7 +209,7 @@ export default function ProfileForm() {
       const front = await drawCard(cardView);
       if (existing) {
         const fields: CardFields = { ...fieldsOf(existing), name, personId, profile: details, ...(draft.spaceId !== undefined && { spaceId: draft.spaceId }) };
-        savedId = (await services.store.update(existing.id, fields, { front })).id;
+        savedId = (await services.store.update(existing.id, fields, { front, ...(photoChange !== undefined && { profilePhoto: photoChange }) })).id;
       } else {
         const fields: CardFields = {
           name, personId, profile: details,
@@ -173,7 +219,7 @@ export default function ProfileForm() {
           blurPreview: false, vertical: false,
           ...(draft.spaceId !== undefined && { spaceId: draft.spaceId }),
         };
-        savedId = (await services.store.create(fields, { front, back: null })).id;
+        savedId = (await services.store.create(fields, { front, back: null, ...(photo && { profilePhoto: photo }) })).id;
       }
     } catch (e) {
       writing.current = false;
@@ -209,9 +255,18 @@ export default function ProfileForm() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.preview}>
             <Text style={{ color: theme.muted, fontSize: 14 }}>{strings.profiles.preview}</Text>
-            <ProfileCard ref={cardView} name={name || strings.people.name} profile={details} now={new Date()} />
+            <ProfileCard ref={cardView} name={name || strings.people.name} profile={details} now={new Date()} photo={photo?.jpegBase64} />
           </View>
           <Panel style={styles.group}>
+            <Field label={strings.profiles.photo}>
+              {photo && <Image source={{ uri: `data:image/jpeg;base64,${photo.jpegBase64}` }} style={styles.photoPreview}
+                accessibilityLabel={strings.profiles.photo} testID="profile-photo-preview" />}
+              <View style={styles.photoActions}>
+                <Button variant="secondary" label={strings.profiles.choosePhoto} onPress={() => void choosePhoto()} testID="profile-photo-library" />
+                {canTakePhoto && <Button variant="secondary" label={strings.profiles.takePhoto} onPress={() => void shootPhoto()} testID="profile-photo-camera" />}
+              </View>
+              {photo && <Button variant="danger" label={strings.profiles.removePhoto} onPress={() => { photoEdited.current = true; setPhoto(null); setPhotoChange(null); }} testID="profile-photo-remove" />}
+            </Field>
             <Field label={strings.profiles.person} error={error ?? undefined}>
               {!isNew && <Text style={{ color: theme.text, fontSize: 16 }} testID="profile-person">{chosen?.name}</Text>}
               {isNew && <>
@@ -256,7 +311,7 @@ export default function ProfileForm() {
             </View>
             <View style={styles.action}>
               <Button label={saving ? strings.profiles.saving : isNew ? strings.profiles.save : strings.profiles.saveChanges}
-                onPress={() => void save()} disabled={saving} testID="save-profile" />
+                onPress={() => void save()} disabled={saving || photoLoading} testID="save-profile" />
             </View>
           </View>
         </ActionFooter>
@@ -274,4 +329,6 @@ const styles = StyleSheet.create({
   action: { flex: 1 },
   entry: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   entryInput: { flex: 1 },
+  photoPreview: { width: 80, height: 80, borderRadius: 40 },
+  photoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

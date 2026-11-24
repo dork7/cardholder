@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
-import { frontImage, makeCard } from '../../../test/fixtures';
+import { Alert, StyleSheet } from 'react-native';
+import { frontImage, image, makeCard } from '../../../test/fixtures';
 import ProfileForm from '../../../app/profile/[id]';
 import PeopleScreen from '../../../app/people';
 import { useShowcaseAdd } from '../../showcase/ShowcaseActions';
@@ -33,6 +33,7 @@ const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
 const mockCreatePerson = jest.fn();
 const mockRefresh = jest.fn(async () => {});
+const mockLoadImage = jest.fn(async (_id: string, _side: string): Promise<string | null> => null);
 const mockServices = {
   db: {},
   store: {
@@ -40,7 +41,7 @@ const mockServices = {
     update: (...a: unknown[]) => mockUpdate(...a),
     createPerson: (name: string) => mockCreatePerson(name),
     listPeople: async () => mockPeople,
-    loadImage: async () => null,
+    loadImage: (...a: [string, string]) => mockLoadImage(...a),
     loadPdf: async () => null,
   },
 };
@@ -55,6 +56,17 @@ jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({
 // The drawn card: what view capture hands back is the document's picture.
 const mockDrawCard = jest.fn();
 jest.mock('../drawCard', () => ({ drawCard: (...a: unknown[]) => mockDrawCard(...a) }));
+const mockPickImage = jest.fn();
+const mockTakePhoto = jest.fn();
+const mockCropShared = jest.fn();
+const mockDiscard = jest.fn();
+jest.mock('../../images/capture', () => ({
+  canTakePhoto: true,
+  pickImage: (...a: unknown[]) => mockPickImage(...a),
+  takePhoto: () => mockTakePhoto(),
+  cropSharedImage: (...a: unknown[]) => mockCropShared(...a),
+  discardFile: (...a: unknown[]) => mockDiscard(...a),
+}));
 
 const sara: Person = { id: 'sara', name: 'Sara', createdAt: 1 };
 const profile = (overrides: Partial<ProfileDetails> = {}): ProfileDetails => ({ dateOfBirth: '1990-05-04', bloodGroup: 'AB-', template: 'medical', ...overrides });
@@ -67,6 +79,10 @@ beforeEach(() => {
   mockPeople = [sara];
   mockUnlocked = false;
   mockDrawCard.mockResolvedValue(frontImage('drawn'));
+  mockPickImage.mockResolvedValue({ image: frontImage('picked', 1), original: null });
+  mockTakePhoto.mockResolvedValue('file://shot');
+  mockCropShared.mockResolvedValue(frontImage('shot', 1));
+  mockLoadImage.mockResolvedValue(null);
   mockCreate.mockImplementation(async (fields) => makeCard({ ...fields, id: 'made' }));
   mockUpdate.mockImplementation(async (id, fields) => makeCard({ ...fields, id }));
   mockCreatePerson.mockImplementation(async (name: string) => ({ id: 'new-person', name, createdAt: 2 }));
@@ -75,6 +91,46 @@ beforeEach(() => {
 const save = () => fireEvent.press(screen.getByTestId('save-profile'));
 
 describe('profile form', () => {
+  test('a chosen square photo appears in the preview and is saved apart from the drawn card', async () => {
+    mockParams = { id: 'new', person: 'sara' };
+    await render(<ProfileForm />);
+    await fireEvent.press(screen.getByTestId('profile-photo-library'));
+    await waitFor(() => expect(mockPickImage).toHaveBeenCalledWith('square'));
+    expect(screen.getByTestId('profile-photo-preview').props.source.uri).toContain(frontImage('picked', 1).jpegBase64);
+    expect(screen.getByTestId('profile-card-photo').props.source.uri).toContain(frontImage('picked', 1).jpegBase64);
+    expect(StyleSheet.flatten(screen.getByTestId('profile-card-photo').props.style)).toMatchObject({ width: 56, height: 56, borderRadius: 28 });
+    await save();
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    expect(mockCreate.mock.calls[0][1]).toMatchObject({ profilePhoto: image('picked', 1) });
+    expect(mockCreate.mock.calls[0][1].front).toEqual(frontImage('drawn'));
+  });
+
+  test('an existing photo can be removed', async () => {
+    mockCards = [sarasProfile()];
+    mockParams = { id: 'p1' };
+    mockLoadImage.mockImplementation(async (_id, side) => side === 'profilePhoto' ? image('saved', 1).jpegBase64 : null);
+    await render(<ProfileForm />);
+    await waitFor(() => expect(screen.getByTestId('profile-photo-preview')).toBeTruthy());
+    await fireEvent.press(screen.getByTestId('profile-photo-remove'));
+    expect(screen.queryByTestId('profile-card-photo')).toBeNull();
+    await save();
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    expect(mockUpdate.mock.calls[0][2]).toMatchObject({ profilePhoto: null });
+  });
+
+  test('a camera photo replaces the existing photo and its temporary file is removed', async () => {
+    mockCards = [sarasProfile()];
+    mockParams = { id: 'p1' };
+    mockLoadImage.mockImplementation(async (_id, side) => side === 'profilePhoto' ? image('saved', 1).jpegBase64 : null);
+    await render(<ProfileForm />);
+    await waitFor(() => expect(screen.getByTestId('profile-photo-preview')).toBeTruthy());
+    await fireEvent.press(screen.getByTestId('profile-photo-camera'));
+    await waitFor(() => expect(mockCropShared).toHaveBeenCalledWith('file://shot', 'square'));
+    expect(mockDiscard).toHaveBeenCalledWith('file://shot');
+    await save();
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    expect(mockUpdate.mock.calls[0][2]).toMatchObject({ profilePhoto: image('shot', 1) });
+  });
   test('a new profile saves its person, date of birth and blood group, drawn as its picture', async () => {
     await render(<ProfileForm />);
     await fireEvent.press(screen.getByTestId('profile-person-sara'));

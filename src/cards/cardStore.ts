@@ -110,7 +110,7 @@ interface FolderRow {
 type Payload = Omit<Card, 'id' | 'pinned' | 'position' | 'folderId' | 'personId' | 'createdAt' | 'updatedAt'>;
 
 type BlobKind = ImageSide | 'pdf';
-const KINDS: BlobKind[] = ['front', 'back', 'thumb', 'pdf'];
+const KINDS: BlobKind[] = ['front', 'back', 'thumb', 'pdf', 'profilePhoto'];
 const INSERT_SQL =
   'INSERT INTO cards (id, pinned, position, folder_id, person_id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 const CURRENT = 'deleted_at IS NULL';
@@ -226,6 +226,8 @@ export function createCardStore({
     else await blobs.remove(blobName(id, 'back'));
     if (images.pdf) await putImage(id, 'pdf', images.pdf.pdfBase64);
     else await blobs.remove(blobName(id, 'pdf'));
+    if (images.profilePhoto) await putImage(id, 'profilePhoto', images.profilePhoto.jpegBase64);
+    else await blobs.remove(blobName(id, 'profilePhoto'));
   };
 
   const nextPinnedPosition = async () =>
@@ -323,6 +325,8 @@ export function createCardStore({
       else if (changes.back === null) await blobs.remove(blobName(id, 'back'));
       if (changes.pdf) await putImage(id, 'pdf', changes.pdf.pdfBase64);
       else if (changes.pdf === null) await blobs.remove(blobName(id, 'pdf'));
+      if (changes.profilePhoto) await putImage(id, 'profilePhoto', changes.profilePhoto.jpegBase64);
+      else if (changes.profilePhoto === null) await blobs.remove(blobName(id, 'profilePhoto'));
 
       const backChanged = changes.back !== undefined;
       const { spaceId, ...updates } = fields;

@@ -691,6 +691,10 @@ export const strings = {
     ],
   },
   profiles: {
+    photo: 'Profile photo',
+    choosePhoto: 'Choose photo',
+    takePhoto: 'Take photo',
+    removePhoto: 'Remove photo',
     add: 'Add profile',
     shareTitle: 'Share this profile?',
     shareBody: 'This shares an unencrypted image or PDF of the profile, including any medical or contact details shown on it.',

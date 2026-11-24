@@ -160,10 +160,14 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
   if (back ? !isPositive(c.backAspect) : c.backAspect !== null) invalid();
   const pdf = parsePdf(imgs.pdf);
   const profile = profileFromBackup(c.profile);
+  // Older backups have no photo. A damaged optional photo is dropped with the profile details
+  // while its drawn front remains a usable ordinary document.
+  const photoValid = imgs.profilePhoto === undefined || imgs.profilePhoto === null ||
+    (isObject(imgs.profilePhoto) && isBase64(imgs.profilePhoto.jpegBase64) && imgs.profilePhoto.aspect === 1);
 
   const card: Card = {
     ...fields.value,
-    ...(profile && { profile }),
+    ...(profile && photoValid && { profile }),
     // Backups made before the setting: as the card's picture looks.
     vertical: typeof c.vertical === 'boolean' ? c.vertical : looksVertical(c.frontAspect as number),
     id: c.id,
@@ -176,7 +180,8 @@ function parseEntry(entry: unknown, seen: Set<string>): BackupCard {
     backAspect: back ? (c.backAspect as number) : null,
     pdf: pdf ? { pageCount: pdf.pageCount, coverPage: pdf.coverPage } : null,
   };
-  return { card, images: { front: { ...front, thumbJpegBase64: thumb }, back, ...(pdf && { pdf }) } };
+  return { card, images: { front: { ...front, thumbJpegBase64: thumb }, back, ...(pdf && { pdf }),
+    ...(profile && photoValid && isObject(imgs.profilePhoto) ? { profilePhoto: parseImage(imgs.profilePhoto) } : {}) } };
 }
 
 function parseNote(value: unknown, seen: Set<string>): Note {

@@ -131,10 +131,10 @@ export function cropFullPhoto(original: string): Promise<FrontImage | null> {
 }
 
 // A file shared into the app → the same freeform crop. The caller discards the shared file.
-export async function cropSharedImage(path: string): Promise<FrontImage | null> {
+export async function cropSharedImage(path: string, shape: CropShape = 'free'): Promise<FrontImage | null> {
   const uri = toFileUri(path);
-  const precut = await cutAroundCard(uri);
-  return crop(precut ?? uri, precut);
+  const precut = shape === 'free' ? await cutAroundCard(uri) : null;
+  return crop(precut ?? uri, precut, shape);
 }
 
 // Opens the cropper on `path`; `precut`, when given, is a temporary cut that is deleted afterwards.

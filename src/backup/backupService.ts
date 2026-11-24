@@ -36,11 +36,13 @@ export async function buildSnapshot(store: CardStore, now: number, notes?: NoteS
     const back = card.hasBack && card.backAspect ? await store.loadImage(card.id, 'back') : null;
     // A PDF whose file has gone is kept as a photo card of its cover page.
     const pdf = card.pdf ? await store.loadPdf(card.id) : null;
+    const profilePhoto = card.profile ? await store.loadImage(card.id, 'profilePhoto') : null;
     cards.push({
       card: convertFolderToTag({ ...card, hasBack: back !== null, backAspect: back ? card.backAspect : null, pdf: pdf ? card.pdf : null }, folders),
       images: {
         front: { jpegBase64: front, aspect: card.frontAspect, thumbJpegBase64: thumb },
         back: back && card.backAspect ? { jpegBase64: back, aspect: card.backAspect } : null,
+        ...(profilePhoto && { profilePhoto: { jpegBase64: profilePhoto, aspect: 1 } }),
         pdf: pdf && card.pdf ? { ...card.pdf, pdfBase64: pdf } : null,
       },
     });

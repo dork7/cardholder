@@ -1,6 +1,6 @@
-import { fields, images, makeStore } from '../../../test/fixtures';
+import { fields, image, images, makeStore } from '../../../test/fixtures';
 import { utf8 } from '../../crypto/bytes';
-import { ProfileExistsError } from '../../cards/cardStore';
+import { blobName, ProfileExistsError } from '../../cards/cardStore';
 import { searchDocumentDetails } from '../../cards/documentSearch';
 import { canAddCard } from '../../purchases/limits';
 import { FREE_CARD_LIMIT } from '../../config';
@@ -26,6 +26,20 @@ test('a profile is saved and reopens with its date of birth and blood group unch
   expect(reopened).toMatchObject({ name: 'Sara', personId: person.id, profile: details() });
   expect(await store.loadImage(saved.id, 'front')).not.toBeNull();
   expect(await store.loadImage(saved.id, 'thumb')).not.toBeNull();
+});
+
+test('a profile photo is a separate sealed blob that can be replaced and removed', async () => {
+  const { store, blobs, person } = await withPerson();
+  const photo = image('portrait', 1);
+  const saved = await store.create(fields({ name: 'Sara', personId: person.id, profile: details() }),
+    { ...images('drawn'), profilePhoto: photo });
+  expect(await store.loadImage(saved.id, 'profilePhoto')).toBe(photo.jpegBase64);
+  expect(Buffer.from(blobs.raw.get(blobName(saved.id, 'profilePhoto'))!).toString('latin1')).not.toContain('JPEG:portrait');
+  await store.update(saved.id, fields({ name: 'Sara', personId: person.id }), { profilePhoto: image('new', 1) });
+  expect(await store.loadImage(saved.id, 'profilePhoto')).toBe(image('new', 1).jpegBase64);
+  await store.update(saved.id, fields({ name: 'Sara', personId: person.id }), { profilePhoto: null });
+  expect(await store.loadImage(saved.id, 'profilePhoto')).toBeNull();
+  expect(await store.loadImage(saved.id, 'front')).toBe(images('drawn').front.jpegBase64);
 });
 
 test('profile details are stored only in the sealed payload, never in a plaintext column', async () => {
