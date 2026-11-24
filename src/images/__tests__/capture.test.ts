@@ -25,7 +25,7 @@ jest.mock('expo-image-manipulator', () => ({
   },
 }));
 
-import { pickImage } from '../capture';
+import { cropSharedImage, pickImage } from '../capture';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -46,4 +46,10 @@ test('a square crop is held to 1:1 and starts from the whole photo', async () =>
   expect(mockDetect).not.toHaveBeenCalled();
   expect(mockOpenCropper.mock.calls[0][0]).toMatchObject({ path: 'file:///picked.jpg', freeStyleCropEnabled: false, width: 800, height: 800 });
   expect(picked).toEqual({ image: { jpegBase64: 'JPEG', aspect: 1, thumbJpegBase64: 'THUMB' }, original: null });
+});
+
+test('a camera photo for a profile uses the same square crop', async () => {
+  await cropSharedImage('file:///shot.jpg', 'square');
+  expect(mockDetect).not.toHaveBeenCalled();
+  expect(mockOpenCropper.mock.calls[0][0]).toMatchObject({ path: 'file:///shot.jpg', freeStyleCropEnabled: false, width: 800, height: 800 });
 });

@@ -66,6 +66,7 @@ export interface PdfDocument extends CardPdf {
 export interface NewCardImages {
   front: FrontImage; // for a PDF card, the cover page
   back: CardImage | null;
+  profilePhoto?: CardImage | null; // separate sealed blob; never part of the drawn front or QR
   pdf?: PdfDocument | null; // omitted or null: a photo card
 }
 
@@ -73,10 +74,11 @@ export interface NewCardImages {
 export interface ImageChanges {
   front?: FrontImage;
   back?: CardImage | null;
+  profilePhoto?: CardImage | null;
   pdf?: PdfDocument | null;
 }
 
-export type ImageSide = 'front' | 'back' | 'thumb';
+export type ImageSide = 'front' | 'back' | 'thumb' | 'profilePhoto';
 
 export interface Card extends CardFields {
   id: string;

@@ -690,6 +690,10 @@ export const strings = {
     ],
   },
   profiles: {
+    photo: 'Profile photo',
+    choosePhoto: 'Choose photo',
+    takePhoto: 'Take photo',
+    removePhoto: 'Remove photo',
     add: 'Add profile',
     newTitle: 'New profile',
     editTitle: 'Edit profile',

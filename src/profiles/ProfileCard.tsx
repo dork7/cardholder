@@ -1,5 +1,5 @@
 import { ComponentRef, Ref } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { strings } from '../strings';
 import { formatDate, fromIsoDate } from '../time/dates';
 import { CARD_RADIUS, ID1_RATIO } from '../ui/cardDimensions';
@@ -29,7 +29,7 @@ export function profileSummary(name: string, profile: ProfileDetails, now: Date)
 }
 
 // The Medical template: who it is, their age, and their blood group large enough to read at a glance.
-export function ProfileCard({ name, profile, now, ref }: { name: string; profile: ProfileDetails; now: Date; ref?: Ref<ProfileCardView> }) {
+export function ProfileCard({ name, profile, now, photo, ref }: { name: string; profile: ProfileDetails; now: Date; photo?: string | null; ref?: Ref<ProfileCardView> }) {
   const theme = useTheme();
   const ink = theme.showcase.ink;
   const s = strings.profiles;
@@ -42,6 +42,7 @@ export function ProfileCard({ name, profile, now, ref }: { name: string; profile
       <View style={styles.top}>
       <View style={styles.main}>
         <Text allowFontScaling={false} style={[styles.kind, { color: ink }]}>{s.medical.toUpperCase()}</Text>
+        {photo && <Image source={{ uri: `data:image/jpeg;base64,${photo}` }} style={styles.photo} accessibilityLabel={s.photo} testID="profile-card-photo" />}
         <Text allowFontScaling={false} numberOfLines={2} style={[styles.name, { color: ink }]}>{name}</Text>
         {(age !== null || born) && (
           <Text allowFontScaling={false} numberOfLines={2} style={[styles.meta, { color: ink }]}>
@@ -76,6 +77,7 @@ const styles = StyleSheet.create({
   },
   top: { height: PROFILE_CARD_HEIGHT, flexDirection: 'row' },
   main: { flex: 1, padding: 18, gap: 6 },
+  photo: { width: 56, height: 56, borderRadius: 28 },
   kind: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, opacity: 0.8 },
   name: { fontSize: 24, fontWeight: '700', letterSpacing: TRACKING.tight, marginTop: 'auto' },
   meta: { fontSize: 13, fontWeight: '600', opacity: 0.9 },

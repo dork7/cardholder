@@ -1,4 +1,4 @@
-import { backupSnapshot, fields, images, makeStore } from '../../../test/fixtures';
+import { backupSnapshot, fields, image, images, makeStore } from '../../../test/fixtures';
 import { base64, utf8 } from '../../crypto/bytes';
 import { blobName } from '../../cards/cardStore';
 import { decodeBackup, encodeBackup, parseSnapshot } from '../backupFile';
@@ -36,6 +36,19 @@ test('encrypted backup replace restores a profile, its details and drawn card', 
   expect(text(await target.store.loadImage(made.id, 'front'))).toBe('JPEG:drawn');
   expect(text(await target.store.loadImage(made.id, 'thumb'))).toBe('THUMB:drawn');
   expect(await target.store.listPeople()).toEqual(await source.store.listPeople());
+});
+
+test.each(['replace', 'merge'] as const)('encrypted backup %s restores a profile photo', async (mode) => {
+  const source = await makeStore();
+  const person = await source.store.createPerson('Sara');
+  const made = await source.store.create(fields({ name: 'Sara', personId: person.id,
+    profile: { dateOfBirth: null, bloodGroup: 'O+', template: 'medical' } }),
+  { ...images('drawn'), profilePhoto: image('portrait', 1) });
+  const backup = await decodeBackup(await encodeBackup(await buildSnapshot(source.store, 42), 'pass', { iterations: 1_000 }), 'pass');
+  const target = await makeStore();
+  await applySnapshot(target.store, backup, mode);
+  expect((await target.store.get(made.id))?.profile).toBeDefined();
+  expect(await target.store.loadImage(made.id, 'profilePhoto')).toBe(image('portrait', 1).jpegBase64);
 });
 
 test('merge maps matching People and does not give one Person two profiles', async () => {
