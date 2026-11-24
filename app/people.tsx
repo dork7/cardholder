@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { Person } from '../src/cards/types';
@@ -14,6 +15,7 @@ import { TYPE, useTheme } from '../src/ui/theme';
 export default function PeopleScreen() {
   const { cards, people, services, refresh } = useApp();
   const theme = useTheme();
+  const router = useRouter();
   const inputStyle = useInputStyle();
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -59,6 +61,10 @@ export default function PeopleScreen() {
           <Text accessibilityRole="header" style={{ color: theme.text, fontSize: TYPE.section, fontWeight: '700' }}>{person.name}</Text>
           <Text style={{ color: theme.muted, fontSize: TYPE.secondary }}>{strings.people.count(cards.filter((card) => card.personId === person.id).length)}</Text>
           <View style={styles.actions}>
+            <Button variant="secondary" label={cards.some((card) => card.personId === person.id && card.profile) ? 'Open profile' : 'Create profile'} onPress={() => {
+              const profile = cards.find((card) => card.personId === person.id && card.profile);
+              router.push(profile ? `/card/${profile.id}` : `/profile/new?personId=${person.id}`);
+            }} testID={`profile-person-${person.id}`} />
             <Button variant="secondary" label={strings.people.rename} onPress={() => start(person)} testID={`rename-person-${person.id}`} />
             <Button variant="danger" label={strings.common.delete} onPress={() => remove(person)} disabled={busy} testID={`delete-person-${person.id}`} />
           </View>

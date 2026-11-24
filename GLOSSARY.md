@@ -6,8 +6,11 @@ contracts. Nothing leaves the phone.
 ## Keeping documents
 
 **Document**:
-One thing the user keeps: photos of something physical, or a PDF.
+One thing the user keeps: photos of something physical, a PDF, or a profile.
 _Avoid_: card, item, file
+
+**Profile**:
+A person's medical and contact details, kept as a document and shown as a card. A person has at most one profile.
 
 **Front**:
 The main photo of a photo document, the side that identifies it.

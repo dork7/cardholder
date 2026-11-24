@@ -1,6 +1,7 @@
 import { SpaceId } from '../spaces/spaces';
 
 export interface CardFields {
+  profile?: Profile;
   spaceId?: SpaceId; // absent in older records, which belong to Personal
   name: string; // '' when the card has no name
   expiresOn: string | null; // YYYY-MM-DD, local calendar day
@@ -12,6 +13,20 @@ export interface CardFields {
   readText: CardText | null; // what was read off the photos, for search; null until the card has been read
   blurPreview: boolean; // blur pictures in home previews; the opened document stays readable
   vertical: boolean; // an upright card: shown turned on its side in the landscape slots of the home screen
+}
+
+export type BloodGroup = 'A+' | 'A−' | 'B+' | 'B−' | 'AB+' | 'AB−' | 'O+' | 'O−' | 'Unknown';
+export interface Profile {
+  template: 'medical';
+  dateOfBirth: string | null;
+  bloodGroup: BloodGroup;
+  conditions?: string[];
+  allergies?: string[];
+  medications?: string[];
+  medicalNotes?: string;
+  mobile?: string;
+  email?: string;
+  address?: string;
 }
 
 // A picture taller than it is wide starts as a vertical card; the user can change it on the edit screen.

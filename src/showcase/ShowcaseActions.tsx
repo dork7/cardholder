@@ -21,6 +21,7 @@ export function useShowcaseAdd(spaceId?: SpaceId) {
     sheet: <ActionSheet visible={visible} title="Add to your library" onClose={() => setVisible(false)} testID="showcase-add"
       actions={[
         { key: 'document', icon: 'pdf', label: strings.home.addCard, onPress: () => router.push(canAddCard(cards.length, unlocked) ? `/edit/new${suffix}` : '/paywall'), testID: 'showcase-add-document' },
+        { key: 'profile', icon: 'present', label: 'Add profile', onPress: () => router.push(canAddCard(cards.length, unlocked) ? `/profile/new${suffix}` : '/paywall'), testID: 'showcase-add-profile' },
         { key: 'note', icon: 'edit', label: strings.notes.add, onPress: () => router.push(`/note/new${suffix}`), testID: 'showcase-add-note' },
       ]} />,
   };

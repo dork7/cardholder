@@ -475,7 +475,7 @@ export default function CardView() {
         testID="card-more-sheet"
         actions={[
           { key: 'pdf', icon: 'pdf', label: strings.card.exportPdf, hint: strings.card.exportPdfHint, onPress: exportPdf, testID: 'export-pdf' },
-          { key: 'edit', icon: 'edit', label: strings.card.edit, onPress: () => router.push(`/edit/${card.id}`), testID: 'edit-card' },
+          { key: 'edit', icon: 'edit', label: strings.card.edit, onPress: () => router.push(card.profile ? `/profile/${card.id}` : `/edit/${card.id}`), testID: 'edit-card' },
           { key: 'delete', icon: 'trash', variant: 'danger', label: strings.edit.deleteCard, onPress: () => void deleteCard(), testID: 'delete-card' },
         ]}
       />

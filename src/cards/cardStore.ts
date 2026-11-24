@@ -10,6 +10,7 @@ import { parseRemindDays, toCardText } from './validate';
 import { normalizeTags, withLegacyCategory } from './tags';
 import { spaceFor } from '../spaces/spaces';
 import { personName, samePersonName } from '../people/names';
+import { parseProfile } from './profile';
 import { Card, CardFields, CardPdf, DeletedCard, Folder, ImageChanges, ImageSide, looksVertical, NewCardImages, PdfDocument, Person } from './types';
 
 export class FolderNotFoundError extends Error {
@@ -142,6 +143,7 @@ export function createCardStore({
       readText: card.readText,
       vertical: card.vertical,
       blurPreview: card.blurPreview,
+      ...(card.profile && { profile: card.profile }),
     };
     return aead.seal(utf8.encode(JSON.stringify(payload)));
   };
@@ -163,6 +165,7 @@ export function createCardStore({
       pdf: isCardPdf(payload.pdf) ? payload.pdf : null,
       readText: toCardText(payload.readText), // null for cards saved before text was kept
       blurPreview: payload.blurPreview === true,
+      ...(parseProfile(payload.profile) && { profile: parseProfile(payload.profile) }),
       vertical: typeof payload.vertical === 'boolean' ? payload.vertical : looksVertical(payload.frontAspect),
       id: row.id,
       pinned: row.pinned === 1,
@@ -269,6 +272,10 @@ export function createCardStore({
     loadPdf: (id) => load(id, 'pdf'),
 
     async create(fields, images) {
+      if (fields.profile) {
+        if (!fields.personId) throw new Error('A profile needs a Person');
+        if ((await listCards()).some((card) => card.personId === fields.personId && card.profile)) throw new Error('Person already has a profile');
+      }
       const id = newId();
       const t = now();
       await writeImages(id, images);
@@ -292,6 +299,7 @@ export function createCardStore({
       const row = await getRow(id);
       if (!row) throw new CardNotFoundError(id);
       const current = toCard(row);
+      if (fields.profile && fields.personId && (await listCards()).some((card) => card.id !== id && card.personId === fields.personId && card.profile)) throw new Error('Person already has a profile');
       if (changes.front) {
         await putImage(id, 'front', changes.front.jpegBase64);
         await putImage(id, 'thumb', changes.front.thumbJpegBase64);

@@ -80,7 +80,7 @@ export interface PickedPhoto {
 
 // Photo library → freeform crop, starting around the card when its edges can be found. Returns null
 // when the user cancels.
-export async function pickImage(): Promise<PickedPhoto | null> {
+export async function pickImage(aspect?: 'square'): Promise<PickedPhoto | null> {
   let picked: PickedImage;
   try {
     picked = (await ImagePicker.openPicker({ mediaType: 'photo', cropping: false, forceJpg: true })) as PickedImage;
@@ -93,7 +93,7 @@ export async function pickImage(): Promise<PickedPhoto | null> {
     const uri = toFileUri(picked.path);
     const precut = await cutAroundCard(uri);
     if (precut) original = await keepOriginal(uri);
-    const image = await crop(precut ?? uri, precut);
+    const image = await crop(precut ?? uri, precut, aspect);
     if (!image) return null;
     const kept = original;
     original = null;
@@ -132,9 +132,9 @@ export async function cropSharedImage(path: string): Promise<FrontImage | null> 
 }
 
 // Opens the cropper on `path`; `precut`, when given, is a temporary cut that is deleted afterwards.
-async function crop(path: string, precut: string | null): Promise<FrontImage | null> {
+async function crop(path: string, precut: string | null, aspect?: 'square'): Promise<FrontImage | null> {
   try {
-    return await finish((await ImagePicker.openCropper({ ...CROP_OPTIONS, path })) as PickedImage);
+    return await finish((await ImagePicker.openCropper({ ...CROP_OPTIONS, ...(aspect === 'square' && { width: 1024, height: 1024, freeStyleCropEnabled: false }), path })) as PickedImage);
   } catch (e) {
     if (isCancel(e)) return null;
     throw e;

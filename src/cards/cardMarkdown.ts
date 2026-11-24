@@ -31,6 +31,12 @@ export function cardMarkdown(card: Card, folders: readonly Folder[]): string {
   details.push([s.reference, `\`${card.id}\``]);
 
   const parts = [`# ${displayName(card)}`, details.map(([k, v]) => `- **${k}:** ${v}`).join('\n')];
+  if (card.profile) parts.push(`## Profile\n\n${[
+    card.profile.dateOfBirth && `Date of birth: ${card.profile.dateOfBirth}`,
+    `Blood group: ${card.profile.bloodGroup}`,
+    ...(card.profile.conditions ?? []), ...(card.profile.allergies ?? []), ...(card.profile.medications ?? []),
+    card.profile.medicalNotes, card.profile.mobile, card.profile.email, card.profile.address,
+  ].filter(Boolean).join('\n')}`);
   if (!card.readText) {
     parts.push(`## ${s.scannedText}\n\n_${s.notRead}_`);
   } else {

@@ -3,6 +3,7 @@ import { DEFAULT_REMIND_DAYS, MAX_REMIND_DAYS, MAX_TAGS, NAME_MAX_LENGTH, READ_T
 import { isValidIsoDate } from '../time/dates';
 import { normalizeTags, withLegacyCategory } from './tags';
 import { CardFields, CardText } from './types';
+import { parseProfile } from './profile';
 
 export type FieldError = 'name-too-long' | 'bad-expiry' | 'bad-reminder' | 'bad-tags';
 
@@ -20,6 +21,7 @@ export interface RawCardFields {
   readText?: unknown;
   vertical?: unknown;
   blurPreview?: unknown;
+  profile?: unknown;
 }
 
 export type CardValidation = { ok: true; value: CardFields } | { ok: false; errors: FieldError[] };
@@ -84,6 +86,6 @@ export function validateCardFields(raw: RawCardFields, limits?: { maxTags: numbe
   const documentKey = typeof raw.documentKey === 'string' && DOCUMENT_KEY.test(raw.documentKey) ? raw.documentKey : null;
   return {
     ok: true,
-    value: { ...(raw.spaceId !== undefined && { spaceId: spaceFor(raw.spaceId).id }), name, expiresOn, remindDaysBefore, tags: withLegacyCategory(tags, raw.category), documentKey, folderId: toFolderId(raw.folderId), personId: toFolderId(raw.personId), readText: toCardText(raw.readText), vertical: raw.vertical === true, blurPreview: raw.blurPreview === true },
+    value: { ...(raw.spaceId !== undefined && { spaceId: spaceFor(raw.spaceId).id }), name, expiresOn, remindDaysBefore, tags: withLegacyCategory(tags, raw.category), documentKey, folderId: toFolderId(raw.folderId), personId: toFolderId(raw.personId), readText: toCardText(raw.readText), vertical: raw.vertical === true, blurPreview: raw.blurPreview === true, ...(parseProfile(raw.profile) && { profile: parseProfile(raw.profile) }) },
   };
 }
