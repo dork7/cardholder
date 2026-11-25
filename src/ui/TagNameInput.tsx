@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { resolveTag } from '../cards/tags';
-import { TAG_MAX_LENGTH } from '../config';
 import { strings } from '../strings';
 import { Button } from './Button';
 import { Field, useInputStyle } from './Field';
@@ -39,7 +38,6 @@ export function TagNameInput({ tags, onSubmit, onCancel }: Props) {
           onSubmitEditing={submit}
           placeholder={strings.edit.newTagPlaceholder}
           placeholderTextColor={theme.muted}
-          maxLength={TAG_MAX_LENGTH}
           accessibilityLabel={strings.edit.newTag}
           autoFocus
           returnKeyType="done"

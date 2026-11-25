@@ -238,8 +238,8 @@ function Editor({ note, initialBody = '', initialDocumentId, initialSpace }: { n
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  content: { padding: 16, gap: 24, flexGrow: 1 },
+  content: { padding: 16, gap: 16, flexGrow: 1 },
   body: { minHeight: 240, textAlignVertical: 'top', fontSize: TYPE.body },
-  secondary: { gap: 16, marginTop: 24 },
+  secondary: { gap: 16, marginTop: 16 },
   actions: { padding: 16 },
 });

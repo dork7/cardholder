@@ -322,12 +322,20 @@ describe('document library (the default view)', () => {
       expect(screen.getByText(strings.home.subtitle)).toBeTruthy();
       expect(screen.getByRole('header', { name: strings.home.pinnedForQuickAccess })).toBeTruthy();
       expect(screen.getByRole('header', { name: strings.home.allDocuments })).toBeTruthy();
-      expect(screen.getByText(strings.home.documentCount(2))).toBeTruthy();
+      expect(screen.getByText(strings.home.documentCount(3))).toBeTruthy();
       expect(screen.getByTestId('pinned-a')).toBeTruthy();
       expect(screen.getByTestId('row-b')).toBeTruthy();
       expect(screen.queryByTestId('row-a')).toBeNull();
       await fireEvent.press(screen.getByTestId('row-b'));
       expect(mockPush).toHaveBeenCalledWith('/card/b');
+    });
+  });
+
+  test('the All documents count includes a sole pinned document', async () => {
+    await withCards([makeCard({ id: 'only', pinned: true })], async () => {
+      await render(<Home />);
+      expect(screen.getByText(strings.home.documentCount(1))).toBeTruthy();
+      expect(screen.queryByText(strings.home.documentCount(0))).toBeNull();
     });
   });
 
@@ -337,7 +345,7 @@ describe('document library (the default view)', () => {
       await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Insurance' })));
       expect(screen.getByTestId('row-c')).toBeTruthy();
       expect(screen.queryByTestId('row-b')).toBeNull();
-      expect(screen.getByText(strings.home.documentCount(1))).toBeTruthy();
+      expect(screen.getByText(strings.home.documentCount(2))).toBeTruthy();
       expect(screen.getByTestId('pinned-a')).toBeTruthy();
     });
   });

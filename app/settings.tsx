@@ -1,4 +1,4 @@
-import Constants from 'expo-constants';
+import * as Application from 'expo-application';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
@@ -172,7 +172,7 @@ export default function SettingsScreen() {
           <Text style={[styles.body, { color: theme.text }]}>{strings.promise}</Text>
           <Button variant="secondary" label={strings.settings.privacyPolicy} onPress={() => router.push('/privacy')} />
           <Text style={[styles.caption, { color: theme.muted }]}>
-            {strings.settings.version(Constants.expoConfig?.version ?? '')}
+            {strings.settings.version(Application.nativeApplicationVersion ?? '')}
           </Text>
         </Section>
       </ScrollView>

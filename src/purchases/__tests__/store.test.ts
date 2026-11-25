@@ -196,7 +196,7 @@ test('iOS restores sync and verify with StoreKit before unlocking', async () => 
   await s.controller.restore('ios');
   expect(s.api.syncIOS).toHaveBeenCalledTimes(1);
   expect(s.settings.set).not.toHaveBeenCalled();
-  expect(s.controller.getSnapshot().message).toBe('failed');
+  expect(s.controller.getSnapshot().message).toBe('restore-failed');
   await s.controller.restore('ios');
   expect(s.values.get('unlocked')).toBe('1');
   await s.controller.dispose();

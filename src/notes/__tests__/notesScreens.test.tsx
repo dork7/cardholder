@@ -59,6 +59,8 @@ const write = async (title: string, body: string) => {
 test('empty Notes has an add action even at the free document limit', async () => {
   await render(<NotesScreen />);
   expect(await screen.findByText(strings.notes.empty)).toBeTruthy();
+  expect(screen.queryByText(strings.notes.search)).toBeNull();
+  expect(screen.getByTestId('notes-search').props.placeholder).toBe(strings.notes.search);
   await fireEvent.press(screen.getByTestId('add-note'));
   await fireEvent.press(screen.getByTestId('showcase-add-note'));
   expect(mockRouter.push).toHaveBeenCalledWith('/note/new');

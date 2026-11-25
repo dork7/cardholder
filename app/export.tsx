@@ -50,7 +50,6 @@ export default function ExportScreen() {
       const bytes = await encodeBackup(await buildSnapshot(services.store, now, services.notes), passphrase);
       if (how === 'send') {
         await shareBackupFile(bytes, new Date(now));
-        Alert.alert(strings.export.sent);
         router.back();
         return;
       }

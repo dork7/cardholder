@@ -591,6 +591,10 @@ export default function EditCard() {
                 <TagNameInput
                   tags={offeredTags}
                   onSubmit={(tag) => {
+                    if (!hasTag(draft, tag) && draft.tags.length >= MAX_TAGS) {
+                      Alert.alert(strings.tags.tooManyTitle, strings.tags.tooMany(1, MAX_TAGS));
+                      return;
+                    }
                     if (!hasTag(draft, tag)) update({ tags: [...draft.tags, tag] });
                     setNamingTag(false);
                   }}

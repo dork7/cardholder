@@ -12,7 +12,7 @@ import { allTags } from '../src/cards/tags';
 import { TagChips } from '../src/ui/TagChips';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
-import { Field, useInputStyle } from '../src/ui/Field';
+import { useInputStyle } from '../src/ui/Field';
 import { Screen } from '../src/ui/Surface';
 import { Fab } from '../src/ui/Fab';
 import { TabBar } from '../src/ui/TabBar';
@@ -73,11 +73,9 @@ export default function NotesScreen() {
         <ShowcaseIcon icon="settings" label={strings.home.settings} onPress={() => router.push('/settings')} />
       </ShowcaseHeader>
       <View style={styles.search}>
-        <Field label={strings.notes.search}>
-          <TextInput value={query} onChangeText={setQuery} accessibilityLabel={strings.notes.search}
-            placeholder={strings.notes.search} placeholderTextColor={theme.muted}
-            autoCorrect={false} autoCapitalize="none" style={inputStyle} testID="notes-search" />
-        </Field>
+        <TextInput value={query} onChangeText={setQuery} accessibilityLabel={strings.notes.search}
+          placeholder={strings.notes.search} placeholderTextColor={theme.muted}
+          autoCorrect={false} autoCapitalize="none" style={inputStyle} testID="notes-search" />
       </View>
       {presentTags.length > 0 && <TagChips tags={presentTags} selected={activeTag ? [activeTag] : []} includeAll onPress={setTag} />}
       {saveFailed && <LiveText style={{ color: theme.danger, padding: 16 }}>{strings.notes.failed}</LiveText>}

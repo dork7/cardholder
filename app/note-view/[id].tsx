@@ -41,7 +41,7 @@ export default function NoteDetail() {
     { text: strings.common.delete, style: 'destructive', onPress: () => void act(() => services.notes.remove(note.id), true) },
   ]);
   return <Screen>
-    <Stack.Screen options={{ title: 'Note' }} />
+    <Stack.Screen options={{ title: strings.notes.title }} />
     <ScrollView contentContainerStyle={styles.content}>
       <View style={[styles.mark, { backgroundColor: theme.showcase.spaces[space.id] }]}><RetroIcon name="note" color={theme.accent} size={32} /></View>
       <Text style={[styles.space, { color: theme.accent }]}>{space.name} space</Text>

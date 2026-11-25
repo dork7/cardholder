@@ -9,7 +9,7 @@ export type PurchaseStore = Pick<typeof import('expo-iap'),
   | 'getAvailablePurchases' | 'finishTransaction' | 'purchaseUpdatedListener'
   | 'purchaseErrorListener' | 'syncIOS' | 'isTransactionVerifiedIOS'>;
 
-export type PurchaseMessage = 'none' | 'pending' | 'failed' | 'price-unavailable' | 'unavailable' | 'purchased' | 'finishing-failed';
+export type PurchaseMessage = 'none' | 'pending' | 'failed' | 'restore-failed' | 'price-unavailable' | 'unavailable' | 'purchased' | 'finishing-failed';
 export interface PurchaseState {
   busy: boolean;
   price: string | null;
@@ -172,7 +172,7 @@ export function createPurchases({ settings, refresh, loadStore }: {
         const api = await connect();
         if (!closed) await restoreOwned(api, platform === 'ios');
       } catch {
-        update({ busy: false, message: 'failed' });
+        update({ busy: false, message: 'restore-failed' });
       }
     },
     async dispose() {

@@ -9,6 +9,7 @@ import { MIN_PASSPHRASE_LENGTH } from '../../config';
 import { strings } from '../../strings';
 import { formatAgo, formatDate } from '../../time/dates';
 import { BackupError } from '../backupFile';
+jest.mock('expo-application', () => ({ nativeApplicationVersion: '2.3.4' }));
 
 const mockRouter = { back: jest.fn(), push: jest.fn(), dismissAll: jest.fn() };
 jest.mock('expo-router', () => {
@@ -153,7 +154,7 @@ describe('export', () => {
     expect(mockShare).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]), expect.any(Date));
     expect(mockSave).not.toHaveBeenCalled();
     expect(mockSettings.has('lastExportAt')).toBe(false);
-    expect(alert).toHaveBeenCalledWith(strings.export.sent);
+    expect(alert).not.toHaveBeenCalled();
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
@@ -270,6 +271,10 @@ describe('verify backup', () => {
 });
 
 describe('settings', () => {
+  test('shows the installed native app version', async () => {
+    await render(<SettingsScreen />);
+    expect(screen.getByText(strings.settings.version('2.3.4'))).toBeTruthy();
+  });
   test('prompts for a stale backup only when documents changed since the save', async () => {
     mockSettings.set('lastExportAt', String(Date.now() - 31 * 86_400_000));
     mockDocumentChangedAt = Date.now();

@@ -318,13 +318,13 @@ export default function Documents() {
             </View>
           )}
           {cards.length > 0 && <View style={styles.section}>
-            <SectionHeading title={strings.home.allDocuments} count={strings.home.documentCount(rest.length)} />
-            {rest.length > 0 ? <DocumentRows cards={rest} {...listActions} /> : (
+            <SectionHeading title={strings.home.allDocuments} count={strings.home.documentCount(pinned.length + rest.length)} />
+            {rest.length > 0 ? <DocumentRows cards={rest} {...listActions} /> : pinned.length === 0 ? (
               <LiveText style={[styles.promise, { color: theme.muted }]}>
                 {searchPending ? strings.home.searching : expiringOnly && pinned.length === 0 && shown.length > 0
                   ? strings.home.noneExpiring(EXPIRY_SOON_DAYS) : strings.home.noResults}
               </LiveText>
-            )}
+            ) : null}
           </View>}
         </ScrollView>
       )}

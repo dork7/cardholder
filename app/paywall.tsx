@@ -15,6 +15,7 @@ const messages: Record<PurchaseMessage, string> = {
   none: strings.settings.restoreNone,
   pending: strings.paywall.pending,
   failed: strings.paywall.failed,
+  'restore-failed': strings.paywall.restoreFailed,
   'price-unavailable': strings.paywall.priceUnavailable,
   unavailable: strings.paywall.unavailable,
   purchased: strings.paywall.purchased,

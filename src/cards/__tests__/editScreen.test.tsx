@@ -512,6 +512,17 @@ describe("the card's tags", () => {
     expect(screen.getByText(strings.edit.tagNameError)).toBeTruthy();
   });
 
+  test('a new tag longer than 24 characters shows an error without truncating it', async () => {
+    await fillNewCard();
+    await fireEvent.press(screen.getByTestId('tag-add'));
+    const longName = 'A tag name longer than twenty four';
+    await fireEvent.changeText(screen.getByTestId('new-tag-name'), longName);
+    await fireEvent.press(screen.getByTestId('new-tag-submit'));
+    expect(screen.getByTestId('new-tag-name').props.value).toBe(longName);
+    expect(screen.getByTestId('new-tag-name').props.maxLength).toBeUndefined();
+    expect(screen.getByText(strings.edit.tagNameError)).toBeTruthy();
+  });
+
   test("an existing card's tags are switched on and can be taken off", async () => {
     mockCards = [makeCard({ id: 'c1', name: 'Gym', tags: ['Membership', 'Family'] })];
     mockParams = { id: 'c1' };
@@ -522,16 +533,18 @@ describe("the card's tags", () => {
     expect(mockUpdate).toHaveBeenCalledWith('c1', expect.objectContaining({ tags: ['Membership'] }), expect.anything());
   });
 
-  test('more tags than a card can have is refused on save', async () => {
+  test('a ninth new tag is refused when chosen, before save', async () => {
     await fillNewCard();
     for (let i = 0; i < 9; i++) {
       await fireEvent.press(screen.getByTestId('tag-add'));
       await fireEvent.changeText(screen.getByTestId('new-tag-name'), `tag ${i}`);
       await fireEvent.press(screen.getByTestId('new-tag-submit'));
     }
+    expect(alert).toHaveBeenLastCalledWith(strings.tags.tooManyTitle, strings.tags.tooMany(1, 8));
+    expect(screen.getByTestId('new-tag-name').props.value).toBe('tag 8');
     await save();
-    expect(screen.getByText(strings.edit.errors['bad-tags'])).toBeTruthy();
-    expect(mockCreate).not.toHaveBeenCalled();
+    expect(screen.queryByText(strings.edit.errors['bad-tags'])).toBeNull();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ tags: Array.from({ length: 8 }, (_, i) => `tag ${i}`) }), expect.anything());
   });
 
   test('the photo suggests a tag: the kind of document, spelled as a tag already in use', async () => {

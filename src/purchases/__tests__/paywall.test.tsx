@@ -71,3 +71,10 @@ test('Restore is available without loading a price and explains when no purchase
   expect(screen.getByText(strings.settings.restoreNone)).toBeTruthy();
   expect(mockValues.has('unlocked')).toBe(false);
 });
+
+test('a failed restore explains that the store check failed', async () => {
+  mockAvailable.mockRejectedValueOnce(new Error('store offline'));
+  await render(<PaywallScreen />);
+  await act(async () => fireEvent.press(screen.getByTestId('restore-purchases')));
+  expect(screen.getByText(strings.paywall.restoreFailed)).toBeTruthy();
+});
