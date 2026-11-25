@@ -14,7 +14,7 @@ const panelStyle = () => StyleSheet.flatten(screen.getByTestId('panel').props.st
 
 test.each([
   ['light', 'rgba(255, 255, 255, 0.82)'],
-  ['dark', 'rgba(35, 49, 73, 0.84)'],
+  ['dark', 'rgba(44, 44, 51, 0.84)'],
 ] as const)('in %s mode a panel is a rounded glass surface', async (scheme, surface) => {
   mockScheme = scheme;
   await render(
