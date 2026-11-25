@@ -73,6 +73,28 @@ test('valid encryption around invalid contents is rejected', async () => {
 });
 
 describe('parseSnapshot', () => {
+  test('a malformed optional profile photo leaves the drawn front as an ordinary document', () => {
+    const raw = rawSnapshot();
+    raw.people = [{ id: 'sara', name: 'Sara', createdAt: 1 }];
+    raw.cards[0].card.personId = 'sara';
+    raw.cards[0].card.profile = { dateOfBirth: null, bloodGroup: 'A+', template: 'medical' };
+    raw.cards[0].images.profilePhoto = { jpegBase64: 'not base64', aspect: 1 };
+    const parsed = parseSnapshot(raw).cards[0];
+    expect(parsed.card.profile).toBeUndefined();
+    expect(parsed.images.profilePhoto).toBeUndefined();
+    expect(parsed.images.front).toEqual(raw.cards[0].images.front);
+  });
+
+  test('duplicate profiles for one Person are reduced to one during restore parsing', () => {
+    const raw = rawSnapshot();
+    raw.people = [{ id: 'sara', name: 'Sara', createdAt: 1 }];
+    for (const entry of raw.cards) {
+      entry.card.personId = 'sara';
+      entry.card.profile = { dateOfBirth: null, bloodGroup: 'A+', template: 'medical' };
+    }
+    expect(parseSnapshot(raw).cards.map((entry) => !!entry.card.profile)).toEqual([true, false]);
+  });
+
   test('older backups have no profile, and damaged or unknown profile details leave the document', () => {
     const old = rawSnapshot();
     expect(parseSnapshot(old).cards[0].card.profile).toBeUndefined();

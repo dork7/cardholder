@@ -55,3 +55,15 @@ test('dark mode uses off-white text and lifts surfaces with lighter greys', () =
   expect(luminance(dark.surface)).toBeGreaterThan(luminance(dark.bg));
   expect(luminance(dark.bannerBg)).toBeGreaterThan(luminance(dark.surface));
 });
+
+test('Graphite dark tokens and the existing light tokens stay distinct', () => {
+  expect(palettes.dark).toMatchObject({
+    bg: '#121214', surface: '#1C1C20', text: '#E8E8ED', muted: '#A7A7B2',
+    accent: '#AAB3F2', danger: '#F2A0A8', blurTint: 'dark',
+    showcase: { start: '#41479F', end: '#2C3178' },
+  });
+  expect(palettes.dark.border).toBe('rgba(255, 255, 255, 0.08)');
+  expect(palettes.light).toMatchObject({
+    bg: '#F1F3F9', surface: '#FFFFFF', text: '#1C2433', accent: '#3442E6', blurTint: 'light',
+  });
+});

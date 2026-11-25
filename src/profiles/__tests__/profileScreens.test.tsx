@@ -258,6 +258,27 @@ describe('profile form', () => {
       medicalNotes: 'Carry inhaler', mobile: '+971500000000', email: 'sara@example.com', address: 'Dubai' });
   });
 
+  test('profile inputs expose the same text limits as the sealed profile reader', async () => {
+    mockParams = { id: 'new', person: 'sara' };
+    await render(<ProfileForm />);
+    expect(screen.getByTestId('profile-conditions-new').props.maxLength).toBe(200);
+    expect(screen.getByTestId('profile-medicalNotes').props.maxLength).toBe(5000);
+    expect(screen.getByTestId('profile-address').props.maxLength).toBe(5000);
+    expect(screen.queryByTestId('profile-new-name')).toBeNull();
+    await fireEvent.press(screen.getByTestId('profile-person-new'));
+    expect(screen.getByTestId('profile-new-name').props.maxLength).toBe(60);
+  });
+
+  // BUG: ListField permits a 101st entry, but toProfile drops lists longer than 100 on reopen.
+  it.failing('stops adding medical list entries at the 100-entry storage limit', async () => {
+    mockCards = [makeCard({ ...sarasProfile(), profile: profile({ conditions: Array.from({ length: 100 }, (_, i) => `Condition ${i}`) }) })];
+    mockParams = { id: 'p1' };
+    await render(<ProfileForm />);
+    await fireEvent.changeText(screen.getByTestId('profile-conditions-new'), 'One more');
+    await fireEvent.press(screen.getByTestId('profile-conditions-add'));
+    expect(screen.queryByTestId('profile-conditions-100')).toBeNull();
+  });
+
   test('a failed drawing keeps the form open and reports the failed save', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});

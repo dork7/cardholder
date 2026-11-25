@@ -4,7 +4,7 @@ import { blobName, ProfileExistsError } from '../../cards/cardStore';
 import { searchDocumentDetails } from '../../cards/documentSearch';
 import { canAddCard } from '../../purchases/limits';
 import { FREE_CARD_LIMIT } from '../../config';
-import { ageOn, ProfileDetails, toProfile } from '../profile';
+import { ageOn, ProfileDetails, profileFromBackup, toProfile } from '../profile';
 import { isExpiringSoon } from '../../cards/listing';
 import { planReminders } from '../../reminders/plan';
 
@@ -90,6 +90,27 @@ test('ordinary documents have no profile, and unreadable profile details fall ba
   const { store } = await makeStore();
   const doc = await store.create(fields({ name: 'Passport' }), images('p'));
   expect(await store.get(doc.id)).not.toHaveProperty('profile');
+});
+
+test('empty optional fields and maximum length medical details survive a sealed store round trip', async () => {
+  const { store, person } = await withPerson();
+  const profile = details({ conditions: Array.from({ length: 100 }, (_, i) => `Condition ${i}`),
+    allergies: ['x'.repeat(200)], medications: [], medicalNotes: 'm'.repeat(5000),
+    mobile: '', email: 'e'.repeat(5000), address: 'a'.repeat(5000) });
+  const saved = await store.create(fields({ name: 'Sara', personId: person.id, profile }), images('drawn'));
+  expect((await store.get(saved.id))?.profile).toEqual(profile);
+  expect(profileFromBackup(profile)).toEqual(profile);
+});
+
+test('the backup parser rejects oversized profile fields without rejecting the document', () => {
+  for (const invalid of [
+    { conditions: Array.from({ length: 101 }, () => 'x') },
+    { allergies: ['x'.repeat(201)] },
+    { medicalNotes: 'x'.repeat(5001) },
+    { mobile: 42 },
+  ]) {
+    expect(profileFromBackup(details(invalid as Partial<ProfileDetails>))).toBeNull();
+  }
 });
 
 test('profiles are listed and counted like documents, so they count towards the free limit', async () => {

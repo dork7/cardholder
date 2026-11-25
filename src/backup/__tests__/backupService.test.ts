@@ -123,6 +123,21 @@ test('replace drops cards that are not in the backup', async () => {
   expect((await store.list()).map((c) => c.name)).toEqual(['Emirates ID', 'Gym']);
 });
 
+test('replacing with an empty encrypted backup clears current profiles, People and their photos', async () => {
+  const source = await makeStore();
+  const bytes = await encodeBackup(await buildSnapshot(source.store, 42), 'pass', { iterations: 1_000 });
+  const target = await makeStore();
+  const person = await target.store.createPerson('Sara');
+  const saved = await target.store.create(fields({ name: 'Sara', personId: person.id,
+    profile: { dateOfBirth: null, bloodGroup: 'O+', template: 'medical' } }),
+  { ...images('drawn'), profilePhoto: image('portrait', 1) });
+  expect(await target.store.loadImage(saved.id, 'profilePhoto')).not.toBeNull();
+  await applySnapshot(target.store, await decodeBackup(bytes, 'pass'), 'replace');
+  expect(await target.store.list()).toEqual([]);
+  expect(await target.store.listPeople()).toEqual([]);
+  expect(await target.store.loadImage(saved.id, 'profilePhoto')).toBeNull();
+});
+
 test('a card whose back image is missing exports as front-only and still imports', async () => {
   const { store, blobs } = await makeStore();
   const card = await store.create(fields(), images('x', true));
