@@ -1,55 +1,80 @@
-// Draws the app icons from their 16x16 pixel mark. Run: node scripts/make-icons.mjs
+// Draws the app icons: a fan of wallet cards on near-black. Run: node scripts/make-icons.mjs
+// Everything is rounded rectangles, rasterised here with 4x4 supersampling so no image tools are needed.
 import { writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
 const root = new URL('..', import.meta.url);
-const PIXELS = [
-  '..ooooooooo.....',
-  '..opppppppoo....',
-  '..opppppppoao...',
-  '..opppppppoaao..',
-  '..opppppppooooo.',
-  '..opppppppppppos',
-  '..opllllllllppos',
-  '..opppppppppppos',
-  '..opllllllppppos',
-  '..opppppppppppos',
-  '..opllllpaaappos',
-  '..oppppppaaappos',
-  '..oppppppapappos',
-  '..opppppppppppos',
-  '..ooooooooooooos',
-  '...sssssssssssss',
+
+// Design space is 400x400. Each card: x, y, width, height, radius, colour.
+const BG = '#16161D';
+const CARDS = [
+  { y: 95, h: 150, c: '#3442E6' },
+  { y: 135, h: 150, c: '#6B77F0' },
+  { y: 175, h: 145, c: '#A7B3FF' },
+  { y: 215, h: 105, c: '#FFFFFF' },
+].map((card) => ({ ...card, x: 80, w: 240, r: 24 }));
+// Two lines of "text" on the front card.
+const LINES = [
+  { x: 108, y: 245, w: 110, h: 14, r: 7, c: '#C9CEE8' },
+  { x: 108, y: 272, w: 70, h: 14, r: 7, c: '#C9CEE8' },
 ];
+// The mark's centre in design space, so it can be centred on the canvas.
+const CENTRE = { x: 200, y: 207.5 };
+const GAP = 7; // transparent gap between cards in the themed (single-colour) icon
 
-// White launcher paper with dark ink and the app's blue ornament.
-const BG = '#FFFFFF';
-const COLOURS = { o: '#121212', p: '#F7F6F3', l: '#5C5C5C', a: '#8AA7D1', s: '#808080' };
-const WHITE = '#FFFFFF';
+const rgba = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
-const rgba = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).concat(255);
+function inside(shape, px, py, grow = 0) {
+  const x = shape.x - grow, y = shape.y - grow, w = shape.w + 2 * grow, h = shape.h + 2 * grow, r = shape.r + grow;
+  if (px < x || px > x + w || py < y || py > y + h) return false;
+  const cx = Math.min(Math.max(px, x + r), x + w - r);
+  const cy = Math.min(Math.max(py, y + r), y + h - r);
+  return (px - cx) ** 2 + (py - cy) ** 2 <= r * r;
+}
 
-// The mark's drawn area, so it can be centred on what's visible rather than on the 16x16 grid.
-const cells = PIXELS.flatMap((row, y) => [...row].map((c, x) => ({ x, y, c }))).filter((p) => p.c !== '.');
-const minX = Math.min(...cells.map((p) => p.x));
-const maxX = Math.max(...cells.map((p) => p.x));
-const minY = Math.min(...cells.map((p) => p.y));
-const maxY = Math.max(...cells.map((p) => p.y));
-
-// size: canvas px; cell: px per logo pixel (whole numbers keep edges crisp);
-// bg: canvas colour or null for transparent; fill(c): colour of a logo pixel or null to skip it.
-function draw({ size, cell, bg, fill }) {
+// size: canvas px; scale: canvas px per design unit; bg: colour or null (transparent);
+// mono: draw a single colour with transparent gaps instead of the coloured cards;
+// plate: draw a rounded dark square behind the mark (radius in design units) instead of a flat bg.
+function draw({ size, scale, bg, mono = false, plate = null, flat = false }) {
   const buf = Buffer.alloc(size * size * 4);
-  if (bg) for (let i = 0; i < size * size; i++) buf.set(rgba(bg), i * 4);
-  const ox = Math.round((size - (maxX - minX + 1) * cell) / 2) - minX * cell;
-  const oy = Math.round((size - (maxY - minY + 1) * cell) / 2) - minY * cell;
-  for (const { x, y, c } of cells) {
-    const colour = fill(c);
-    if (!colour) continue;
-    for (let py = 0; py < cell; py++) {
-      for (let px = 0; px < cell; px++) {
-        buf.set(rgba(colour), ((oy + y * cell + py) * size + ox + x * cell + px) * 4);
+  const SS = 4;
+  // Canvas pixel -> design space, with the mark's centre on the canvas centre.
+  const toX = (v) => (v - size / 2) / scale + CENTRE.x;
+  const toY = (v) => (v - size / 2) / scale + CENTRE.y;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const px = toX(x + (sx + 0.5) / SS);
+          const py = toY(y + (sy + 0.5) / SS);
+          let colour = null;
+          if (bg) colour = rgba(bg);
+          if (plate && inside({ x: CENTRE.x - 200, y: CENTRE.y - 200, w: 400, h: 400, r: plate }, px, py)) colour = rgba(BG);
+          if (flat) {
+            // flat colour only, no mark
+          } else if (mono) {
+            for (const card of CARDS) {
+              if (colour && inside(card, px, py, GAP)) colour = null;
+              if (inside(card, px, py)) colour = [255, 255, 255];
+            }
+            for (const line of LINES) if (inside(line, px, py)) colour = null;
+          } else {
+            for (const card of CARDS) if (inside(card, px, py)) colour = rgba(card.c);
+            for (const line of LINES) if (inside(line, px, py)) colour = rgba(line.c);
+          }
+          if (colour) {
+            r += colour[0]; g += colour[1]; b += colour[2]; a += 255;
+          }
+        }
       }
+      const n = SS * SS;
+      const i = (y * size + x) * 4;
+      const cover = a / 255; // number of covered samples
+      buf[i] = cover ? Math.round(r / cover) : 0;
+      buf[i + 1] = cover ? Math.round(g / cover) : 0;
+      buf[i + 2] = cover ? Math.round(b / cover) : 0;
+      buf[i + 3] = Math.round((cover / n) * 255);
     }
   }
   return png(size, buf);
@@ -88,15 +113,15 @@ function crc32(bytes) {
   return ~c >>> 0;
 }
 
-const colour = (c) => COLOURS[c];
 const out = (name, data) => writeFileSync(new URL(`assets/${name}`, root), data);
 
-// iOS and the store listing: full-bleed white square; the OS rounds the corners.
-out('icon.png', draw({ size: 1024, cell: 44, bg: BG, fill: colour }));
+// iOS and the store listing: full-bleed near-black square; the OS rounds the corners.
+out('icon.png', draw({ size: 1024, scale: 1024 / 400, bg: BG }));
 // Android adaptive icon: the mark stays inside the 66/108 safe circle every launcher mask keeps.
-out('android-icon-foreground.png', draw({ size: 512, cell: 14, bg: null, fill: colour }));
-out('android-icon-background.png', draw({ size: 512, cell: 1, bg: BG, fill: () => null }));
-// Themed (Material You) icons use only the alpha: keep the ink, let the paper show through.
-out('android-icon-monochrome.png', draw({ size: 432, cell: 12, bg: null, fill: (c) => (c === 'p' ? null : WHITE) }));
-out('splash-icon.png', draw({ size: 1024, cell: 32, bg: null, fill: colour }));
-out('favicon.png', draw({ size: 48, cell: 3, bg: BG, fill: colour }));
+out('android-icon-foreground.png', draw({ size: 512, scale: 0.9, bg: null }));
+out('android-icon-background.png', draw({ size: 512, scale: 1, bg: BG, flat: true }));
+// Themed (Material You) icons use only the alpha: white cards with transparent gaps between them.
+out('android-icon-monochrome.png', draw({ size: 432, scale: 0.78, bg: null, mono: true }));
+// Splash: the whole icon as a rounded plate, so it reads on any splash background.
+out('splash-icon.png', draw({ size: 1024, scale: 1024 / 400 * 0.8, bg: null, plate: 92 }));
+out('favicon.png', draw({ size: 48, scale: 48 / 400, bg: BG }));
