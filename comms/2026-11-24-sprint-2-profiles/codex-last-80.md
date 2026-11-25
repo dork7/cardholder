@@ -1,0 +1,3 @@
+Implemented issue #80 in this worktree. Users can choose or take a square-cropped profile photo, see it as a circle on the form and drawn card, and remove or replace it. The photo is stored as a separate sealed blob and survives encrypted backup export, merge, and restore.
+
+Added the [worklog](/Users/hamza/Music/proj/cardHolder-s2-80/docs/worklog/2026-11-24-profile-photo.md) and appended the final summary to the shared chat. `npm run typecheck` passed; `npx jest --runInBand` passed (98 suites, 902 tests). Native camera and crop presentation still need a device check. No commit or push was made.

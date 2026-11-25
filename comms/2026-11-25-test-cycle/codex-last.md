@@ -1,0 +1,5 @@
+Completed the test cycle for all features and fixes since v1.25.0. I added 10 tests and recorded the acceptance checks and device-only checklist in the [test-cycle report](/Users/hamza/Music/proj/cardHolder-testcycle/docs/worklog/2026-11-25-test-cycle.md). I also appended the summary to the requested chat file.
+
+**Medium bug found:** the [profile form](/Users/hamza/Music/proj/cardHolder-testcycle/app/profile/[id].tsx) allows a 101st Conditions, Allergies, or Medications entry. After saving and reopening, the [profile reader](/Users/hamza/Music/proj/cardHolder-testcycle/src/profiles/profile.ts) drops that list. The repro remains in a [marked `it.failing` test](/Users/hamza/Music/proj/cardHolder-testcycle/src/profiles/__tests__/profileScreens.test.tsx). No product code was changed.
+
+`npm run typecheck`, `git diff --check`, and `npx jest --runInBand` passed; Jest reported 99 suites and 922 tests. No commit or push was made.

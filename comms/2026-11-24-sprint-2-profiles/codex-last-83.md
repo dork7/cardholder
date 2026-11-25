@@ -1,0 +1,3 @@
+Implemented issue #83 in this worktree. Deleting a Person now confirms the profile consequence and moves the profile to Recently deleted; restoring it preserves its details and image. Profiles are excluded from expiry reminders and Expiring soon. Individual and batch sharing now warn before sending profile details, and Delete is spaced apart from Edit.
+
+Added store and screen tests and a [worklog](/Users/hamza/Music/proj/cardHolder-s2-83/docs/worklog/2026-11-24-profiles-as-documents.md). `npm run typecheck` passed; `npx jest --runInBand` passed (98 suites, 901 tests). No commit or push was made.
