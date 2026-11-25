@@ -35,15 +35,17 @@ const light: Theme = {
   bannerBg: '#E6EDF8', bannerText: '#1C2433', photoDim: 'transparent', blurTint: 'light',
 };
 
+// Graphite direction from prototypes/dark-mode/?variant=graphite: neutral grey, tonal elevation,
+// desaturated accent. Colour only; component structure and spacing are unchanged.
 const dark: Theme = {
-  showcase: { start: '#484FBF', end: '#252F9D', ink: '#FFFFFF', spaces: { personal: '#383055', family: '#213F3B', home: '#403729', travel: '#263B61' } },
+  showcase: { start: '#41479F', end: '#2C3178', ink: '#FFFFFF', spaces: { personal: '#2F2B44', family: '#223532', home: '#38301F', travel: '#252F4A' } },
   counterBg: '#000000',
-  bg: '#101827', surface: '#19253A',
-  glass: 'rgba(35, 49, 73, 0.66)', glassStrong: 'rgba(35, 49, 73, 0.84)',
-  text: '#F3F6FC', muted: '#B5C1D3', accent: '#A7B3FF', onAccent: '#10243E',
-  ornament: '#8AA7D1', selection: '#A7B3FF', danger: '#FF8B9B',
-  border: 'rgba(255, 255, 255, 0.18)', rosette: '#A5B3C8',
-  bannerBg: '#26344B', bannerText: '#F3F6FC', photoDim: 'rgba(0, 0, 0, 0.12)', blurTint: 'dark',
+  bg: '#121214', surface: '#1C1C20',
+  glass: 'rgba(44, 44, 51, 0.66)', glassStrong: 'rgba(44, 44, 51, 0.84)',
+  text: '#E8E8ED', muted: '#A7A7B2', accent: '#AAB3F2', onAccent: '#14152B',
+  ornament: '#8AA7D1', selection: '#AAB3F2', danger: '#F2A0A8',
+  border: 'rgba(255, 255, 255, 0.08)', rosette: '#A7A7B2',
+  bannerBg: '#26262C', bannerText: '#E8E8ED', photoDim: 'rgba(0, 0, 0, 0.12)', blurTint: 'dark',
 };
 
 export const TYPE = { caption: 12, secondary: 14, body: 16, section: 18, title: 31, display: 32 } as const;

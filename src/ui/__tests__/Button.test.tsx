@@ -9,7 +9,7 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
 }));
 
 // The page the button sits on.
-const PAPER = { light: '#F1F3F9', dark: '#101827' } as const;
+const PAPER = { light: '#F1F3F9', dark: '#121214' } as const;
 
 function luminance(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -25,7 +25,7 @@ function contrast(a: string, b: string): number {
 test('the test harness really switches themes', async () => {
   mockScheme = 'dark';
   await render(<Button label="Go" onPress={() => {}} />);
-  expect(StyleSheet.flatten(screen.getByRole('button', { name: 'Go' }).props.style).backgroundColor).toBe('#A7B3FF');
+  expect(StyleSheet.flatten(screen.getByRole('button', { name: 'Go' }).props.style).backgroundColor).toBe('#AAB3F2');
 });
 
 test('a button has fluid corners and a sentence-case label', async () => {
