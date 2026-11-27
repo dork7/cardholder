@@ -72,6 +72,7 @@ function RootNavigator() {
          <Stack.Screen name="notes" options={{ title: strings.notes.title, headerShown: false }} />
          <Stack.Screen name="note/[id]" options={{ title: strings.notes.editTitle }} />
          <Stack.Screen name="auto-backup" options={{ title: strings.autoBackup.title }} />
+         <Stack.Screen name="drive-backup" options={{ title: strings.driveBackup.title }} />
          <Stack.Screen name="settings" options={{ title: strings.settings.title }} />
          <Stack.Screen name="paywall" options={{ title: strings.paywall.title, presentation: 'modal' }} />
          <Stack.Screen name="tags" options={{ title: strings.tagsScreen.title }} />

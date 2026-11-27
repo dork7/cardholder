@@ -1,12 +1,14 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { BackupError, BackupSnapshot, decodeBackup } from '../src/backup/backupFile';
 import { applySnapshot, ImportMode } from '../src/backup/backupService';
 import { recordExport } from '../src/backup/lastExport';
+import { DriveError, DriveFile } from '../src/backup/drive/driveApi';
+import { canRestoreFromDrive, driveRestore } from '../src/backup/drive/driveConnect';
 import { strings } from '../src/strings';
 import { formatDate } from '../src/time/dates';
 import { Button } from '../src/ui/Button';
@@ -18,6 +20,7 @@ import { LiveText } from '../src/ui/LiveText';
 
 type Step =
   | { kind: 'pick' }
+  | { kind: 'drive'; files: DriveFile[] | null } // null while the list loads
   | { kind: 'unlock'; fileName: string; bytes: Uint8Array }
   | { kind: 'choose'; snapshot: BackupSnapshot };
 
@@ -30,6 +33,8 @@ export default function ImportScreen() {
   const [passphrase, setPassphrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [driveAvailable] = useState(() => Platform.OS === 'android' && canRestoreFromDrive());
+  const drive = useRef<ReturnType<typeof driveRestore> | null>(null);
 
   const pickFile = async () => {
     setError(null);
@@ -55,6 +60,34 @@ export default function ImportScreen() {
       } catch {
         // The picker's cache copy; the OS clears it eventually.
       }
+    }
+  };
+
+  // Restore from Google Drive (ADR-0010): the account chooser, then the backups in its folder.
+  const openDrive = async () => {
+    setError(null);
+    setStep({ kind: 'drive', files: null });
+    drive.current = driveRestore();
+    try {
+      setStep({ kind: 'drive', files: await drive.current.listBackups() });
+    } catch (e) {
+      setStep({ kind: 'pick' });
+      if (!(e instanceof DriveError && e.kind === 'cancelled')) setError(strings.driveBackup.restoreFailed);
+    }
+  };
+
+  const pickDriveFile = async (file: DriveFile) => {
+    if (!drive.current || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const bytes = await drive.current.download(file.id);
+      setPassphrase('');
+      setStep({ kind: 'unlock', fileName: driveLabel(file), bytes });
+    } catch {
+      setError(strings.driveBackup.restoreFailed);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -110,6 +143,27 @@ export default function ImportScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {step.kind === 'pick' && <Button icon="import" label={strings.import.pickFile} onPress={pickFile} testID="import-pick" />}
+          {step.kind === 'pick' && driveAvailable &&
+            <Button icon="backup" variant="secondary" label={strings.driveBackup.restore} onPress={openDrive} testID="import-drive" />}
+
+          {step.kind === 'drive' && (
+            step.files === null || busy ? (
+              <View style={styles.busy}>
+                <ActivityIndicator color={theme.accent} />
+                <LiveText style={[styles.body, { color: theme.muted }]}>
+                  {step.files === null ? strings.driveBackup.restoreLoading : strings.import.working}
+                </LiveText>
+              </View>
+            ) : (
+              <>
+                {step.files.length === 0 && <Text style={[styles.body, { color: theme.text }]}>{strings.driveBackup.restoreNone}</Text>}
+                {step.files.map((file) => (
+                  <Button key={file.id} variant="secondary" label={driveLabel(file)} onPress={() => pickDriveFile(file)} testID={`import-drive-${file.id}`} />
+                ))}
+                <Button icon="import" variant="secondary" label={strings.import.pickFile} onPress={pickFile} />
+              </>
+            )
+          )}
 
           {step.kind === 'unlock' && (
             <>
@@ -180,6 +234,9 @@ export default function ImportScreen() {
     </Screen>
   );
 }
+
+const driveLabel = (file: DriveFile) =>
+  strings.driveBackup.restoreItem(formatDate(Date.parse(file.createdTime)), `${Math.max(0.1, file.size / 1_048_576).toFixed(1)} MB`);
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },

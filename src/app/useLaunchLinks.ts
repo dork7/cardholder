@@ -6,6 +6,12 @@ import { reminderCardId, reminderNoteId } from '../reminders/scheduler';
 import { useAppLocked } from '../security/AppLockGate';
 import { shortcutHref } from '../shortcuts/quickActions';
 
+// The overdue Drive backup notice (src/backup/androidAutoBackup.ts) opens the Drive backup screen.
+export function backupNoticeHref(response: Notifications.NotificationResponse | null): '/drive-backup' | null {
+  if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return null;
+  return response.notification.request.content.data?.href === '/drive-backup' ? '/drive-backup' : null;
+}
+
 // Opens what a tapped reminder or a home-screen shortcut points at, whether the app was running or the
 // tap launched it. Mounted once inside the app-lock gate.
 export function useLaunchLinks(): void {
@@ -18,10 +24,12 @@ export function useLaunchLinks(): void {
   useEffect(() => {
     const cardId = reminderCardId(response ?? null);
     const noteId = reminderNoteId(response ?? null);
+    const backup = backupNoticeHref(response ?? null);
     const key = response?.notification.request.identifier ?? null;
-    if ((!cardId && !noteId) || key === handled.current) return;
+    if ((!cardId && !noteId && !backup) || key === handled.current) return;
     handled.current = key;
-    if (noteId) router.push(`/note-view/${noteId}`);
+    if (backup) router.push(backup);
+    else if (noteId) router.push(`/note-view/${noteId}`);
     else router.push(`/card/${cardId}`);
   }, [response, router]);
 

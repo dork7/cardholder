@@ -3,6 +3,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { backupIsStale } from '../src/backup/autoBackup';
+import { DriveProblem, loadDriveBackup } from '../src/backup/drive/driveBackup';
+import { googleAuth } from '../src/backup/drive/googleAuth';
 import { useApp } from '../src/app/AppProvider';
 import { FREE_CARD_LIMIT } from '../src/config';
 import { ProblemsSettings } from '../src/diagnostics/ProblemsSettings';
@@ -48,12 +50,14 @@ export default function SettingsScreen() {
   const [deletedCount, setDeletedCount] = useState(0);
   const [staleBackup, setStaleBackup] = useState(false);
   const [backupFailed, setBackupFailed] = useState(false);
+  const [driveProblem, setDriveProblem] = useState<DriveProblem | null>(null);
 
   // Re-read on focus, so coming back from an export shows the new date.
   useFocusEffect(
     useCallback(() => {
       backupIsStale(services.settings, services.store, services.notes).then(setStaleBackup).catch(() => {});
       services.settings.getNumber('autoBackupError').then((value) => setBackupFailed(value === 1)).catch(() => {});
+      loadDriveBackup(services.settings).then((config) => setDriveProblem(config?.problem ?? null)).catch(() => {});
       services.settings.getNumber('lastExportAt').then(setLastExportAt).catch(() => {});
       services.notes?.lastChangeAt().then(setNotesChangedAt).catch(() => {});
       services.store.lastChangeAt().then(setDocumentsChangedAt).catch(() => {});
@@ -158,10 +162,12 @@ export default function SettingsScreen() {
           )}
           {staleBackup && <Text style={[styles.body, { color: theme.text }]}>{strings.autoBackup.stale}</Text>}
           {backupFailed && <Text style={[styles.body, { color: theme.text }]}>{strings.autoBackup.runFailed}</Text>}
+          {driveProblem && <Text style={[styles.body, { color: theme.text }]}>{strings.driveBackup.problem[driveProblem]}</Text>}
           {Platform.OS === 'ios' && <Text style={[styles.caption, { color: theme.muted }]}>{strings.autoBackup.ios}</Text>}
           <Button icon="backup" label={strings.settings.exportBackup} onPress={() => router.push('/export')} />
           <Button icon="import" variant="secondary" label={strings.settings.importBackup} onPress={() => router.push('/import')} />
           <Button variant="secondary" label={strings.verify.title} onPress={() => router.push('/verify-backup')} />
+          {Platform.OS === 'android' && googleAuth.isAvailable() && <Button variant="secondary" label={strings.driveBackup.title} onPress={() => router.push('/drive-backup')} testID="drive-backup" />}
           {Platform.OS === 'android' && <Button variant="secondary" label={strings.autoBackup.title} onPress={() => router.push('/auto-backup')} />}
         </Section>
         {canSelfUpdate && <UpdateSection />}

@@ -1,5 +1,7 @@
 # The app never goes online on its own
 
+_Amended by ADR-0010: after the user switches on Google Drive backup, the app uploads encrypted backups to the user's own Drive in the background._
+
 There is no analytics, crash reporting, ads, accounts or sync. The only network traffic happens when
 the user starts it: the store's purchase flow (Buy / Restore), and on Android the update check
 and APK download. This is what lets the store privacy labels say "No data collected". It also means

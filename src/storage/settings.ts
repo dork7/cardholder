@@ -6,6 +6,7 @@ export type SettingKey =
   | 'lastExportAt'
   | 'autoBackup'
   | 'autoBackupError'
+  | 'driveBackup'
   | 'appearance'
   | 'gallerySort'
   | 'galleryExpiring'

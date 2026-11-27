@@ -13,6 +13,12 @@ export const PERSON_NAME_MAX_LENGTH = 60;
 export const READ_TEXT_MAX_LENGTH = 4000;
 
 export const MIN_PASSPHRASE_LENGTH = 3;
+// Drive backup files sit in a cloud account someone else could get into, so they need a passphrase
+// that holds up to offline guessing (ADR-0010).
+export const MIN_DRIVE_PASSPHRASE_LENGTH = 12;
+export const DRIVE_BACKUPS_KEPT = 3;
+export const DRIVE_OVERDUE_DAYS = 7;
+export const DRIVE_FOLDER_NAME = 'Doc Keeper Backups';
 export const PBKDF2_ITERATIONS = 600_000;
 
 // Each card with an expiry date is reminded every day, at REMINDER_HOUR, from this many days before it
