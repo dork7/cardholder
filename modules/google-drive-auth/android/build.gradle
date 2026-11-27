@@ -1,0 +1,17 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.hamza.cardholder'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.googledriveauth"
+}
+
+dependencies {
+  // Google's Authorization API (Identity.getAuthorizationClient), the replacement for the retired
+  // Google Sign-In library. Asks only for drive.file: the files Doc Keeper itself creates. ADR-0010.
+  implementation 'com.google.android.gms:play-services-auth:21.3.0'
+}

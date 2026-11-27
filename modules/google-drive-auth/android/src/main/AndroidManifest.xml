@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Drive backup uploads on Wi-Fi only unless the user allows mobile data (ADR-0010), so it needs
+       to know whether the current network is metered. -->
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>

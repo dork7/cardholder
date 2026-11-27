@@ -1,0 +1,7 @@
+{
+  "name": "google-drive-auth",
+  "version": "0.1.0",
+  "description": "One-tap Google authorisation for Doc Keeper's Drive backup (drive.file only), through Play services.",
+  "license": "UNLICENSED",
+  "private": true
+}
