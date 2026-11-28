@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { ActionFooter, Panel, Screen } from '../Surface';
 import { TYPE } from '../theme';
@@ -47,4 +47,13 @@ test('an action footer is a translucent page-coloured bar', async () => {
   mockScheme = 'dark';
   await render(<Screen><ActionFooter testID="footer"><Text>Save</Text></ActionFooter></Screen>);
   expect(StyleSheet.flatten(screen.getByTestId('footer').props.style).backgroundColor).toBe('rgba(16, 24, 39, 0.82)');
+});
+
+test('the page wash is drawn at the page size, so it fills a landscape page after rotating (#95)', async () => {
+  mockScheme = 'light';
+  await render(<Screen><Text>x</Text></Screen>);
+  // Bubbles from the content up to the page's own layout handler.
+  await act(async () => fireEvent(screen.getByTestId('screen-content'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 915, height: 412 } } }));
+  expect(screen.getByTestId('screen-wash').props.width).toBe(915);
+  expect(screen.getByTestId('screen-wash').props.height).toBe(412);
 });

@@ -1,13 +1,15 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { BlurView } from 'expo-blur';
 import { LayoutChangeEvent, Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { ENTRANCE } from './motion';
+import { ENTRANCE, ENTRANCE_IN_PLACE } from './motion';
 import { RADIUS, SHADOW, useTheme } from './theme';
 
 // The page every screen sits on. Its content fades and rises in once (the prototype's 0.4 s
-// entrance); the page wash stays put, and Reduce Motion skips the movement.
+// entrance); the page wash stays put, and Reduce Motion skips the movement. On Android the content
+// only fades: while a view rises there, where it takes touches and where it is drawn disagree, so a tap on
+// + right after switching tabs missed it (#47).
 export function Screen({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
@@ -15,8 +17,15 @@ export function Screen({ children, style }: { children: ReactNode; style?: Style
   // alignment) applies there; spacing and everything else stays on the page.
   const { gap, rowGap, columnGap, flexDirection, alignItems, justifyContent, ...page } = StyleSheet.flatten(style) ?? {};
   const layout = { gap, rowGap, columnGap, flexDirection, alignItems, justifyContent };
-  return <View style={[styles.screen, { backgroundColor: theme.bg }, page]}>
-    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
+  // Drawn at the page's measured size: a percentage-sized Svg keeps its first (portrait) width after
+  // the phone turns, leaving a seam halfway across a landscape page (#95).
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setSize((old) => (old?.width === width && old.height === height ? old : { width, height }));
+  };
+  return <View style={[styles.screen, { backgroundColor: theme.bg }, page]} onLayout={onLayout}>
+    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width={size?.width ?? '100%'} height={size?.height ?? '100%'} testID="screen-wash">
       <Defs>
         <RadialGradient id="sky" cx="88%" cy="14%" rx="72%" ry="58%">
           <Stop offset="0" stopColor={theme.blurTint === 'light' ? '#DCE8FF' : '#29456D'} stopOpacity="0.95" />
@@ -30,7 +39,7 @@ export function Screen({ children, style }: { children: ReactNode; style?: Style
       <Rect width="100%" height="100%" fill="url(#sky)" />
       <Rect width="100%" height="100%" fill="url(#lilac)" />
     </Svg>
-    <Animated.View testID="screen-content" entering={reduceMotion ? undefined : ENTRANCE} style={[styles.content, layout]}>{children}</Animated.View>
+    <Animated.View testID="screen-content" entering={reduceMotion ? undefined : Platform.OS === 'android' ? ENTRANCE_IN_PLACE : ENTRANCE} style={[styles.content, layout]}>{children}</Animated.View>
   </View>;
 }
 
