@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, BackHandler, Modal, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -244,16 +244,9 @@ export default function CardView() {
       <>
         <Stack.Screen options={{ gestureEnabled: false }} />
         <StatusBar hidden />
-        <Modal
-          testID="staff-modal"
-          visible
-          presentationStyle="fullScreen"
-          supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
-          statusBarTranslucent
-          navigationBarTranslucent
-          onRequestClose={() => { /* Only holding Finish may leave staff mode. */ }}
-        >
-          <View style={[styles.staff, { backgroundColor: theme.counterBg }]} testID="staff-view">
+        <StaffWindow>
+          <View style={[styles.staff, landscape && styles.staffLandscape, { backgroundColor: theme.counterBg }]} testID="staff-view">
+            <View style={styles.fill}>
             {card.pdf ? (
               <PdfPager pdfBase64={pdf} pageCount={card.pdf.pageCount} name={displayName(card)} initialPage={pdfPage} onPageChange={setPdfPage} showPageNumber={false} />
             ) : (
@@ -263,7 +256,11 @@ export default function CardView() {
                 accessibilityLabel={strings.card.imageLabel(displayName(card), strings.card[staffSide])}
               />
             )}
-            <View pointerEvents="box-none" style={[styles.staffOverlay, { bottom: insets.bottom + 8, start: insets.left + 8, end: insets.right + 8 }]}>
+            </View>
+            {/* Sideways the label and buttons get a column beside the card, never over it or off screen (#95). */}
+            <View pointerEvents="box-none" testID="staff-controls" style={landscape
+              ? [styles.staffSide, { paddingBottom: insets.bottom + 8, paddingEnd: insets.right + 8, paddingTop: insets.top + 8 }]
+              : [styles.staffOverlay, { bottom: insets.bottom + 8, start: insets.left + 8, end: insets.right + 8 }]}>
               {owner && <Text style={[styles.hint, { color: theme.text, backgroundColor: theme.surface }]}>{strings.people.belongsTo(owner.name)}</Text>}
               {holdHint && (
                 <LiveText style={[styles.hint, { color: theme.text, backgroundColor: theme.surface }]}>
@@ -290,7 +287,7 @@ export default function CardView() {
               </View>
             </View>
           </View>
-        </Modal>
+        </StaffWindow>
       </>
     );
   }
@@ -509,10 +506,33 @@ export default function CardView() {
   );
 }
 
+// Full screen's own window on iOS. On Android a Modal is a separate window, where hiding the
+// status bar from this screen has no effect (#44), so it fills this screen instead: the route is
+// headerless and the hardware back button is swallowed while it shows.
+function StaffWindow({ children }: { children: ReactNode }) {
+  if (Platform.OS === 'android') return <View style={StyleSheet.absoluteFill} testID="staff-modal">{children}</View>;
+  return (
+    <Modal
+      testID="staff-modal"
+      visible
+      presentationStyle="fullScreen"
+      supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={() => { /* Only holding Finish may leave staff mode. */ }}
+    >
+      {children}
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   staff: { flex: 1, padding: 0, overflow: 'hidden' },
   staffControls: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
   staffOverlay: { position: 'absolute', alignItems: 'flex-end', gap: 8 },
+  staffLandscape: { flexDirection: 'row' },
+  fill: { flex: 1 },
+  staffSide: { width: 220, paddingStart: 8, justifyContent: 'flex-end', alignItems: 'stretch', gap: 8 },
   screenHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   screenTitle: { fontSize: TYPE.body, fontWeight: '700' },
   documentContent: { gap: 18, paddingBottom: 8 },
@@ -539,5 +559,5 @@ const styles = StyleSheet.create({
   // Share, Pin and More keep their compact captioned actions.
   actions: { flexDirection: 'row', gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  hint: { fontSize: TYPE.secondary, textAlign: 'center' },
+  hint: { fontSize: TYPE.secondary, textAlign: 'center', paddingHorizontal: 8, paddingVertical: 4, maxWidth: '100%' },
 });
