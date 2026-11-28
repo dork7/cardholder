@@ -1,0 +1,230 @@
+diff --git a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
+index ff5b100..091b914 100644
+--- a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
++++ b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
+@@ -46,33 +46,47 @@ class ExpoShareIntentModule : Module() {
+ 
+         private fun notifyShareIntent(value: Any) {
+             notifyState("pending")
+-            instance!!.sendEvent("onChange", mapOf("value" to value))
++            instance?.sendEvent("onChange", mapOf("value" to value))
+         }
+         private fun notifyState(state: String) {
+-            instance!!.sendEvent("onStateChange", mapOf("value" to state))
++            instance?.sendEvent("onStateChange", mapOf("value" to state))
+         }
+         private fun notifyError(message: String) {
+-            instance!!.sendEvent("onError", mapOf("value" to message))
++            instance?.sendEvent("onError", mapOf("value" to message))
+         }
+ 
+-        @SuppressLint("Range")
+-        private fun getFileInfo(uri: Uri): Map<String, String?> {
++        private fun getFileInfo(uri: Uri, intentType: String?): Map<String, String?> {
+             val resolver: ContentResolver? = instance?.currentActivity?.contentResolver
+                     ?: instance?.context?.contentResolver
+             if (resolver == null) {
+                 notifyError("Cannot get resolver (getFileInfo)")
+                 return mapOf(
+                     "contentUri" to uri.toString(),
+-                    "filePath" to instance?.getAbsolutePath(uri),
++                    "filePath" to (instance?.getAbsolutePath(uri) ?: uri.toString()),
++                    "fileName" to uri.lastPathSegment,
++                    "mimeType" to (intentType ?: "application/octet-stream"),
+                 )
+             }
+-            val queryResult: Cursor = resolver.query(uri, null, null, null, null)!!
+-            queryResult.moveToFirst()
+-            val fileName = queryResult.getString(queryResult.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+-            val fileSize = queryResult.getString(queryResult.getColumnIndex(OpenableColumns.SIZE))
+-            queryResult.close()
+-
+-            val mimeType = resolver.getType(uri)!!
++            var fileName: String? = null
++            var fileSize: String? = null
++            try {
++                resolver.query(uri, null, null, null, null)?.use { cursor ->
++                    if (cursor.moveToFirst()) {
++                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
++                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
++                        if (nameIndex >= 0 && !cursor.isNull(nameIndex)) fileName = cursor.getString(nameIndex)
++                        if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) fileSize = cursor.getString(sizeIndex)
++                    }
++                }
++            } catch (e: Exception) {
++                Log.w("ExpoShareIntent", "Cannot read shared file metadata", e)
++            }
++            fileName = fileName ?: uri.lastPathSegment
++            val mimeType = try {
++                resolver.getType(uri) ?: intentType ?: "application/octet-stream"
++            } catch (e: Exception) {
++                intentType ?: "application/octet-stream"
++            }
+ 
+             var mediaWidth: String? = null;
+             var mediaHeight: String? = null;
+@@ -81,27 +95,39 @@ class ExpoShareIntentModule : Module() {
+                 val options = BitmapFactory.Options().apply {
+                     inJustDecodeBounds = true
+                 }
+-                BitmapFactory.decodeStream(resolver.openInputStream(uri), null, options)
+-                mediaHeight = options.outHeight.toString()
+-                mediaWidth = options.outWidth.toString()
++                try {
++                    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
++                    mediaHeight = options.outHeight.toString()
++                    mediaWidth = options.outWidth.toString()
++                } catch (e: Exception) {
++                    Log.w("ExpoShareIntent", "Cannot read shared image dimensions", e)
++                }
+             }
+             if (mimeType.startsWith("video/")) {
+                 val retriever = MediaMetadataRetriever()
+-                retriever.setDataSource(instance?.getAbsolutePath(uri))
+-                mediaWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt().toString() ?: null
+-                mediaHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt().toString() ?: null
+-                // Check orientation and flip size if required
+-                val metaRotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toInt() ?: 0;
+-                if (metaRotation == 90 || metaRotation == 270) {
+-                    mediaWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt().toString() ?: null
+-                    mediaHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt().toString() ?: null
++                try {
++                    val path = instance?.getAbsolutePath(uri) ?: uri.toString()
++                    if (path.startsWith("content://")) instance?.context?.let { retriever.setDataSource(it, uri) }
++                    else retriever.setDataSource(path)
++                    mediaWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
++                    mediaHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
++                    // Check orientation and flip size if required
++                    val metaRotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
++                    if (metaRotation == 90 || metaRotation == 270) {
++                        mediaWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
++                        mediaHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
++                    }
++                    mediaDuration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
++                } catch (e: Exception) {
++                    Log.w("ExpoShareIntent", "Cannot read shared video metadata", e)
++                } finally {
++                    retriever.release()
+                 }
+-                mediaDuration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toInt().toString() ?: null
+             }
+ 
+             return mapOf(
+                     "contentUri" to uri.toString(),
+-                    "filePath" to instance?.getAbsolutePath(uri),
++                    "filePath" to (instance?.getAbsolutePath(uri) ?: uri.toString()),
+                     "fileName" to fileName,
+                     "fileSize" to fileSize,
+                     "mimeType" to mimeType,
+@@ -121,8 +147,8 @@ class ExpoShareIntentModule : Module() {
+                 activity.finish()
+                 return
+             }
+-            if (intent.type == null) return
+-            if (intent.type!!.startsWith("text/plain")) {
++            val intentType = intent.type ?: return
++            if (intentType.startsWith("text/plain")) {
+                 // text / urls
+                 if (intent.action == Intent.ACTION_SEND) {
+                     notifyShareIntent(mapOf(
+@@ -142,14 +168,14 @@ class ExpoShareIntentModule : Module() {
+                 if (intent.action == Intent.ACTION_SEND) {
+                     val uri = intent.parcelable<Uri>(Intent.EXTRA_STREAM);
+                     if (uri != null) {
+-                        notifyShareIntent(mapOf( "files" to arrayOf(getFileInfo(uri), "type" to "file")))
++                        notifyShareIntent(mapOf( "files" to arrayOf(getFileInfo(uri, intentType), "type" to "file")))
+                     } else {
+                         notifyError("empty uri for file sharing: " + intent.action)
+                     }
+                 } else if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+                     val uris = intent.parcelableArrayList<Uri>(Intent.EXTRA_STREAM)
+                     if (uris != null) {
+-                        notifyShareIntent(mapOf( "files" to uris.map { getFileInfo(it) }, "type" to "file"))
++                        notifyShareIntent(mapOf( "files" to uris.map { getFileInfo(it, intentType) }, "type" to "file"))
+                     } else {
+                         notifyError("empty uris array for file sharing: " + intent.action)
+                     }
+@@ -182,8 +208,8 @@ class ExpoShareIntentModule : Module() {
+         AsyncFunction("getShareIntent") { _: String ->
+             // get the Intent from onCreate activity (app not running in background)
+             ExpoShareIntentSingleton.isPending = false
+-            if (ExpoShareIntentSingleton.intent?.type != null) {
+-                handleShareIntent(ExpoShareIntentSingleton.intent!!);
++            ExpoShareIntentSingleton.intent?.let { pendingIntent ->
++                handleShareIntent(pendingIntent)
+                 ExpoShareIntentSingleton.intent = null
+             }
+         }
+@@ -267,9 +293,8 @@ class ExpoShareIntentModule : Module() {
+ 
+             return uri.path
+         } catch (e: Exception) {
+-            e.printStackTrace()
+-            notifyError("cannot retreive absoluteFilePath for $uri: ${e.message}")
+-            return null
++            Log.w("ExpoShareIntent", "Cannot resolve absolute path for shared URI: $uri", e)
++            return if (uri.scheme == "content") uri.toString() else null
+         }
+     }
+ 
+@@ -298,8 +323,8 @@ class ExpoShareIntentModule : Module() {
+             try {
+                 cursor = resolver.query(uri, projection, selection, selectionArgs, null)
+                 if (cursor != null && cursor.moveToFirst()) {
+-                    val columnIndex = cursor.getColumnIndexOrThrow(column)
+-                    val fileName = cursor.getString(columnIndex)
++                    val columnIndex = cursor.getColumnIndex(column)
++                    val fileName = if (columnIndex >= 0 && !cursor.isNull(columnIndex)) cursor.getString(columnIndex) else null
+                     Log.i("FileDirectory", "File name: $fileName")
+                     val safeName = fileName?.let { File(it).name }.orEmpty()
+                     if (safeName.isNotEmpty()) {
+@@ -326,9 +351,10 @@ class ExpoShareIntentModule : Module() {
+                 targetFile = File(context.cacheDir, "${prefix}_${Date().time}.$type")
+             }
+ 
+-            resolver.openInputStream(uri)?.use { input ->
++            val input = resolver.openInputStream(uri) ?: return null
++            input.use {
+                 FileOutputStream(targetFile).use { fileOut ->
+-                    input.copyTo(fileOut)
++                    it.copyTo(fileOut)
+                 }
+             }
+             return targetFile.path
+@@ -341,8 +367,8 @@ class ExpoShareIntentModule : Module() {
+         try {
+             cursor = resolver.query(uri, projection, selection, selectionArgs, null)
+             if (cursor != null && cursor.moveToFirst()) {
+-                val columnIndex = cursor.getColumnIndexOrThrow(column)
+-                return cursor.getString(columnIndex)
++                val columnIndex = cursor.getColumnIndex(column)
++                if (columnIndex >= 0 && !cursor.isNull(columnIndex)) return cursor.getString(columnIndex)
+             }
+         } finally {
+             cursor?.close()
+diff --git a/node_modules/expo-share-intent/build/useShareIntent.js b/node_modules/expo-share-intent/build/useShareIntent.js
+index 1ab12c4..39a9750 100644
+--- a/node_modules/expo-share-intent/build/useShareIntent.js
++++ b/node_modules/expo-share-intent/build/useShareIntent.js
+@@ -26,7 +26,7 @@ export default function useShareIntent(options = SHAREINTENT_OPTIONS_DEFAULT) {
+             return;
+         setError(null);
+         clearNativeModule &&
+-            ExpoShareIntentModule?.clearShareIntent(getShareExtensionKey(options));
++            ExpoShareIntentModule?.clearShareIntent(getShareExtensionKey(options))?.catch((e) => setError(String(e)));
+         if (isValueAvailable(shareIntent)) {
+             setSharedIntent(SHAREINTENT_DEFAULTVALUE);
+             options.onResetShareIntent?.();
+@@ -39,10 +39,10 @@ export default function useShareIntent(options = SHAREINTENT_OPTIONS_DEFAULT) {
+         options.debug && console.debug("useShareIntent[refresh]", url);
+         if (url?.includes(`${getScheme(options)}://dataUrl=`)) {
+             // iOS only
+-            ExpoShareIntentModule?.getShareIntent(url);
++            Promise.resolve(ExpoShareIntentModule?.getShareIntent(url)).catch((e) => setError(String(e)));
+         }
+         else if (Platform.OS === "android") {
+-            ExpoShareIntentModule?.getShareIntent("");
++            Promise.resolve(ExpoShareIntentModule?.getShareIntent("")).catch((e) => setError(String(e)));
+         }
+         else if (Platform.OS === "ios") {
+             options.debug &&
