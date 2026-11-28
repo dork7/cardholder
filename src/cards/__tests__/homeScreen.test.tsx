@@ -1,3 +1,4 @@
+import { UNDO_MS } from '../../app/undo';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, AlertButton } from 'react-native';
 import { makeCard } from '../../../test/fixtures';
@@ -270,12 +271,12 @@ test('with no cards, home shows the empty state without search or filters', asyn
   });
 });
 
-test('the empty state names the Add image button and sends no one to another app', async () => {
+test('the empty state names the + button that is there, and sends no one to another app (#98)', async () => {
   await withCards([], async () => {
     await renderHome();
     const hint = screen.getByText(strings.home.emptyHint);
-    expect(hint.props.children).toContain('Add image');
-    expect(hint.props.children).not.toMatch(/camera app|\+/);
+    expect(hint.props.children).toContain('+ button');
+    expect(hint.props.children).not.toMatch(/camera app|Add image/);
   });
 });
 
@@ -536,14 +537,14 @@ describe('document list actions', () => {
       expect(screen.queryByTestId('undo-bar')).toBeNull();
     });
 
-    test('after 5 seconds the delete is final: the bar goes and nothing is restored', async () => {
+    test('after 8 seconds the delete is final: the bar goes and nothing is restored', async () => {
       jest.useFakeTimers();
       try {
         await renderHome();
         await act(async () => fireEvent(screen.getByTestId('row-b'), 'longPress'));
         await act(async () => fireEvent.press(screen.getByTestId('selection-delete')));
         expect(screen.getByTestId('undo-bar')).toBeTruthy();
-        await act(() => jest.advanceTimersByTime(5000));
+        await act(() => jest.advanceTimersByTime(UNDO_MS));
         expect(screen.queryByTestId('undo-bar')).toBeNull();
         expect(mockRestore).not.toHaveBeenCalled();
       } finally {
@@ -926,13 +927,13 @@ describe('Undo bar', () => {
     expect(screen.queryByTestId('undo-bar')).toBeNull();
   });
 
-  test('goes away by itself after 5 seconds', async () => {
+  test('goes away by itself after 8 seconds', async () => {
     jest.useFakeTimers();
     try {
       await render(<Home />);
       await act(() => mockUndo.offer({ message: 'Deleted Gym', undo: () => Promise.resolve() }));
       expect(screen.getByTestId('undo-bar')).toBeTruthy();
-      await act(() => jest.advanceTimersByTime(5000));
+      await act(() => jest.advanceTimersByTime(UNDO_MS));
       expect(screen.queryByTestId('undo-bar')).toBeNull();
     } finally {
       jest.useRealTimers();

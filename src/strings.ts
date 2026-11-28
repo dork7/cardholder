@@ -92,7 +92,7 @@ export const strings = {
     title: 'Documents',
     subtitle: 'Everything you need, kept close.',
     emptyTitle: 'Add your first document',
-    emptyHint: 'Tap + to add a photo or PDF of your document.',
+    emptyHint: 'Tap the + button to add a photo or PDF of your document.',
     addCard: 'Add document',
     addImage: 'Add image',
     pinned: 'Pinned',
