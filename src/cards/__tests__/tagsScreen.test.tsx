@@ -13,7 +13,7 @@ const mockSetTags = jest.fn();
 
 jest.mock('../../app/AppProvider', () => ({
   useApp: () => ({
-    services: { store: { update: (id: string, fields: CardFields) => mockUpdate(id, fields) }, notes: { setTags: (id: string, tags: string[]) => mockSetTags(id, tags) } },
+    services: { store: { update: (id: string, fields: CardFields) => mockUpdate(id, fields), removeTagFromRecentlyDeleted: async () => 0 }, notes: { setTags: (id: string, tags: string[]) => mockSetTags(id, tags) } },
     cards: mockCards,
     notes: mockNotes,
     refresh: () => mockRefresh(),

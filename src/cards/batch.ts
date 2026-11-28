@@ -78,10 +78,18 @@ export function removeTag(store: Pick<CardStore, 'update'>, card: Card, tag: str
 }
 
 // Takes one tag off every card that has it, which deletes the tag: a tag exists only while a card has it.
-export function removeTagEverywhere(store: CardStore, cards: Card[], tag: string): Promise<number> {
-  return each(
+// Documents in Recently deleted lose it too, so restoring one doesn't bring the tag back (#97).
+export async function removeTagEverywhere(store: CardStore, cards: Card[], tag: string): Promise<number> {
+  const failed = await each(
     cards.filter((c) => hasTag(c, tag)),
     'Removing the tag',
     (card) => removeTag(store, card, tag),
   );
+  try {
+    await store.removeTagFromRecentlyDeleted(tag);
+    return failed;
+  } catch (e) {
+    console.warn('Removing the tag from Recently deleted failed', e);
+    return failed + 1;
+  }
 }

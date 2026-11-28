@@ -90,3 +90,20 @@ test('the unlock prompt sending the app to the background does not count as leav
   expect(screen.queryByTestId('app-lock')).toBeNull();
   expect(mockAuthenticate).toHaveBeenCalledTimes(1);
 });
+
+// Android ignores the cover's accessibilityViewIsModal (iOS only); the content must hide itself.
+const androidHiding = () => {
+  let node = screen.getByText('My cards', { includeHiddenElements: true }).parent;
+  while (node && node.props.importantForAccessibility === undefined) node = node.parent;
+  return node?.props.importantForAccessibility;
+};
+
+test('while locked, Android accessibility services see only the lock cover, and the content again once unlocked (#89)', async () => {
+  mockAuthenticate.mockResolvedValueOnce('failed');
+  await render(gate(true));
+  expect(screen.getByTestId('app-lock')).toBeTruthy();
+  expect(androidHiding()).toBe('no-hide-descendants');
+  await fireEvent.press(screen.getByTestId('unlock'));
+  expect(screen.getByText('My cards')).toBeTruthy();
+  expect(androidHiding()).toBe('auto');
+});
