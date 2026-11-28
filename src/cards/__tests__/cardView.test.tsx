@@ -5,6 +5,8 @@ import CardView from '../../../app/card/[id]';
 import { createUndo, Removal } from '../../app/undo';
 import { PdfUnavailableError } from '../../share/pdfUnavailable';
 import { strings } from '../../strings';
+const mockDrawProfile = jest.fn();
+jest.mock('../../profiles/drawCard', () => ({ drawCard: (...args: unknown[]) => mockDrawProfile(...args) }));
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -71,7 +73,7 @@ const mockRestore = jest.fn((_id: string) => Promise.resolve());
 const mockUndo = createUndo();
 const mockOffer = jest.spyOn(mockUndo, 'offer') as jest.SpyInstance<void, [Removal]>;
 const mockSetPinned = jest.fn((_id: string, _pinned: boolean) => Promise.resolve());
-const mockUpdate = jest.fn((_id: string, _fields: { tags: string[] }) => Promise.resolve());
+const mockUpdate = jest.fn((_id: string, _fields: { tags: string[] }, _images?: unknown) => Promise.resolve());
 const mockServices = {
   store: {
     loadImage: (id: string, side: string) => mockLoadImage(id, side),
@@ -79,7 +81,7 @@ const mockServices = {
     moveToRecentlyDeleted: (id: string) => mockRemove(id),
     restore: (id: string) => mockRestore(id),
     setPinned: (id: string, pinned: boolean) => mockSetPinned(id, pinned),
-    update: (id: string, fields: { tags: string[] }) => mockUpdate(id, fields),
+    update: (id: string, fields: { tags: string[] }, images?: unknown) => images === undefined ? mockUpdate(id, fields) : mockUpdate(id, fields, images),
     get: (id: string) => Promise.resolve(mockCards.find((c) => c.id === id) ?? null),
   },
 };
@@ -105,6 +107,16 @@ beforeEach(() => {
   mockWarnIdShare = true;
   mockCardBrightness = true;
   mockShow = undefined;
+  mockDrawProfile.mockResolvedValue({ jpegBase64: 'new-front', aspect: 1.5 });
+});
+
+test('details changes template and saves a new card front', async () => {
+  mockCards = [makeCard({ id: 'card1', name: 'Sara', personId: 'sara', profile: { dateOfBirth: null, bloodGroup: 'AB-', template: 'medical' } })];
+  await render(<CardView />);
+  await fireEvent.press(screen.getByTestId('more-card'));
+  await fireEvent.press(screen.getByTestId('change-profile-template'));
+  await fireEvent.press(screen.getByTestId('change-template-contact'));
+  await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('card1', expect.objectContaining({ profile: expect.objectContaining({ template: 'contact' }) }), { front: { jpegBase64: 'new-front', aspect: 1.5 } }));
 });
 
 const imageUri = (label: string) => screen.getByLabelText(label).props.source?.uri ?? screen.getByLabelText(label).props.source?.[0]?.uri;
@@ -139,6 +151,9 @@ test('a profile shows its drawn card full width with no expiry, and Edit opens t
   await waitFor(() => expect(picture.props.source?.uri ?? picture.props.source?.[0]?.uri).toBe('data:image/jpeg;base64,card1-front'));
   expect(screen.queryByText(strings.card.front)).toBeNull();
   expect(screen.queryByTestId('card-expiry')).toBeNull();
+  await fireEvent.press(screen.getByTestId('more-card'));
+  await fireEvent.press(screen.getByTestId('show-profile-qr'));
+  expect(mockPush).toHaveBeenCalledWith('/profile/qr?id=card1');
   await fireEvent.press(screen.getByTestId('more-card'));
   await fireEvent.press(screen.getByTestId('edit-card'));
   expect(mockPush).toHaveBeenCalledWith('/profile/card1');

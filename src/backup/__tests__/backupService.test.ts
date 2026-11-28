@@ -3,6 +3,7 @@ import { base64, utf8 } from '../../crypto/bytes';
 import { blobName } from '../../cards/cardStore';
 import { decodeBackup, encodeBackup, parseSnapshot } from '../backupFile';
 import { applySnapshot, buildSnapshot, verifyBackup } from '../backupService';
+import type { ProfileDetails } from '../../profiles/profile';
 
 const text = (b64: string | null) => (b64 === null ? null : utf8.decode(base64.decode(b64)));
 
@@ -25,9 +26,10 @@ test('export from one phone, replace-import on another', async () => {
 test('encrypted backup replace restores a profile, its details and drawn card', async () => {
   const source = await makeStore();
   const person = await source.store.createPerson('Sara');
-  const profile = { dateOfBirth: '1990-05-04', bloodGroup: 'AB-' as const, template: 'medical' as const,
+  const profile: ProfileDetails = { dateOfBirth: '1990-05-04', bloodGroup: 'AB-', template: 'contact',
     conditions: ['Asthma'], allergies: ['Pollen'], medications: ['Ventolin'], medicalNotes: 'Carry inhaler',
-    mobile: '+971500000000', email: 'sara@example.com', address: 'Dubai' };
+    mobile: '+971500000000', email: 'sara@example.com', address: 'Dubai',
+    emergencyContacts: [{ name: 'Omar', relationship: 'Father', phone: '+971500000001' }], visibleFields: ['bloodGroup', 'emergencyContacts'] };
   const made = await source.store.create(fields({ name: 'Sara', personId: person.id, profile }), images('drawn'));
   const bytes = await encodeBackup(await buildSnapshot(source.store, 42), 'travel pass', { iterations: 1_000 });
   const target = await makeStore();

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { Alert, StyleSheet } from 'react-native';
 import { frontImage, image, makeCard } from '../../../test/fixtures';
 import ProfileForm from '../../../app/profile/[id]';
+import ProfileQr from '../../../app/profile/qr';
 import PeopleScreen from '../../../app/people';
 import { useShowcaseAdd } from '../../showcase/ShowcaseActions';
 import { Card, Person } from '../../cards/types';
@@ -13,6 +14,7 @@ jest.mock('@react-native-community/datetimepicker', () => ({
   __esModule: true, default: (props: unknown) => jest.requireActual('react').createElement(jest.requireActual('react-native').View, props),
   DateTimePickerAndroid: { open: jest.fn() },
 }));
+jest.mock('react-native-qrcode-svg', () => (props: unknown) => jest.requireActual('react').createElement(jest.requireActual('react-native').View, { ...props as object, testID: 'profile-qr-code' }));
 
 let mockParams: Record<string, string> = { id: 'new' };
 const mockPush = jest.fn();
@@ -60,6 +62,8 @@ const mockPickImage = jest.fn();
 const mockTakePhoto = jest.fn();
 const mockCropShared = jest.fn();
 const mockDiscard = jest.fn();
+const mockPickContact = jest.fn();
+jest.mock('../contactPicker', () => ({ pickContact: () => mockPickContact() }));
 jest.mock('../../images/capture', () => ({
   canTakePhoto: true,
   pickImage: (...a: unknown[]) => mockPickImage(...a),
@@ -83,6 +87,7 @@ beforeEach(() => {
   mockTakePhoto.mockResolvedValue('file://shot');
   mockCropShared.mockResolvedValue(frontImage('shot', 1));
   mockLoadImage.mockResolvedValue(null);
+  mockPickContact.mockResolvedValue({ name: 'Omar', phone: '+971500000001' });
   mockCreate.mockImplementation(async (fields) => makeCard({ ...fields, id: 'made' }));
   mockUpdate.mockImplementation(async (id, fields) => makeCard({ ...fields, id }));
   mockCreatePerson.mockImplementation(async (name: string) => ({ id: 'new-person', name, createdAt: 2 }));
@@ -91,6 +96,54 @@ beforeEach(() => {
 const save = () => fireEvent.press(screen.getByTestId('save-profile'));
 
 describe('profile form', () => {
+  test('picked emergency contact appears in the card and saves with the profile', async () => {
+    mockParams = { id: 'new', person: 'sara' };
+    await render(<ProfileForm />);
+    await fireEvent.press(screen.getByTestId('profile-pick-contact'));
+    await waitFor(() => expect(screen.getByTestId('profile-card').props.accessibilityLabel).toContain('Omar'));
+    await save();
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    expect(mockCreate.mock.calls[0][0].profile.emergencyContacts).toEqual([{ name: 'Omar', phone: '+971500000001', relationship: '' }]);
+  });
+  test('three editable contacts stay in priority order and a fourth is not offered', async () => {
+    mockParams = { id: 'new', person: 'sara' };
+    await render(<ProfileForm />);
+    for (const name of ['First', 'Second', 'Third']) {
+      await fireEvent.press(screen.getByTestId('profile-add-contact'));
+      await fireEvent.changeText(screen.getByTestId(`profile-contact-${['First', 'Second', 'Third'].indexOf(name)}-name`), name);
+      await fireEvent.changeText(screen.getByTestId(`profile-contact-${['First', 'Second', 'Third'].indexOf(name)}-phone`), `+97150000000${['First', 'Second', 'Third'].indexOf(name)}`);
+    }
+    await fireEvent.changeText(screen.getByTestId('profile-contact-0-relationship'), 'Wife');
+    await fireEvent.changeText(screen.getByTestId('profile-contact-0-phone'), '+971500000001');
+    expect(screen.queryByTestId('profile-add-contact')).toBeNull();
+    expect(screen.queryByTestId('profile-pick-contact')).toBeNull();
+    await fireEvent.press(screen.getByTestId('profile-contact-up-2'));
+    expect(screen.getByTestId('profile-card').props.accessibilityLabel).toMatch(/First.*Third.*Second/);
+    await save();
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    expect(mockCreate.mock.calls[0][0].profile.emergencyContacts.map((c: { name: string }) => c.name)).toEqual(['First', 'Third', 'Second']);
+  });
+  test('a contact template can choose which details appear on the card', async () => {
+    mockParams = { id: 'new', person: 'sara' };
+    await render(<ProfileForm />);
+    await fireEvent.press(screen.getByTestId('profile-template-contact'));
+    await fireEvent.changeText(screen.getByTestId('profile-mobile'), '+971500000000');
+    await fireEvent.press(screen.getByTestId('profile-field-mobile'));
+    expect(screen.getByTestId('profile-card').props.accessibilityLabel).not.toContain('+971500000000');
+    await save();
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    expect(mockCreate.mock.calls[0][0].profile).toMatchObject({ template: 'contact', visibleFields: expect.not.arrayContaining(['mobile']) });
+  });
+  test('the four templates have previews before save', async () => {
+    mockParams = { id: 'new', person: 'sara' };
+    await render(<ProfileForm />);
+    for (const template of ['medical', 'contact', 'compact', 'full'] as const) {
+      await fireEvent.press(screen.getByTestId(`profile-template-${template}`));
+      expect(screen.getByTestId('profile-card').props.accessibilityLabel).toContain('Sara');
+      expect(screen.getByText(strings.profiles[template].toUpperCase())).toBeTruthy();
+    }
+    expect(screen.queryByTestId('profile-template-personal')).toBeNull();
+  });
   test('a chosen square photo appears in the preview and is saved apart from the drawn card', async () => {
     mockParams = { id: 'new', person: 'sara' };
     await render(<ProfileForm />);
@@ -292,6 +345,34 @@ describe('profile form', () => {
     await save();
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
   });
+});
+
+test('Show QR hands the exact selected vCard to the QR component', async () => {
+  mockParams = { id: 'p1' };
+  mockCards = [makeCard({ ...sarasProfile(), profile: profile({ visibleFields: ['bloodGroup'], mobile: '+971500000000' }) })];
+  await render(<ProfileQr />);
+  expect(screen.getByTestId('profile-qr-code').props.value).toBe('BEGIN:VCARD\r\nVERSION:3.0\r\nN:Sara;;;;\r\nFN:Sara\r\nNOTE:Blood group: AB−\r\nEND:VCARD\r\n');
+});
+
+test('Show QR puts selected contact and medical fields in a vCard without the photo or hidden fields', async () => {
+  mockParams = { id: 'p1' };
+  mockCards = [makeCard({ ...sarasProfile(), profile: profile({
+    visibleFields: ['dateOfBirth', 'bloodGroup', 'mobile', 'email', 'address', 'allergies', 'emergencyContacts'],
+    mobile: '+971500000000', email: 'sara@example.com', address: 'Dubai', allergies: ['Peanuts'],
+    medicalNotes: 'Hidden', emergencyContacts: [{ name: 'Omar', relationship: 'Father', phone: '+971500000001' }],
+  }) })];
+  await render(<ProfileQr />);
+  expect(screen.getByTestId('profile-qr-code').props.value).toBe(
+    'BEGIN:VCARD\r\nVERSION:3.0\r\nN:Sara;;;;\r\nFN:Sara\r\nTEL;TYPE=CELL:+971500000000\r\nEMAIL:sara@example.com\r\nADR:;;Dubai;;;;\r\nBDAY:19900504\r\nNOTE:Blood group: AB−\\nAllergies: Peanuts\\nEmergency contacts 1: Omar (Father)\\, +971500000001\r\nEND:VCARD\r\n',
+  );
+});
+
+test('oversize QR names a field to shorten and draws no code', async () => {
+  mockParams = { id: 'p1' };
+  mockCards = [makeCard({ ...sarasProfile(), profile: profile({ medicalNotes: 'x'.repeat(2000) }) })];
+  await render(<ProfileQr />);
+  expect(screen.queryByTestId('profile-qr-code')).toBeNull();
+  expect(screen.getByText(/Medical notes/)).toBeTruthy();
 });
 
 describe('entry points', () => {

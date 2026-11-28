@@ -146,6 +146,23 @@ test('optional medical and contact details stay sealed, reopen unchanged and are
   }
 });
 
+test('emergency contacts survive a sealed store round trip', async () => {
+  const { store, person } = await withPerson();
+  const profile = details({ emergencyContacts: [{ name: 'Omar', relationship: 'Father', phone: '+971500000001' }] });
+  const saved = await store.create(fields({ name: 'Sara', personId: person.id, profile }), images('drawn'));
+  expect((await store.get(saved.id))?.profile).toEqual(profile);
+  expect(profileFromBackup(profile)).toEqual(profile);
+  expect((await searchDocumentDetails(await store.list(), [], '+971500000001', new Set())).map((card) => card.id)).toEqual([saved.id]);
+});
+
+test('template and field choice survive a sealed store round trip', async () => {
+  const { store, person } = await withPerson();
+  const profile = details({ template: 'contact', visibleFields: ['dateOfBirth', 'email'] });
+  const saved = await store.create(fields({ name: 'Sara', personId: person.id, profile }), images('drawn'));
+  expect((await store.get(saved.id))?.profile).toEqual(profile);
+  expect(profileFromBackup(profile)).toEqual(profile);
+});
+
 test('age is counted in whole years on the calendar day', () => {
   expect(ageOn('1990-05-04', new Date(2026, 4, 3))).toBe(35);
   expect(ageOn('1990-05-04', new Date(2026, 4, 4))).toBe(36);

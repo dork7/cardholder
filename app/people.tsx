@@ -1,11 +1,14 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { Person } from '../src/cards/types';
 import { PERSON_NAME_MAX_LENGTH } from '../src/config';
 import { personName } from '../src/people/names';
 import { profileOf } from '../src/profiles/profile';
+import { ProfileCard, ProfileCardView } from '../src/profiles/ProfileCard';
+import { drawCard } from '../src/profiles/drawCard';
+import { fieldsOf } from '../src/cards/batch';
 import { canAddCard } from '../src/purchases/limits';
 import { strings } from '../src/strings';
 import { Button } from '../src/ui/Button';
@@ -23,14 +26,33 @@ export default function PeopleScreen() {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const start = (person?: Person) => { setEditing(person?.id ?? 'new'); setName(person?.name ?? ''); setError(null); };
+  const redrawView = useRef<ProfileCardView>(null);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const photoLoad = useRef<Promise<string | null> | null>(null);
+  const start = (person?: Person) => {
+    setEditing(person?.id ?? 'new'); setName(person?.name ?? ''); setError(null);
+    const profile = person && profileOf(cards, person.id);
+    setProfilePhoto(null);
+    photoLoad.current = profile ? services.store.loadImage(profile.id, 'profilePhoto').catch(() => null) : null;
+    if (photoLoad.current) void photoLoad.current.then(setProfilePhoto);
+  };
   const save = async () => {
     const trimmed = personName(name);
     if (!trimmed) { setError(strings.people.invalidName); return; }
     setBusy(true);
     try {
       if (editing === 'new') await services.store.createPerson(trimmed);
-      else if (editing) await services.store.renamePerson(editing, trimmed);
+      else if (editing) {
+        const profile = profileOf(cards, editing);
+        if (profile) {
+          if (photoLoad.current) setProfilePhoto(await photoLoad.current);
+          // Let the edited name reach the capture view before drawing its new front.
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          const front = await drawCard(redrawView);
+          await services.store.renamePerson(editing, trimmed);
+          await services.store.update(profile.id, { ...fieldsOf(profile), name: trimmed }, { front });
+        } else await services.store.renamePerson(editing, trimmed);
+      }
       await refresh();
       setEditing(null);
     } catch { setError(strings.people.changeFailed); }
@@ -54,7 +76,11 @@ export default function PeopleScreen() {
       <Button label={editing === 'new' ? strings.people.create : strings.people.save} onPress={() => void save()} disabled={busy} testID="save-person" />
     </View>
   </View>;
+  const editingProfile = editing && editing !== 'new' ? profileOf(cards, editing) : null;
   return <Screen>
+    {editingProfile?.profile && <View style={styles.capture} pointerEvents="none">
+      <ProfileCard ref={redrawView} name={personName(name) ?? name} profile={editingProfile.profile} photo={profilePhoto} now={new Date()} />
+    </View>}
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Panel style={styles.panel}>{editing === 'new' ? editor :
         <Button label={strings.people.create} onPress={() => start()} testID="add-person" />}</Panel>
@@ -87,4 +113,5 @@ const styles = StyleSheet.create({
   panel: { padding: 16, gap: 12 },
   editor: { gap: 12 },
   actions: { flexDirection: 'row', gap: 8 },
+  capture: { position: 'absolute', top: -10000 },
 });

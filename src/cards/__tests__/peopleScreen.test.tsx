@@ -4,16 +4,20 @@ import PeopleScreen from '../../../app/people';
 import { Person } from '../types';
 import { makeCard } from '../../../test/fixtures';
 import { strings } from '../../strings';
+const mockDrawProfile = jest.fn();
+jest.mock('../../profiles/drawCard', () => ({ drawCard: (...args: unknown[]) => mockDrawProfile(...args) }));
 
 let mockPeople: Person[] = [];
 let mockCards: ReturnType<typeof makeCard>[] = [];
 const mockCreate = jest.fn();
 const mockRename = jest.fn();
 const mockRemove = jest.fn();
+const mockUpdate = jest.fn();
+const mockLoadImage = jest.fn();
 const mockRefresh = jest.fn();
 jest.mock('../../app/AppProvider', () => ({ useApp: () => ({
   cards: mockCards, people: mockPeople, refresh: mockRefresh,
-  services: { store: { createPerson: mockCreate, renamePerson: mockRename, removePerson: mockRemove } },
+  services: { store: { createPerson: mockCreate, renamePerson: mockRename, removePerson: mockRemove, update: mockUpdate, loadImage: mockLoadImage } },
 }) }));
 
 beforeEach(() => {
@@ -24,6 +28,20 @@ beforeEach(() => {
   mockRename.mockResolvedValue({ id: 'sara', name: 'Sarah', createdAt: 1 });
   mockRemove.mockResolvedValue(undefined);
   mockRefresh.mockResolvedValue(undefined);
+  mockLoadImage.mockResolvedValue(null);
+  mockDrawProfile.mockResolvedValue({ jpegBase64: 'new-front', aspect: 1.5 });
+  mockUpdate.mockResolvedValue(undefined);
+});
+
+test('renaming a Person redraws the current profile front', async () => {
+  mockPeople = [{ id: 'sara', name: 'Sara', createdAt: 1 }];
+  mockCards = [makeCard({ id: 'profile', name: 'Sara', personId: 'sara', profile: { dateOfBirth: null, bloodGroup: 'unknown', template: 'medical' } })];
+  await render(<PeopleScreen />);
+  await fireEvent.press(screen.getByTestId('rename-person-sara'));
+  await fireEvent.changeText(screen.getByTestId('person-name'), 'Sarah');
+  await fireEvent.press(screen.getByTestId('save-person'));
+  await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('profile', expect.objectContaining({ name: 'Sarah' }), { front: { jpegBase64: 'new-front', aspect: 1.5 } }));
+  expect(mockDrawProfile).toHaveBeenCalled();
 });
 
 test('removing a Person with a profile explains that its profile goes to Recently deleted', async () => {
