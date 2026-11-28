@@ -4,6 +4,14 @@ import { Settings } from '../storage/settings';
 import { encodeBackup } from './backupFile';
 import { buildSnapshot } from './backupService';
 import { recordExport } from './lastExport';
+import { toIsoDate } from '../time/dates';
+
+// A dated name like a manual backup's, with the time so two in a day don't collide (#98).
+export function autoBackupName(at: number): string {
+  const d = new Date(at);
+  const time = `${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+  return `DocKeeper-auto-${toIsoDate(d)}-${time}.cardholder`;
+}
 
 export type BackupFrequency = 'daily' | 'weekly';
 export interface AutoBackupConfig {
@@ -52,7 +60,7 @@ export function createAutoBackup(deps: Dependencies) {
   const save = async (config: AutoBackupConfig, passphrase: string) => {
     const at = now(); // Snapshot start, so edits made during a write still count as new changes.
     const bytes = await encodeBackup(await buildSnapshot(deps.store, at, deps.notes), passphrase);
-    const uri = await destination.write(config.folder, `DocKeeper-auto-${at}.cardholder`, bytes);
+    const uri = await destination.write(config.folder, autoBackupName(at), bytes);
     config.files.push(uri);
     config.lastRun = at;
     // Persist ownership before pruning. A failed prune is retried after the next successful save.

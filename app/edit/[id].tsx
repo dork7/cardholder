@@ -59,6 +59,7 @@ import { SpaceField } from '../../src/spaces/SpaceField';
 import { spaceFor } from '../../src/spaces/spaces';
 import { LiveText } from '../../src/ui/LiveText';
 import { KeyboardAvoid } from '../../src/ui/KeyboardAvoid';
+import { canAddCard } from '../../src/purchases/limits';
 
 export default function EditCard() {
   const { id, space } = useLocalSearchParams<{ id: string; space?: string }>();
@@ -99,6 +100,12 @@ export default function EditCard() {
     keptOriginals.current = { ...keptOriginals.current, [side]: path };
     setOriginals(keptOriginals.current);
   };
+  // At the free limit a new document goes to the paywall before any photo is picked, like the + button
+  // does; the Add document quick action opens this screen directly (#98). Checked once, on opening.
+  useEffect(() => {
+    if (isNew && !canAddCard(cards.length, unlocked)) router.replace('/paywall');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     clearOriginals();
     return clearOriginals;

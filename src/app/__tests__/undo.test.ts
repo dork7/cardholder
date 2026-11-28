@@ -5,15 +5,15 @@ afterEach(() => jest.useRealTimers());
 
 const removal = (message: string) => ({ message, undo: jest.fn(() => Promise.resolve()) });
 
-test('a removal is offered for 5 seconds, then the offer ends', () => {
+test('a removal is offered for 8 seconds, then the offer ends', () => {
   const undo = createUndo();
   undo.offer(removal('Deleted Passport'));
   expect(undo.current()?.message).toBe('Deleted Passport');
-  jest.advanceTimersByTime(4999);
+  jest.advanceTimersByTime(7999);
   expect(undo.current()?.message).toBe('Deleted Passport');
   jest.advanceTimersByTime(1);
   expect(undo.current()).toBeNull();
-  expect(UNDO_MS).toBe(5000);
+  expect(UNDO_MS).toBe(8000);
 });
 
 test("Undo runs the removal's undo once and ends the offer", async () => {
@@ -26,14 +26,14 @@ test("Undo runs the removal's undo once and ends the offer", async () => {
   expect(undo.current()).toBeNull();
 });
 
-test('a second removal replaces the first: only the second can be undone, for a fresh 5 seconds', async () => {
+test('a second removal replaces the first: only the second can be undone, for a fresh 8 seconds', async () => {
   const undo = createUndo();
   const first = removal('Deleted Passport');
   const second = removal('Deleted Gym');
   undo.offer(first);
-  jest.advanceTimersByTime(4000);
+  jest.advanceTimersByTime(7000);
   undo.offer(second);
-  jest.advanceTimersByTime(4000);
+  jest.advanceTimersByTime(7000);
   expect(undo.current()?.message).toBe('Deleted Gym');
   await undo.undo();
   expect(first.undo).not.toHaveBeenCalled();
@@ -55,7 +55,7 @@ test('listeners hear each change and stop hearing once unsubscribed', () => {
   const heard: (string | null)[] = [];
   const stop = undo.subscribe(() => heard.push(undo.current()?.message ?? null));
   undo.offer(removal('Deleted Passport'));
-  jest.advanceTimersByTime(5000);
+  jest.advanceTimersByTime(UNDO_MS);
   stop();
   undo.offer(removal('Deleted Gym'));
   expect(heard).toEqual(['Deleted Passport', null]);

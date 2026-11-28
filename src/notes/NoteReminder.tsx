@@ -32,7 +32,7 @@ export function NoteReminder({ value, disabled, onSave }: {
     setError(null);
   };
   return <View style={{ gap: 12 }}>
-    {value !== undefined && <LiveText style={{ color: theme.muted }}>{strings.notes.reminderScheduled(new Date(value).toLocaleString())}</LiveText>}
+    {value !== undefined && <LiveText style={{ color: theme.muted }}>{strings.notes.reminderScheduled(new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))}</LiveText>}
     <Button variant="secondary" label={strings.notes.remind} disabled={disabled} onPress={() => {
       setDraft(new Date(value ?? Date.now() + 3600000)); setError(null); setOpen(true);
     }} />

@@ -1,7 +1,7 @@
 import type { ErrorAction } from '../ui/errorAlert';
 
 // How long the Undo bar offers to take a removal back.
-export const UNDO_MS = 5000;
+export const UNDO_MS = 8000;
 
 // Something already removed that can be put back: one or more documents moved to Recently deleted,
 // a tag taken off a document. The removal itself has happened before it is offered; `undo` reverses it.

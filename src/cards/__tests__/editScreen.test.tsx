@@ -602,6 +602,18 @@ describe('deleting', () => {
   });
 });
 
+test('at the free limit, a new document goes to the paywall before any photo is picked (#98)', async () => {
+  mockCards = Array.from({ length: 10 }, (_, i) => makeCard({ id: `c${i}` }));
+  await render(<EditCard />);
+  expect(mockReplace).toHaveBeenCalledWith('/paywall');
+});
+
+test('below the limit a new document opens as usual', async () => {
+  mockCards = Array.from({ length: 9 }, (_, i) => makeCard({ id: `c${i}` }));
+  await render(<EditCard />);
+  expect(mockReplace).not.toHaveBeenCalledWith('/paywall');
+});
+
 test('Close leaves the add-card modal without writing anything', async () => {
   await fillNewCard();
   await fireEvent.press(screen.getByRole('button', { name: strings.common.close }));

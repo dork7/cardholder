@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
-import { BackupError, BackupSnapshot, decodeBackup } from '../src/backup/backupFile';
+import { BackupError, BackupSnapshot, decodeBackup, looksLikeBackup } from '../src/backup/backupFile';
 import { applySnapshot, ImportMode } from '../src/backup/backupService';
 import { recordExport } from '../src/backup/lastExport';
 import { strings } from '../src/strings';
@@ -47,7 +47,10 @@ export default function ImportScreen() {
     const file = new File(asset.uri);
     try {
       setPassphrase('');
-      setStep({ kind: 'unlock', fileName: asset.name, bytes: await file.bytes() });
+      const bytes = await file.bytes();
+      // Say so straight away, not after the user has typed a passphrase (#98).
+      if (!looksLikeBackup(bytes)) setError(strings.import.errors['not-a-backup']);
+      else setStep({ kind: 'unlock', fileName: asset.name, bytes });
     } catch {
       setError(strings.import.failed);
     } finally {
@@ -85,7 +88,9 @@ export default function ImportScreen() {
       }
       await refresh();
       Alert.alert(strings.import.done(result.added, result.skipped, result.notesAdded, result.notesSkipped));
-      router.dismissAll();
+      // Nothing to pop when Import is the only screen (a backup opened from outside the app).
+      if (router.canDismiss()) router.dismissAll();
+      else router.replace('/');
     } catch (e) {
       console.warn('Import failed', e);
       setBusy(false);
