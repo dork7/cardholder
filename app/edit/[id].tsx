@@ -311,7 +311,7 @@ export default function EditCard() {
         if (reads.current[side] !== read) return;
         // The document's own type ("Residency") when it names one, else its broad kind ("ID").
         const suggestion = { ...analysis, tags: suggestedTag(analysis, allTags(cards)) };
-        setForm((f) => applyReadText(applyAnalysis(f, suggestion), side, analysis.text ?? ''));
+        setForm((f) => applyReadText(applyAnalysis(f, suggestion, side), side, analysis.text ?? ''));
       })
       .catch((e) => console.warn('Reading the card failed', e))
       .finally(() => setReading((n) => n - 1));

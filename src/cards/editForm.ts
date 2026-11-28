@@ -129,7 +129,10 @@ export interface FormState {
   draft: EditDraft;
   suggested: Partial<Record<Suggestable, number>>; // field → confidence of the suggestion it holds
   touched: Touchable[]; // fields the user set; suggestions leave them alone
+  suggestedFrom?: Partial<Record<Suggestable, keyof CardText>>; // the picture each suggestion was read from
 }
+
+const BLANK: { [F in Suggestable]: EditDraft[F] } = { name: '', tags: [], expiresOn: null };
 
 export function formFor(card: Card | null): FormState {
   const touched: Touchable[] = card ? ['tags'] : [];
@@ -145,6 +148,18 @@ export function editField(state: FormState, patch: Partial<EditDraft>): FormStat
   for (const f of fields) delete suggested[f as Suggestable];
   const touched = [...state.touched, ...fields.filter((f) => !state.touched.includes(f))];
   let draft = { ...state.draft, ...patch };
+  // A replaced or removed picture takes back what it suggested; the new one is read afresh (#92).
+  const suggestedFrom = { ...state.suggestedFrom };
+  for (const side of ['front', 'back'] as const) {
+    if (!(side in patch)) continue;
+    for (const field of SUGGESTABLE) {
+      if (suggestedFrom[field] !== side) continue;
+      delete suggestedFrom[field];
+      if (suggested[field] === undefined) continue;
+      delete suggested[field];
+      draft = { ...draft, [field]: BLANK[field] };
+    }
+  }
   // A new photo's text isn't known until it is read (applyReadText).
   for (const side of ['front', 'back'] as const) {
     if (!patch[side]) continue;
@@ -155,14 +170,17 @@ export function editField(state: FormState, patch: Partial<EditDraft>): FormStat
     draft,
     suggested,
     touched,
+    suggestedFrom,
   };
 }
 
 export function applyAnalysis(
   state: FormState,
   analysis: { [F in Suggestable]?: { value: EditDraft[F]; confidence: number } } & { documentKey?: string },
+  side?: keyof CardText,
 ): FormState {
   let { draft, suggested } = state;
+  let suggestedFrom = state.suggestedFrom ?? {};
   // Not a field anyone sees or edits: the newest photo that names its document wins.
   if (analysis.documentKey) draft = { ...draft, documentKey: analysis.documentKey };
   for (const field of SUGGESTABLE) {
@@ -177,8 +195,9 @@ export function applyAnalysis(
     if (!allowed) continue;
     draft = { ...draft, [field]: guess.value };
     suggested = { ...suggested, [field]: guess.confidence };
+    if (side) suggestedFrom = { ...suggestedFrom, [field]: side };
   }
-  return { ...state, draft, suggested };
+  return { ...state, draft, suggested, suggestedFrom };
 }
 
 // Keeps what was read off one side, for search. A card that was never read starts with both sides blank;
