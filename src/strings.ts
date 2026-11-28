@@ -490,6 +490,7 @@ export const strings = {
     linkExistingNote: 'Link existing note',
     checklistHint: 'For a checklist, start a line with - [ ].',
     checklistItem: 'Checklist item',
+    editBody: 'Edit note text',
     remind: 'Remind me',
     reminderDate: 'Reminder date',
     reminderTime: 'Reminder time',

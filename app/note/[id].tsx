@@ -1,12 +1,12 @@
 import * as Clipboard from 'expo-clipboard';
 import { Stack, useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Share, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Pressable, Share, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { NoteReminder } from '../../src/notes/NoteReminder';
 import { requestReminderPermissionOnce } from '../../src/reminders/scheduler';
-import { NoteBody } from '../../src/notes/NoteBody';
+import { hasChecklist, NoteBody } from '../../src/notes/NoteBody';
 import { NoteEditor } from '../../src/notes/noteEditors';
 import { isBlankNote, Note, NoteFields } from '../../src/notes/noteStore';
 import { allTags, normalizeTags, sameTag } from '../../src/cards/tags';
@@ -64,6 +64,8 @@ function Editor({ note, initialBody = '', initialDocumentId, initialSpace }: { n
   const [namingTag, setNamingTag] = useState(false);
   const [documentId, setDocumentId] = useState(note?.documentId ?? initialDocumentId ?? null);
   const [busy, setBusy] = useState(false);
+  const [editingBody, setEditingBody] = useState(false);
+  const showChecklist = !editingBody && hasChecklist(fields.body);
   const [closed, setClosed] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [actionFailed, setActionFailed] = useState(false);
@@ -172,10 +174,18 @@ function Editor({ note, initialBody = '', initialDocumentId, initialSpace }: { n
           <SpaceField value={fields.spaceId} onChange={(spaceId) => updateFields({ ...fields, spaceId })} />
           <Field label={strings.notes.bodyLabel}>
             <LiveText style={{ color: theme.muted }}>{strings.notes.checklistHint}</LiveText>
-            <TextInput value={fields.body} onChangeText={(value) => change('body', value)} multiline
-              editable={!busy} accessibilityLabel={strings.notes.bodyLabel} style={[inputStyle, styles.body]} testID="note-body" />
+            {/* A checklist shows once: as rows to tick while not typing, as its text while typing (#45). */}
+            {showChecklist ? (
+              <Pressable onPress={() => setEditingBody(true)} disabled={busy} accessibilityRole="button" accessibilityLabel={strings.notes.editBody}
+                style={[inputStyle, styles.body]} testID="note-body-preview">
+                <NoteBody body={fields.body} disabled={busy} onChange={(body) => change('body', body)} />
+              </Pressable>
+            ) : (
+              <TextInput value={fields.body} onChangeText={(value) => change('body', value)} multiline autoFocus={editingBody}
+                onFocus={() => setEditingBody(true)} onBlur={() => setEditingBody(false)}
+                editable={!busy} accessibilityLabel={strings.notes.bodyLabel} style={[inputStyle, styles.body]} testID="note-body" />
+            )}
           </Field>
-          <NoteBody body={fields.body} tasksOnly disabled={busy} onChange={(body) => change('body', body)} />
           <Field label={strings.notes.tags}>
             <TagChips tags={allTags([...cards, ...notes, { tags }])} selected={tags} multiple
               onPress={(tag) => {

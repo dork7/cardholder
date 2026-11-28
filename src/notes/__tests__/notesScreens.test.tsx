@@ -309,8 +309,15 @@ test('checklist boxes toggle from the list, preserving Markdown and ordinary tex
 test('typed task markers can be toggled in the note and copied as readable Markdown', async () => {
   await render(<NoteScreen />);
   await write('', 'Before\r\n  - [ ] Passport\r\nAfter');
+  // Not typing: the checklist shows once, as rows, with no raw Markdown beside it (#45).
+  expect(screen.queryByTestId('note-body')).toBeNull();
+  expect(screen.getAllByText('Passport')).toHaveLength(1);
   await fireEvent.press(screen.getByRole('checkbox', { name: 'Passport' }));
+  expect(screen.getByTestId('checklist-tick')).toBeTruthy();
+  // Tapping the text switches back to typing it.
+  await fireEvent.press(screen.getByTestId('note-body-preview'));
   expect(screen.getByTestId('note-body').props.value).toBe('Before\r\n  - [x] Passport\r\nAfter');
+  expect(screen.queryByRole('checkbox', { name: 'Passport' })).toBeNull();
   await act(async () => mockServices.noteEditors.flushAll());
   expect((await mockServices.notes.list())[0].body).toBe('Before\r\n  - [x] Passport\r\nAfter');
   await fireEvent.press(screen.getByTestId('note-copy'));
