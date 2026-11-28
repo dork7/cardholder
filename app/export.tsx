@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { encodeBackup } from '../src/backup/backupFile';
 import { buildSnapshot } from '../src/backup/backupService';
@@ -15,6 +15,7 @@ import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 import { LiveText } from '../src/ui/LiveText';
+import { KeyboardAvoid } from '../src/ui/KeyboardAvoid';
 
 export default function ExportScreen() {
   const { services } = useApp();
@@ -69,7 +70,7 @@ export default function ExportScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoid>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Panel style={styles.group}>
             <Text style={[styles.body, { color: theme.text }]}>{strings.export.intro}</Text>
@@ -128,7 +129,7 @@ export default function ExportScreen() {
             </View>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Screen>
   );
 }

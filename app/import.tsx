@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { BackupError, BackupSnapshot, decodeBackup } from '../src/backup/backupFile';
 import { applySnapshot, ImportMode } from '../src/backup/backupService';
@@ -15,6 +15,7 @@ import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
 import { LiveText } from '../src/ui/LiveText';
+import { KeyboardAvoid } from '../src/ui/KeyboardAvoid';
 
 type Step =
   | { kind: 'pick' }
@@ -107,7 +108,7 @@ export default function ImportScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoid>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {step.kind === 'pick' && <Button icon="import" label={strings.import.pickFile} onPress={pickFile} testID="import-pick" />}
 
@@ -176,7 +177,7 @@ export default function ImportScreen() {
             </LiveText>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Screen>
   );
 }

@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { BackupError } from '../src/backup/backupFile';
 import { VerifiedBackup, verifyBackup } from '../src/backup/backupService';
 import { strings } from '../src/strings';
@@ -12,6 +12,7 @@ import { LiveText } from '../src/ui/LiveText';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
+import { KeyboardAvoid } from '../src/ui/KeyboardAvoid';
 
 type Step =
   | { kind: 'pick' }
@@ -65,7 +66,7 @@ export default function VerifyBackupScreen() {
   };
 
   return <Screen>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoid>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={[styles.body, { color: theme.muted }]}>{strings.verify.intro}</Text>
         {step.kind === 'unlock' && <Panel style={styles.group}>
@@ -91,7 +92,7 @@ export default function VerifyBackupScreen() {
         </>}
         {error && <LiveText style={[styles.body, { color: theme.danger }]} testID="verify-error">{error}</LiveText>}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoid>
   </Screen>;
 }
 

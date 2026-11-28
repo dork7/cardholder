@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EASE_OUT } from '../../src/ui/motion';
@@ -58,6 +58,7 @@ import { useConfirmDiscard } from '../../src/ui/useConfirmDiscard';
 import { SpaceField } from '../../src/spaces/SpaceField';
 import { spaceFor } from '../../src/spaces/spaces';
 import { LiveText } from '../../src/ui/LiveText';
+import { KeyboardAvoid } from '../../src/ui/KeyboardAvoid';
 
 export default function EditCard() {
   const { id, space } = useLocalSearchParams<{ id: string; space?: string }>();
@@ -478,7 +479,7 @@ export default function EditCard() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoid>
         <Stack.Screen options={{ title: isNew ? strings.edit.newTitle : strings.edit.editTitle }} />
         <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Three panels, not one per field: photos, details, expiry. */}
@@ -619,7 +620,7 @@ export default function EditCard() {
             </Field>
             <Field label={strings.people.person}>
               {namingPerson ? <View style={{ gap: 8 }}>
-                <TextInput value={personName} onChangeText={setPersonName} maxLength={PERSON_NAME_MAX_LENGTH} autoFocus
+                <TextInput value={personName} onChangeText={setPersonName} maxLength={PERSON_NAME_MAX_LENGTH} autoFocus autoCorrect={false} autoCapitalize="words"
                   accessibilityLabel={strings.people.name} placeholder={strings.people.name}
                   placeholderTextColor={theme.muted} style={inputStyle} testID="person-name" />
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -693,7 +694,7 @@ export default function EditCard() {
             </View>
           </View>
         </ActionFooter>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Screen>
   );
 }

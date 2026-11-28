@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useApp } from '../src/app/AppProvider';
 import { AutoBackupConfig, BackupFrequency, loadAutoBackup } from '../src/backup/autoBackup';
 import { androidAutoBackup, canAutoBackup, pickBackupFolder } from '../src/backup/androidAutoBackup';
@@ -12,6 +12,7 @@ import { LiveText } from '../src/ui/LiveText';
 import { Panel, Screen } from '../src/ui/Surface';
 import { Text } from '../src/ui/Text';
 import { TYPE, useTheme } from '../src/ui/theme';
+import { KeyboardAvoid } from '../src/ui/KeyboardAvoid';
 
 export default function AutoBackupScreen() {
   const { services } = useApp();
@@ -72,7 +73,7 @@ export default function AutoBackupScreen() {
     }
   };
   return <Screen>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoid>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {!canAutoBackup ? <Text style={{ color: theme.text }}>{strings.autoBackup.ios}</Text> : <>
           <Panel style={styles.group}>
@@ -105,7 +106,7 @@ export default function AutoBackupScreen() {
             : <Button label={strings.autoBackup.enable} onPress={enable} testID="auto-enable" />}
         </>}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoid>
   </Screen>;
 }
 const styles = StyleSheet.create({
