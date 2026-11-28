@@ -28,6 +28,9 @@ export function profileDetails(profile: ProfileDetails): [string, string][] {
   for (const key of ['medicalNotes', 'mobile', 'email', 'address'] as const) {
     if (profile[key]) out.push([strings.profiles[key], profile[key]!]);
   }
+  for (const contact of profile.emergencyContacts ?? []) {
+    out.push([strings.profiles.emergencyContacts, `${contact.name}, ${contact.phone}`]);
+  }
   return out;
 }
 

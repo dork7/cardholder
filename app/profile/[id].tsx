@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/app/AppProvider';
 import { fieldsOf } from '../../src/cards/batch';
@@ -9,7 +9,8 @@ import { canTakePhoto, cropSharedImage, discardFile, pickImage, takePhoto } from
 import { DEFAULT_REMIND_DAYS, PERSON_NAME_MAX_LENGTH } from '../../src/config';
 import { personName, samePersonName } from '../../src/people/names';
 import { drawCard } from '../../src/profiles/drawCard';
-import { BLOOD_GROUPS, BloodGroup, emptyProfile, ProfileDetails, profileOf } from '../../src/profiles/profile';
+import { pickContact } from '../../src/profiles/contactPicker';
+import { BLOOD_GROUPS, BloodGroup, defaultVisibleFields, emptyProfile, PROFILE_FIELDS, PROFILE_TEMPLATES, ProfileDetails, ProfileField, ProfileTemplate, profileOf } from '../../src/profiles/profile';
 import { ProfileCard, ProfileCardView } from '../../src/profiles/ProfileCard';
 import { canAddCard } from '../../src/purchases/limits';
 import { SpaceField } from '../../src/spaces/SpaceField';
@@ -24,12 +25,15 @@ import { ActionFooter, Panel, Screen } from '../../src/ui/Surface';
 import { Text } from '../../src/ui/Text';
 import { useTheme } from '../../src/ui/theme';
 import { useConfirmDiscard } from '../../src/ui/useConfirmDiscard';
+import { KeyboardAvoid } from '../../src/ui/KeyboardAvoid';
 
 interface Draft {
   personId: string | null; // an existing Person
   newName: string | null; // or a name to make a new Person from on save; null when not adding one
   dateOfBirth: string | null;
   bloodGroup: BloodGroup;
+  template: ProfileTemplate;
+  visibleFields?: ProfileField[];
   conditions?: string[];
   allergies?: string[];
   medications?: string[];
@@ -37,6 +41,7 @@ interface Draft {
   mobile?: string;
   email?: string;
   address?: string;
+  emergencyContacts?: NonNullable<ProfileDetails['emergencyContacts']>;
   spaceId?: SpaceId;
 }
 
@@ -103,6 +108,8 @@ export default function ProfileForm() {
       newName: null,
       dateOfBirth: details.dateOfBirth,
       bloodGroup: details.bloodGroup,
+      template: details.template,
+      ...(details.visibleFields && { visibleFields: details.visibleFields }),
       ...(details.conditions && { conditions: details.conditions }),
       ...(details.allergies && { allergies: details.allergies }),
       ...(details.medications && { medications: details.medications }),
@@ -110,6 +117,7 @@ export default function ProfileForm() {
       ...(details.mobile !== undefined && { mobile: details.mobile }),
       ...(details.email !== undefined && { email: details.email }),
       ...(details.address !== undefined && { address: details.address }),
+      ...(details.emergencyContacts !== undefined && { emergencyContacts: details.emergencyContacts }),
       ...(spaceId !== undefined && { spaceId }),
     };
   });
@@ -177,6 +185,7 @@ export default function ProfileForm() {
   const chosen = people.find((p) => p.id === draft.personId);
   const name = draft.newName !== null ? (personName(draft.newName) ?? '') : (chosen?.name ?? '');
   const details: ProfileDetails = { ...emptyProfile(), ...existing?.profile, dateOfBirth: draft.dateOfBirth, bloodGroup: draft.bloodGroup,
+    template: draft.template, ...(draft.visibleFields && { visibleFields: draft.visibleFields }),
     ...(draft.conditions !== undefined && { conditions: draft.conditions }),
     ...(draft.allergies !== undefined && { allergies: draft.allergies }),
     ...(draft.medications !== undefined && { medications: draft.medications }),
@@ -184,10 +193,15 @@ export default function ProfileForm() {
     ...(draft.mobile !== undefined && { mobile: draft.mobile }),
     ...(draft.email !== undefined && { email: draft.email }),
     ...(draft.address !== undefined && { address: draft.address }),
+    ...(draft.emergencyContacts !== undefined && { emergencyContacts: draft.emergencyContacts }),
   };
 
   const save = async () => {
     if (writing.current) return;
+    if (details.emergencyContacts?.some((contact) => !contact.name.trim() || !contact.phone.trim())) {
+      Alert.alert(strings.profiles.contactRequired);
+      return;
+    }
     if (!name) {
       setError(strings.profiles.personRequired);
       return;
@@ -247,10 +261,23 @@ export default function ProfileForm() {
     key: group, label: strings.profiles.bloodGroups[group], selected: draft.bloodGroup === group,
     onPress: () => update({ bloodGroup: group }), testID: `blood-${group}`,
   }));
+  const templateChips: Chip[] = PROFILE_TEMPLATES.map((template) => ({
+    key: template, label: strings.profiles[template], selected: draft.template === template,
+    onPress: () => update({ template, visibleFields: !draft.visibleFields ||
+      JSON.stringify(draft.visibleFields) === JSON.stringify(defaultVisibleFields(draft.template))
+      ? defaultVisibleFields(template) : draft.visibleFields }), testID: `profile-template-${template}`,
+  }));
+  const visibleFields = draft.visibleFields ?? defaultVisibleFields(draft.template);
+  const fieldChips: Chip[] = PROFILE_FIELDS.map((field) => ({
+    key: field, label: strings.profiles[field], selected: visibleFields.includes(field),
+    onPress: () => update({ visibleFields: visibleFields.includes(field)
+      ? visibleFields.filter((item) => item !== field) : PROFILE_FIELDS.filter((item) => item === field || visibleFields.includes(item)) }),
+    testID: `profile-field-${field}`,
+  }));
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoid>
         <Stack.Screen options={{ title: isNew ? strings.profiles.newTitle : strings.profiles.editTitle }} />
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.preview}>
@@ -279,6 +306,12 @@ export default function ProfileForm() {
                 )}
               </>}
             </Field>
+            <Field label={strings.profiles.template}>
+              <ChipRow chips={templateChips} accessibilityLabel={strings.profiles.template} />
+            </Field>
+            <Field label={strings.profiles.shownOnCard}>
+              <ChipRow chips={fieldChips} accessibilityLabel={strings.profiles.shownOnCard} />
+            </Field>
             <DateField
               label={strings.profiles.dateOfBirth}
               addLabel={strings.profiles.addDateOfBirth}
@@ -301,6 +334,29 @@ export default function ProfileForm() {
                   style={inputStyle} maxLength={5000} multiline={key === 'medicalNotes' || key === 'address'}
                   keyboardType={key === 'email' ? 'email-address' : key === 'mobile' ? 'phone-pad' : 'default'} />
               </Field>)}
+            <Field label={strings.profiles.emergencyContacts}>
+              {(draft.emergencyContacts ?? []).map((contact, index) => <View key={index} style={styles.contact}>
+                {(['name', 'relationship', 'phone'] as const).map((key) => <Field key={key} label={strings.profiles[key]}>
+                  <TextInput accessibilityLabel={`${strings.profiles[key]} ${index + 1}`} testID={`profile-contact-${index}-${key}`}
+                    value={contact[key] ?? ''} onChangeText={(value) => update({ emergencyContacts: draft.emergencyContacts?.map((entry, at) => at === index ? { ...entry, [key]: value } : entry) })}
+                    style={inputStyle} maxLength={200} keyboardType={key === 'phone' ? 'phone-pad' : 'default'} />
+                </Field>)}
+                <View style={styles.contactActions}>
+                  {index > 0 && <Button variant="secondary" label={strings.profiles.moveUp} testID={`profile-contact-up-${index}`}
+                    onPress={() => { const next = [...(draft.emergencyContacts ?? [])]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; update({ emergencyContacts: next }); }} />}
+                  {index < (draft.emergencyContacts?.length ?? 0) - 1 && <Button variant="secondary" label={strings.profiles.moveDown} testID={`profile-contact-down-${index}`}
+                    onPress={() => { const next = [...(draft.emergencyContacts ?? [])]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; update({ emergencyContacts: next }); }} />}
+                  <Button variant="secondary" label={`${strings.profiles.removeContact} ${contact.name}`}
+                    testID={`profile-contact-remove-${index}`} onPress={() => update({ emergencyContacts: draft.emergencyContacts?.filter((_, at) => at !== index) })} />
+                </View>
+              </View>)}
+              {(draft.emergencyContacts?.length ?? 0) < 3 && <><Button variant="secondary" label={strings.profiles.addContact} testID="profile-add-contact"
+                onPress={() => update({ emergencyContacts: [...(draft.emergencyContacts ?? []), { name: '', relationship: '', phone: '' }] })} />
+              <Button variant="secondary" label={strings.profiles.pickContact} testID="profile-pick-contact"
+                onPress={() => void pickContact().then((contact) => {
+                  if (contact) update({ emergencyContacts: [...(draft.emergencyContacts ?? []), { ...contact, relationship: '' }] });
+                }).catch((e) => { console.warn('Choosing a contact failed', e); Alert.alert(strings.profiles.contactPickerFailed); })} /></>}
+            </Field>
             <SpaceField value={draft.spaceId} onChange={(spaceId) => update({ spaceId })} />
           </Panel>
         </ScrollView>
@@ -315,7 +371,7 @@ export default function ProfileForm() {
             </View>
           </View>
         </ActionFooter>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Screen>
   );
 }
@@ -329,6 +385,8 @@ const styles = StyleSheet.create({
   action: { flex: 1 },
   entry: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   entryInput: { flex: 1 },
+  contact: { gap: 8, paddingVertical: 8 },
+  contactActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photoPreview: { width: 80, height: 80, borderRadius: 40 },
   photoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

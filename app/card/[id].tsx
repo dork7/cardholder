@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, Modal, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +44,10 @@ import { recordDocumentVisit } from '../../src/showcase/documentVisits';
 import { spaceFor } from '../../src/spaces/spaces';
 import { UndoBar } from '../../src/ui/UndoBar';
 import { profileSummary } from '../../src/profiles/ProfileCard';
+import { ProfileCard, ProfileCardView } from '../../src/profiles/ProfileCard';
+import { drawCard } from '../../src/profiles/drawCard';
+import { PROFILE_TEMPLATES, ProfileTemplate, defaultVisibleFields } from '../../src/profiles/profile';
+import { fieldsOf } from '../../src/cards/batch';
 
 export default function CardView() {
   const { id, show } = useLocalSearchParams<{ id: string; show?: string }>();
@@ -66,6 +70,10 @@ export default function CardView() {
   const [linkingNote, setLinkingNote] = useState(false);
   const [more, setMore] = useState(false);
   const [recreating, setRecreating] = useState(false);
+  const [changingTemplate, setChangingTemplate] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<ProfileTemplate | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const templateView = useRef<ProfileCardView>(null);
 
   useMaxBrightness(staff || cardBrightness);
   useAllowLandscape();
@@ -77,6 +85,19 @@ export default function CardView() {
   }, [staff]);
 
   const card = cards.find((c) => c.id === id);
+  const changeTemplate = async (template: ProfileTemplate) => {
+    if (!card?.profile) return;
+    try {
+      const photo = await services.store.loadImage(card.id, 'profilePhoto');
+      setProfilePhoto(photo);
+      setSelectedTemplate(template);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const front = await drawCard(templateView);
+      await services.store.update(card.id, { ...fieldsOf(card), profile: { ...card.profile, template, visibleFields: card.profile.visibleFields ?? defaultVisibleFields(template) } }, { front });
+      await refresh();
+      setChangingTemplate(false);
+    } catch (e) { console.warn('Changing profile template failed', e); showError('save', e); }
+  };
   const cardId = card?.id;
   const locked = useAppLocked();
   useFocusEffect(useCallback(() => {
@@ -480,12 +501,26 @@ export default function CardView() {
         testID="card-more-sheet"
         actions={[
           { key: 'pdf', icon: 'pdf', label: strings.card.exportPdf, hint: strings.card.exportPdfHint, onPress: exportPdf, testID: 'export-pdf' },
+          ...(card.profile ? [{ key: 'show-qr', icon: 'share' as const, label: strings.profiles.showQr,
+            onPress: () => router.push(`/profile/qr?id=${encodeURIComponent(card.id)}`), testID: 'show-profile-qr' }] : []),
+          ...(card.profile ? [{ key: 'change-template', icon: 'edit' as const, label: strings.profiles.changeTemplate,
+            onPress: () => setChangingTemplate(true), testID: 'change-profile-template' }] : []),
           card.profile
             ? { key: 'edit', icon: 'edit', label: strings.profiles.edit, onPress: () => router.push(`/profile/${card.id}`), testID: 'edit-card' }
             : { key: 'edit', icon: 'edit', label: strings.card.edit, onPress: () => router.push(`/edit/${card.id}`), testID: 'edit-card' },
           { key: 'delete', icon: 'trash', variant: 'danger', separate: !!card.profile, label: strings.edit.deleteCard, onPress: () => void deleteCard(), testID: 'delete-card' },
         ]}
       />
+      {card.profile && selectedTemplate && <View style={styles.templateCapture} pointerEvents="none">
+        <ProfileCard ref={templateView} name={displayName(card)} profile={{ ...card.profile, template: selectedTemplate, visibleFields: card.profile.visibleFields ?? defaultVisibleFields(selectedTemplate) }} photo={profilePhoto} now={new Date()} />
+      </View>}
+      <Sheet visible={changingTemplate} onClose={() => setChangingTemplate(false)} testID="profile-template-sheet">
+        <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{strings.profiles.changeTemplate}</Text>
+        <ChipRow accessibilityLabel={strings.profiles.template} chips={PROFILE_TEMPLATES.map((template) => ({
+          key: template, label: strings.profiles[template], selected: card.profile?.template === template,
+          onPress: () => void changeTemplate(template), testID: `change-template-${template}`,
+        }))} />
+      </Sheet>
       <TagSheet
         visible={tagging}
         title={strings.tags.titleOne}
@@ -527,6 +562,7 @@ function StaffWindow({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  templateCapture: { position: 'absolute', top: -10000 },
   staff: { flex: 1, padding: 0, overflow: 'hidden' },
   staffControls: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
   staffOverlay: { position: 'absolute', alignItems: 'flex-end', gap: 8 },

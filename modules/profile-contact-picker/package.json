@@ -1,0 +1,7 @@
+{
+  "name": "profile-contact-picker",
+  "version": "0.1.0",
+  "description": "System contact picker for profile emergency contacts",
+  "license": "UNLICENSED",
+  "private": true
+}
