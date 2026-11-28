@@ -966,6 +966,17 @@ test('the name field capitalises words and closes the keyboard on Done', async (
 });
 
 describe('opened with something shared from another app', () => {
+  test('one shared photo fills the front without a back', async () => {
+    setPendingShared({ kind: 'photos', paths: ['file:///cache/shared/0-0.jpg'] });
+    mockCropShared.mockResolvedValueOnce(frontImage('only'));
+    await render(<EditCard />);
+    await waitFor(() => expect(mockDiscardShared).toHaveBeenCalledWith(['file:///cache/shared/0-0.jpg']));
+    expect(mockCropShared).toHaveBeenCalledWith('file:///cache/shared/0-0.jpg');
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ front: frontImage('only') }));
+    expect(mockCreate.mock.calls[0][1].back).toBeNull();
+  });
+
   test('two shared photos are cropped in turn into the front and the back, then deleted', async () => {
     setPendingShared({ kind: 'photos', paths: ['file:///cache/shared/1-0.jpg', 'file:///cache/shared/1-1.jpg'] });
     mockCropShared.mockResolvedValueOnce(frontImage('first')).mockResolvedValueOnce(frontImage('second'));

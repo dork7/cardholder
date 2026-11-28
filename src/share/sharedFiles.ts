@@ -7,7 +7,7 @@ import { SharedFile } from './sharedIn';
 const sharedDir = () => new Directory(Paths.cache, 'shared');
 
 const fileUri = (path: string) =>
-  path.startsWith('file://') ? path : `file://${path.split('/').map(encodeURIComponent).join('/')}`;
+  path.startsWith('file://') || path.startsWith('content://') ? path : `file://${path.split('/').map(encodeURIComponent).join('/')}`;
 
 const extension = (f: SharedFile) => (f.mimeType === 'application/pdf' ? 'pdf' : (/\.([a-z0-9]{1,5})$/i.exec(f.fileName ?? f.path)?.[1] ?? 'jpg'));
 

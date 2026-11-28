@@ -35,7 +35,9 @@ export function ShareInReceiver() {
   }, [shareIntent]);
 
   useEffect(() => {
-    if (error) console.warn('Receiving a share failed', error);
+    if (!error) return;
+    console.warn('Receiving a share failed', error);
+    Alert.alert(strings.shareIn.failed);
   }, [error]);
 
   useEffect(() => {
