@@ -1,0 +1,5 @@
+Fixed #88’s share handling. The native module now handles empty or missing cursor data and falls back to a `content://` URI when it cannot resolve a file path. The JS copy path accepts that URI, and share-library or copy failures show the existing alert.
+
+Changed: `ExpoShareIntentModule.kt` and `build/useShareIntent.js` in the linked `expo-share-intent` package; [sharedFiles.ts](/Users/hamza/Music/proj/cardHolder-s1-share/src/share/sharedFiles.ts), [ShareInReceiver.tsx](/Users/hamza/Music/proj/cardHolder-s1-share/src/share/ShareInReceiver.tsx), three share and document tests, and [chat.md](/Users/hamza/Music/proj/cardHolder/comms/2026-11-28-sprint-1-bugs/chat.md).
+
+`npx jest src/share`, the related document screen tests, and `npx tsc --noEmit` pass. Claude still needs to generate the package patch from **both** library files and verify Files/Photos sharing and the no-row URI case on a rebuilt device.
