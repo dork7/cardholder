@@ -9,7 +9,7 @@ jest.mock('@react-native-community/datetimepicker', () => ({
 const mockRefresh = jest.fn(async () => {});
 import * as Clipboard from 'expo-clipboard';
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }));
-import { makeStore } from '../../../test/fixtures';
+import { fields, images, makeStore } from '../../../test/fixtures';
 import NotesScreen from '../../../app/notes';
 import NoteScreen from '../../../app/note/[id]';
 import { createNoteEditors } from '../noteEditors';
@@ -18,6 +18,7 @@ import { strings } from '../../strings';
 
 let mockId = 'new';
 let mockSpace: string | undefined;
+let mockDocumentId: string | undefined;
 let mockPrevented: ((options: { repeat: () => void }) => void) | undefined;
 const mockBack = jest.fn();
 const mockRepeat = jest.fn();
@@ -30,14 +31,15 @@ jest.mock('expo-router', () => {
   return {
     Stack: { Screen: () => null },
     useRouter: () => mockRouter,
-    useLocalSearchParams: () => ({ id: mockId, space: mockSpace }),
+    useLocalSearchParams: () => ({ id: mockId, space: mockSpace, documentId: mockDocumentId }),
     useFocusEffect: (effect: () => void | (() => void)) => React.useEffect(effect, [effect]),
     usePreventRemove: (prevent: boolean, callback: typeof mockPrevented) => { mockPrevented = prevent ? callback : undefined; },
   };
 });
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
+let mockCards: { id: string; name: string; tags: string[] }[] = Array(10).fill({ id: 'c', name: 'Document', tags: [] });
 let mockServices: { notes: NoteStore; noteEditors: ReturnType<typeof createNoteEditors> };
-jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, refresh: mockRefresh, cards: Array(10).fill({ id: 'c', name: 'Document', tags: [] }), notes: [], unlocked: false }) }));
+jest.mock('../../app/AppProvider', () => ({ useApp: () => ({ services: mockServices, refresh: mockRefresh, cards: mockCards, notes: [], unlocked: false }) }));
 const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 const appState = jest.spyOn(AppState, 'addEventListener');
 
@@ -46,9 +48,28 @@ beforeEach(async () => {
   appState.mockImplementation(() => ({ remove: jest.fn() }));
   mockId = 'new';
   mockSpace = undefined;
+  mockDocumentId = undefined;
+  mockCards = Array(10).fill({ id: 'c', name: 'Document', tags: [] });
   mockPrevented = undefined;
-  const { notes } = await makeStore();
-  mockServices = { notes, noteEditors: createNoteEditors(notes) };
+  const made = await makeStore();
+  mockStore = made.store;
+  mockServices = { notes: made.notes, noteEditors: createNoteEditors(made.notes) };
+});
+
+let mockStore: Awaited<ReturnType<typeof makeStore>>['store'];
+
+test('a note added from a document starts linked to it and is saved linked (#90)', async () => {
+  const card = await mockStore.create(fields({ name: 'Passport' }), images('passport'));
+  mockCards = [card];
+  mockDocumentId = card.id;
+  await render(<NoteScreen />);
+  await screen.findByTestId('note-body');
+  expect(screen.getByRole('radio', { name: 'Passport', checked: true })).toBeTruthy();
+  await write('Renewal', 'Book an appointment');
+  await act(async () => mockRouter.back());
+  await waitFor(() => expect(mockRepeat).toHaveBeenCalled());
+  const [saved] = await mockServices.notes.list();
+  expect(saved.documentId).toBe(card.id);
 });
 
 const write = async (title: string, body: string) => {
@@ -288,8 +309,15 @@ test('checklist boxes toggle from the list, preserving Markdown and ordinary tex
 test('typed task markers can be toggled in the note and copied as readable Markdown', async () => {
   await render(<NoteScreen />);
   await write('', 'Before\r\n  - [ ] Passport\r\nAfter');
+  // Not typing: the checklist shows once, as rows, with no raw Markdown beside it (#45).
+  expect(screen.queryByTestId('note-body')).toBeNull();
+  expect(screen.getAllByText('Passport')).toHaveLength(1);
   await fireEvent.press(screen.getByRole('checkbox', { name: 'Passport' }));
+  expect(screen.getByTestId('checklist-tick')).toBeTruthy();
+  // Tapping the text switches back to typing it.
+  await fireEvent.press(screen.getByTestId('note-body-preview'));
   expect(screen.getByTestId('note-body').props.value).toBe('Before\r\n  - [x] Passport\r\nAfter');
+  expect(screen.queryByRole('checkbox', { name: 'Passport' })).toBeNull();
   await act(async () => mockServices.noteEditors.flushAll());
   expect((await mockServices.notes.list())[0].body).toBe('Before\r\n  - [x] Passport\r\nAfter');
   await fireEvent.press(screen.getByTestId('note-copy'));

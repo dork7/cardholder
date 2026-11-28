@@ -92,7 +92,7 @@ export const strings = {
     title: 'Documents',
     subtitle: 'Everything you need, kept close.',
     emptyTitle: 'Add your first document',
-    emptyHint: 'Tap Add image to add a photo or PDF of your document.',
+    emptyHint: 'Tap the + button to add a photo or PDF of your document.',
     addCard: 'Add document',
     addImage: 'Add image',
     pinned: 'Pinned',
@@ -490,6 +490,7 @@ export const strings = {
     linkExistingNote: 'Link existing note',
     checklistHint: 'For a checklist, start a line with - [ ].',
     checklistItem: 'Checklist item',
+    editBody: 'Edit note text',
     remind: 'Remind me',
     reminderDate: 'Reminder date',
     reminderTime: 'Reminder time',
@@ -607,7 +608,7 @@ export const strings = {
     replaceConfirmBody: "Every document and note on this phone is removed and replaced by the backup. An older backup without notes will remove all current notes too. This can't be undone.",
     done: (added: number, skipped: number, notesAdded = 0, notesSkipped = 0) =>
       `Added ${added} ${plural(added, 'document', 'documents')} and ${notesAdded} ${plural(notesAdded, 'note', 'notes')}.` +
-      (skipped + notesSkipped > 0 ? ` Skipped ${skipped} documents and ${notesSkipped} notes already on this phone.` : ''),
+      (skipped + notesSkipped > 0 ? ` Skipped ${skipped} ${plural(skipped, 'document', 'documents')} and ${notesSkipped} ${plural(notesSkipped, 'note', 'notes')} already on this phone.` : ''),
     errors: {
       'not-a-backup': "That file isn't a Doc Keeper backup.",
       'unsupported-version': 'This backup was made by a newer version of Doc Keeper. Update the app and try again.',

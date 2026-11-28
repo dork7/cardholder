@@ -62,8 +62,11 @@ export async function encodeBackup(
   return concat(header, createAead(key).seal(utf8.encode(JSON.stringify(snapshot))));
 }
 
+// Whether the bytes start like a Doc Keeper backup. Checked before asking for the passphrase.
+export const looksLikeBackup = (bytes: Uint8Array) => bytes.length >= HEADER_LENGTH && MAGIC.every((b, i) => bytes[i] === b);
+
 export async function decodeBackup(bytes: Uint8Array, passphrase: string): Promise<BackupSnapshot> {
-  if (bytes.length < HEADER_LENGTH || !MAGIC.every((b, i) => bytes[i] === b)) throw new BackupError('not-a-backup');
+  if (!looksLikeBackup(bytes)) throw new BackupError('not-a-backup');
   if (bytes[4] !== FORMAT_VERSION) throw new BackupError('unsupported-version');
   const iterations = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(5);
   if (iterations < MIN_ITERATIONS || iterations > MAX_ITERATIONS) throw new BackupError('not-a-backup');

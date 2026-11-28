@@ -602,6 +602,18 @@ describe('deleting', () => {
   });
 });
 
+test('at the free limit, a new document goes to the paywall before any photo is picked (#98)', async () => {
+  mockCards = Array.from({ length: 10 }, (_, i) => makeCard({ id: `c${i}` }));
+  await render(<EditCard />);
+  expect(mockReplace).toHaveBeenCalledWith('/paywall');
+});
+
+test('below the limit a new document opens as usual', async () => {
+  mockCards = Array.from({ length: 9 }, (_, i) => makeCard({ id: `c${i}` }));
+  await render(<EditCard />);
+  expect(mockReplace).not.toHaveBeenCalledWith('/paywall');
+});
+
 test('Close leaves the add-card modal without writing anything', async () => {
   await fillNewCard();
   await fireEvent.press(screen.getByRole('button', { name: strings.common.close }));
@@ -652,6 +664,46 @@ describe('reading the card from its photo', () => {
     expect(screen.getByTestId('card-name').props.value).toBe('My ID');
     expect(screen.queryByText(strings.edit.reading)).toBeNull();
     expect(screen.getAllByText(strings.edit.suggested)).toHaveLength(2); // expiry and tag
+  });
+
+  test('a tag the user picked is never replaced by a late suggestion (#92)', async () => {
+    mockCards = [makeCard({ id: 'c1', name: 'Bag', tags: ['travel'] })];
+    let finish: (a: unknown) => void = () => {};
+    mockAnalyze.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    await fireEvent.changeText(screen.getByTestId('card-name'), 'Passport');
+    await fireEvent.press(screen.getByTestId('tag-chip-travel'));
+    await act(async () => finish({ ...emiratesId, category: { value: 'membership', confidence: 0.9 } }));
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ name: 'Passport', tags: ['travel'] }), expect.anything());
+  });
+
+  test('replacing a PDF with a photo drops what the PDF suggested (#92)', async () => {
+    mockAnalyze.mockImplementation(async (jpeg: string) =>
+      jpeg === frontImage('picked').jpegBase64
+        ? { expiresOn: { value: '2031-01-01', confidence: 0.9 } }
+        : { name: { value: 'Tenancy Contract', confidence: 0.6 }, category: { value: 'insurance', confidence: 0.6 }, expiresOn: { value: '2027-01-01', confidence: 0.5 } });
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-pdf'));
+    expect(screen.getByTestId('card-name').props.value).toBe('Tenancy Contract');
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByTestId('card-name').props.value).toBe('');
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ name: '', tags: [], expiresOn: '2031-01-01' }), expect.anything());
+  });
+
+  test('a new front photo replaces the old photo suggestions (#92)', async () => {
+    mockAnalyze
+      .mockResolvedValueOnce({ name: { value: 'Member Card', confidence: 0.6 }, category: { value: 'membership', confidence: 0.6 } })
+      .mockResolvedValueOnce({ name: { value: 'Emirates ID', confidence: 0.9 } });
+    await render(<EditCard />);
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByTestId('card-name').props.value).toBe('Member Card');
+    await fireEvent.press(screen.getByTestId('front-library'));
+    expect(screen.getByTestId('card-name').props.value).toBe('Emirates ID');
+    await save();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ name: 'Emirates ID', tags: [] }), expect.anything());
   });
 
   test('editing an existing card keeps its saved name and tags', async () => {

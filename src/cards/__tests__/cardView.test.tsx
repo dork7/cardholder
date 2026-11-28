@@ -423,9 +423,39 @@ test('in landscape the front and back sit side by side, with only Close below', 
   }
 });
 
+test('full screen in landscape puts the owner label and buttons beside the card, not over it (#95)', async () => {
+  const dims = jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width: 844, height: 390, scale: 3, fontScale: 1 });
+  try {
+    mockCards = [makeCard({ id: 'card1', name: 'Gym', hasBack: true, backAspect: 1.586 })];
+    mockShow = '1';
+    await render(<CardView />);
+    expect(StyleSheet.flatten(screen.getByTestId('staff-view').props.style).flexDirection).toBe('row');
+    expect(StyleSheet.flatten(screen.getByTestId('staff-controls').props.style).position).toBeUndefined();
+    expect(screen.getByTestId('finish-staff')).toBeTruthy();
+  } finally {
+    dims.mockRestore();
+  }
+});
+
 describe('show to staff', () => {
   beforeEach(() => {
     mockCards = [makeCard({ id: 'card1' })];
+  });
+
+  test('on Android it fills this screen instead of a separate Modal window, so the status bar hides (#44)', async () => {
+    const { Platform } = jest.requireActual<typeof import('react-native')>('react-native');
+    const os = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      await render(<CardView />);
+      await fireEvent.press(screen.getByTestId('show-to-staff'));
+      expect(screen.getByTestId('staff-modal').props.presentationStyle).toBeUndefined();
+      expect(mockStatusHidden).toBe(true);
+      await fireEvent(screen.getByTestId('finish-staff'), 'longPress');
+      expect(mockStatusHidden).toBe(false);
+    } finally {
+      Platform.OS = os;
+    }
   });
 
   test('fills the display with one fitted photo, hides chrome and status bar, and swallows modal dismissal', async () => {

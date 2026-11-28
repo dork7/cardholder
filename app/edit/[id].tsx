@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EASE_OUT } from '../../src/ui/motion';
@@ -58,6 +58,8 @@ import { useConfirmDiscard } from '../../src/ui/useConfirmDiscard';
 import { SpaceField } from '../../src/spaces/SpaceField';
 import { spaceFor } from '../../src/spaces/spaces';
 import { LiveText } from '../../src/ui/LiveText';
+import { KeyboardAvoid } from '../../src/ui/KeyboardAvoid';
+import { canAddCard } from '../../src/purchases/limits';
 
 export default function EditCard() {
   const { id, space } = useLocalSearchParams<{ id: string; space?: string }>();
@@ -98,6 +100,12 @@ export default function EditCard() {
     keptOriginals.current = { ...keptOriginals.current, [side]: path };
     setOriginals(keptOriginals.current);
   };
+  // At the free limit a new document goes to the paywall before any photo is picked, like the + button
+  // does; the Add document quick action opens this screen directly (#98). Checked once, on opening.
+  useEffect(() => {
+    if (isNew && !canAddCard(cards.length, unlocked)) router.replace('/paywall');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     clearOriginals();
     return clearOriginals;
@@ -311,7 +319,7 @@ export default function EditCard() {
         if (reads.current[side] !== read) return;
         // The document's own type ("Residency") when it names one, else its broad kind ("ID").
         const suggestion = { ...analysis, tags: suggestedTag(analysis, allTags(cards)) };
-        setForm((f) => applyReadText(applyAnalysis(f, suggestion), side, analysis.text ?? ''));
+        setForm((f) => applyReadText(applyAnalysis(f, suggestion, side), side, analysis.text ?? ''));
       })
       .catch((e) => console.warn('Reading the card failed', e))
       .finally(() => setReading((n) => n - 1));
@@ -478,7 +486,7 @@ export default function EditCard() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoid>
         <Stack.Screen options={{ title: isNew ? strings.edit.newTitle : strings.edit.editTitle }} />
         <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Three panels, not one per field: photos, details, expiry. */}
@@ -619,7 +627,7 @@ export default function EditCard() {
             </Field>
             <Field label={strings.people.person}>
               {namingPerson ? <View style={{ gap: 8 }}>
-                <TextInput value={personName} onChangeText={setPersonName} maxLength={PERSON_NAME_MAX_LENGTH} autoFocus
+                <TextInput value={personName} onChangeText={setPersonName} maxLength={PERSON_NAME_MAX_LENGTH} autoFocus autoCorrect={false} autoCapitalize="words"
                   accessibilityLabel={strings.people.name} placeholder={strings.people.name}
                   placeholderTextColor={theme.muted} style={inputStyle} testID="person-name" />
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -693,7 +701,7 @@ export default function EditCard() {
             </View>
           </View>
         </ActionFooter>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Screen>
   );
 }

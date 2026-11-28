@@ -47,7 +47,7 @@ export default function PeopleScreen() {
   const editor = <View style={styles.editor}>
     <Field label={strings.people.name} error={error ?? undefined}>
       <TextInput value={name} onChangeText={(value) => { setName(value); setError(null); }}
-        maxLength={PERSON_NAME_MAX_LENGTH} autoFocus accessibilityLabel={strings.people.name} style={inputStyle} testID="person-name" />
+        maxLength={PERSON_NAME_MAX_LENGTH} autoFocus autoCorrect={false} autoCapitalize="words" accessibilityLabel={strings.people.name} style={inputStyle} testID="person-name" />
     </Field>
     <View style={styles.actions}>
       <Button variant="secondary" label={strings.common.cancel} onPress={() => setEditing(null)} disabled={busy} />

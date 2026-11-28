@@ -11,7 +11,7 @@ import { formatAgo, formatDate } from '../../time/dates';
 import { BackupError } from '../backupFile';
 jest.mock('expo-application', () => ({ nativeApplicationVersion: '2.3.4' }));
 
-const mockRouter = { back: jest.fn(), push: jest.fn(), dismissAll: jest.fn() };
+const mockRouter = { back: jest.fn(), push: jest.fn(), dismissAll: jest.fn(), replace: jest.fn(), canDismiss: jest.fn(() => true) };
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
@@ -42,8 +42,10 @@ jest.mock('../../app/AppProvider', () => ({
 
 const mockEncode = jest.fn(async () => new Uint8Array([1, 2, 3]));
 const mockDecode = jest.fn();
+let mockLooksLikeBackup = true;
 jest.mock('../backupFile', () => ({
   ...jest.requireActual('../backupFile'),
+  looksLikeBackup: () => mockLooksLikeBackup,
   encodeBackup: (...args: unknown[]) => mockEncode(...(args as [])),
   decodeBackup: (...args: unknown[]) => mockDecode(...args),
 }));
@@ -177,6 +179,20 @@ describe('import', () => {
     await act(async () => fireEvent.press(screen.getByTestId('import-unlock')));
   };
 
+  test('a file that is not a backup is turned away before asking for a passphrase (#98)', async () => {
+    mockLooksLikeBackup = false;
+    try {
+      mockPick.mockResolvedValue({ canceled: false, assets: [{ uri: 'cache/pick/photo.jpg', name: 'photo.jpg' }] });
+      await render(<ImportScreen />);
+      await act(async () => fireEvent.press(screen.getByTestId('import-pick')));
+      expect(screen.getByText(strings.import.errors['not-a-backup'])).toBeTruthy();
+      expect(screen.queryByTestId('import-passphrase')).toBeNull();
+      expect(mockDeleted).toEqual(['cache/pick/photo.jpg']);
+    } finally {
+      mockLooksLikeBackup = true;
+    }
+  });
+
   test('the picked file is read, then its cache copy removed', async () => {
     await pickAndUnlock('');
     expect(screen.getByText(strings.import.fileChosen('b.cardholder'))).toBeTruthy();
@@ -203,6 +219,17 @@ describe('import', () => {
     expect(mockRefresh).toHaveBeenCalled();
     expect(alert).toHaveBeenCalledWith(strings.import.done(1, 1));
     expect(mockRouter.dismissAll).toHaveBeenCalled();
+  });
+
+  test('with nothing to go back to, a finished import goes home instead of popping (#98)', async () => {
+    mockRouter.canDismiss.mockReturnValueOnce(false);
+    mockDecode.mockResolvedValue(backupSnapshot());
+    mockApply.mockResolvedValue({ added: 1, skipped: 2, notesAdded: 0, notesSkipped: 1 });
+    await pickAndUnlock('right one');
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: strings.import.merge })));
+    expect(mockRouter.dismissAll).not.toHaveBeenCalled();
+    expect(mockRouter.replace).toHaveBeenCalledWith('/');
+    expect(alert).toHaveBeenCalledWith('Added 1 document and 0 notes. Skipped 2 documents and 1 note already on this phone.');
   });
 
   test('summary includes notes, and merge reports added/skipped notes', async () => {

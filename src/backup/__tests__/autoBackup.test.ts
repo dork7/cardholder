@@ -1,7 +1,7 @@
 import { makeStore, fields, images } from '../../../test/fixtures';
 import { createSettings } from '../../storage/settings';
 import { decodeBackup } from '../backupFile';
-import { backupIsStale, createAutoBackup } from '../autoBackup';
+import { autoBackupName, backupIsStale, createAutoBackup } from '../autoBackup';
 
 const DAY = 86_400_000;
 async function setup() {
@@ -50,7 +50,7 @@ test('weekly scheduling keeps the newest seven automatic backups', async () => {
   }
   expect(files.size).toBe(7);
   expect(destination.remove).toHaveBeenCalledTimes(2);
-  expect([...files.keys()][0]).toBe(`DocKeeper-auto-${60 * DAY}.cardholder`);
+  expect([...files.keys()][0]).toBe(autoBackupName(60 * DAY));
 });
 
 test('a failed write preserves the backup date and old files; disabling stops future writes', async () => {
@@ -112,4 +112,8 @@ test('turning backup off and on in the same folder still keeps only seven files'
     await backup.enable('daily', 'picked-folder', 'long enough');
   }
   expect(files.size).toBe(7);
+});
+
+test('an automatic backup is named by its local date and time, like a manual one (#98)', () => {
+  expect(autoBackupName(new Date(2026, 10, 22, 9, 5).getTime())).toBe('DocKeeper-auto-2026-11-22-0905.cardholder');
 });

@@ -20,6 +20,9 @@ export function linkParts(line: string): { text: string; url?: string }[] {
   return parts;
 }
 
+const TASK = /^([ \t]*- \[)([ xX])(\][ \t]*)(.*?)(\r?)$/;
+export const hasChecklist = (body: string) => body.split('\n').some((line) => TASK.test(line));
+
 // Only the marker changes; whitespace, line endings and surrounding text stay intact for export.
 export function NoteBody({ body, onChange, disabled = false, tasksOnly = false }: {
   body: string;
@@ -30,7 +33,7 @@ export function NoteBody({ body, onChange, disabled = false, tasksOnly = false }
   const theme = useTheme();
   const lines = body.split('\n');
   return <View style={styles.lines}>{lines.map((line, index) => {
-    const task = /^([ \t]*- \[)([ xX])(\][ \t]*)(.*?)(\r?)$/.exec(line);
+    const task = TASK.exec(line);
     if (!task) return tasksOnly ? null : <Text key={index} style={{ color: theme.muted, fontSize: TYPE.body }}>
       {linkParts(line).map((part, at) => part.url ? <Text key={at} accessibilityRole="link" style={{ color: theme.accent, textDecorationLine: 'underline' }}
         onPress={() => void Linking.openURL(part.url!).catch(() => {})}>{part.text}</Text> : part.text)}
@@ -44,7 +47,7 @@ export function NoteBody({ body, onChange, disabled = false, tasksOnly = false }
         onChange(next.join('\n'));
       }}>
       <View style={[styles.box, { borderColor: theme.text, backgroundColor: checked ? theme.accent : theme.bg }]}>
-        {checked && <View style={[styles.mark, { backgroundColor: theme.onAccent }]} />}
+        {checked && <View testID="checklist-tick" style={[styles.tick, { borderColor: theme.onAccent }]} />}
       </View>
       <Text style={{ flex: 1, color: theme.text, fontSize: TYPE.body, textDecorationLine: checked ? 'line-through' : 'none' }}>{task[4]}</Text>
     </Pressable>;
@@ -55,5 +58,6 @@ const styles = StyleSheet.create({
   lines: { gap: 8 },
   task: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12 },
   box: { width: 24, height: 24, borderWidth: 1, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
-  mark: { width: 12, height: 2 },
+  // A tick, drawn as the short and long arms of a rotated corner, not a bar that reads as "remove" (#45).
+  tick: { width: 7, height: 13, borderEndWidth: 2, borderBottomWidth: 2, marginTop: -3, transform: [{ rotate: '45deg' }] },
 });
