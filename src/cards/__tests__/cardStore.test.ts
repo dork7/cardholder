@@ -564,6 +564,20 @@ describe('Recently deleted', () => {
     expect(text(await store.loadImage(card.id, 'back'))).toBe('JPEG:daman-back');
   });
 
+  test('a tag can be taken off documents in Recently deleted, so restoring does not bring it back (#97)', async () => {
+    const { store } = await makeStore();
+    const card = await store.create(fields({ name: 'Daman', tags: ['Insurance', 'Health'] }), images('daman'));
+    const other = await store.create(fields({ name: 'Gym', tags: ['Sport'] }), images('gym'));
+    await store.moveToRecentlyDeleted(card.id);
+    await store.moveToRecentlyDeleted(other.id);
+    expect(await store.removeTagFromRecentlyDeleted('insurance')).toBe(1);
+    expect((await store.listRecentlyDeleted()).find((c) => c.id === card.id)?.tags).toEqual(['Health']);
+    await store.restore(card.id);
+    expect(await store.get(card.id)).toMatchObject({ name: 'Daman', tags: ['Health'] });
+    expect(text(await store.loadImage(card.id, 'front'))).toBe('JPEG:daman');
+    expect((await store.listRecentlyDeleted())[0].tags).toEqual(['Sport']);
+  });
+
   test('the most recently deleted comes first', async () => {
     const { store } = await makeStore();
     const a = await store.create(fields({ name: 'A' }), images('a'));

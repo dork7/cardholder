@@ -7,7 +7,7 @@ import { SqlDb, SqlValue } from '../storage/sqlDb';
 import { sortCards } from './listing';
 import { DAY_MS, DEFAULT_REMIND_DAYS, RECENTLY_DELETED_DAYS } from '../config';
 import { parseRemindDays, toCardText } from './validate';
-import { normalizeTags, withLegacyCategory } from './tags';
+import { normalizeTags, sameTag, withLegacyCategory } from './tags';
 import { spaceFor } from '../spaces/spaces';
 import { personName, samePersonName } from '../people/names';
 import { toProfile } from '../profiles/profile';
@@ -58,6 +58,9 @@ export interface CardStore {
   listRecentlyDeleted(): Promise<DeletedCard[]>;
   // Back exactly as it was: pin, folder, tags, photos or PDF.
   restore(id: string): Promise<void>;
+  // Takes a deleted tag off documents in Recently deleted too, so a restore can't bring it back (#97).
+  // Returns how many documents changed.
+  removeTagFromRecentlyDeleted(tag: string): Promise<number>;
   // Erases one document in Recently deleted, and its photos or PDF, for good.
   erase(id: string): Promise<void>;
   // Erases everything in Recently deleted.
@@ -385,6 +388,19 @@ export function createCardStore({
         await db.runAsync("INSERT INTO settings (key, value) VALUES ('documentsChangedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(now())]);
       });
     },
+
+    removeTagFromRecentlyDeleted: (tag) => queueNoteWrite(db, async () => {
+      let changed = 0;
+      await db.withTransactionAsync(async () => {
+        for (const row of await db.getAllAsync<Row>('SELECT * FROM cards WHERE deleted_at IS NOT NULL', [])) {
+          const card = toCard(row);
+          if (!card.tags.some((t) => sameTag(t, tag))) continue;
+          await db.runAsync('UPDATE cards SET payload = ? WHERE id = ?', [seal({ ...card, tags: card.tags.filter((t) => !sameTag(t, tag)) }), card.id]);
+          changed++;
+        }
+      });
+      return changed;
+    }),
 
     async erase(id) {
       await eraseWhere('id = ? AND deleted_at IS NOT NULL', [id]);

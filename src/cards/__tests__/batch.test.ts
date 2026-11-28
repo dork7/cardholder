@@ -83,3 +83,12 @@ describe('tags', () => {
     expect(overTagLimit([full, b], ['8', '9']).map((c) => c.id)).toEqual([a.id]);
   });
 });
+
+test('deleting a tag everywhere also takes it off documents in Recently deleted (#97)', async () => {
+  const { store, a } = await threeCards();
+  await addTags(store, [a], ['Family']);
+  await store.moveToRecentlyDeleted(a.id);
+  expect(await removeTagEverywhere(store, await store.list(), 'family')).toBe(0);
+  await store.restore(a.id);
+  expect((await store.get(a.id))?.tags).toEqual([]);
+});
